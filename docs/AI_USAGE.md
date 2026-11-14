@@ -12,6 +12,7 @@ Rules that apply to everything listed here:
 | --- | --- | --- | --- | --- | --- |
 | 2026-11-14 | Dinura | Claude Code (Anthropic) | Ran a throwaway data test: searched the SPHEREx archive, compared two ways of downloading image patches, stacked exposures of WISE 0855, read the flag definitions from the files | Findings in `docs/SCIENCE.md` and decisions D-011 and D-012. The test scripts are not in this repository | Not yet |
 | 2026-11-14 | Dinura | Claude Code (Anthropic) | Wrote the repository scaffold: instructions, documents, templates, back end with mock data, front end shell, tests, `.github` (issue templates, pull request template, CI workflow, labels), `scripts/`, the `.do/app.yaml` draft, the docs | Everything in the first commit | Not yet |
+| 2026-11-14 | Deeshan | Codex (OpenAI) | Shaped the guided sky viewer design and implemented the front-end redesign for issue #2 | `PRODUCT.md`, `DESIGN.md`, `frontend/`, and this pull request | Not yet |
 
 ## Draft statement for the project page
 
