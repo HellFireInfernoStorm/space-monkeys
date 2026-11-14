@@ -149,9 +149,13 @@ def test_grid_is_north_up_east_left():
     assert north[0, 0] > 0 and north[-1, 0] < 0  # row 0 is north
 
 
-def test_bilinear_skips_masked_pixels():
+def test_bilinear_rejects_partly_masked_footprint():
     image = np.array([[1.0, 1.0], [1.0, np.nan]])
-    assert bilinear(image, np.array([0.5]), np.array([0.5]))[0] == pytest.approx(1.0)
+    assert np.isnan(bilinear(image, np.array([0.5]), np.array([0.5]))[0])
+    assert bilinear(image, np.array([0.0]), np.array([0.0]))[0] == 1.0
+    assert np.isnan(bilinear(image, np.array([-0.1]), np.array([0.0]))[0])
+    intact = np.array([[2.0, 4.0], [6.0, 8.0]])
+    assert bilinear(intact, np.array([0.5]), np.array([0.5]))[0] == 5.0
     assert np.isnan(bilinear(image, np.array([5.0]), np.array([5.0]))[0])
 
 
@@ -361,6 +365,24 @@ def test_unknown_exposure_in_live_mode(offline_live):
     live_client, *_ = offline_live
     params = {"exposure_id": "nope", "ra": 10, "dec": 20}
     assert live_client.get("/api/frame.png", params=params).status_code == 404
+
+
+def test_frame_search_recovers_after_outage_without_cached_empty_result(offline_live, monkeypatch):
+    client, _settings, *_ = offline_live
+    original = live.search_exposures
+    calls = []
+
+    def transient(settings, *args):
+        calls.append(1)
+        if len(calls) == 1:
+            return [], [f"Search of {c} failed: 502" for c in settings.collections]
+        return original(settings, *args)
+
+    monkeypatch.setattr(live, "search_exposures", transient)
+    params = {"ra": STAR_RA, "dec": STAR_DEC}
+    assert client.get("/api/frames", params=params).status_code == 502
+    assert client.get("/api/frames", params=params).json()["returned"] == 3
+    assert len(calls) == 2
 
 
 # --- layer 2: stacks in live mode ---------------------------------------------------------

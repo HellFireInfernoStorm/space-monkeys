@@ -47,9 +47,6 @@ NOISE_EXCLUDE_PX = 3.0
 FIT_BOX = 5
 DEFAULT_FIT_SIGMA_PX = 0.8
 FIT_SIGMA_BOUNDS = (0.45, 1.6)
-# Saturated stars (flagged core): a wider window and a broader profile, fitted to the wings.
-FLAGGED_FIT_BOX = 11
-FLAGGED_SIGMA_BOUNDS = (0.45, 4.0)
 # Position uncertainty: re-stack each visit from its exposures drawn with replacement.
 BOOTSTRAP_DRAWS = 200
 BOOTSTRAP_SEED = 20261114
@@ -72,6 +69,8 @@ class StackInput:
     # position, not of the image centre (under a tenth of a pixel for every target).
     parallax_east: float = 0.0
     parallax_north: float = 0.0
+    # Fixed catalogue neighbour in this object's grid, only when explicitly known.
+    neighbour: tuple[float, float] | None = None
 
 
 @dataclass
@@ -229,10 +228,11 @@ def _box(image: np.ndarray, x: float, y: float, half: int = 1):
 
 
 def background_stats(image: np.ndarray, x: float, y: float, exclude_px: float = NOISE_EXCLUDE_PX):
-    """(median, robust noise) of the pixels farther than `exclude_px` from (x, y)."""
+    """Median and robust noise in a fixed local annulus, independent of field size."""
     n_y, n_x = image.shape
     yy, xx = np.mgrid[0:n_y, 0:n_x] + 0.5
-    far = np.hypot(xx - x, yy - y) > exclude_px
+    radius = np.hypot(xx - x, yy - y)
+    far = (radius > exclude_px) & (radius <= 8.0)
     values = image[far & np.isfinite(image)]
     if values.size < 10:
         return None
@@ -241,22 +241,42 @@ def background_stats(image: np.ndarray, x: float, y: float, exclude_px: float = 
 
 
 def snr_at(image: np.ndarray, x: float, y: float) -> float | None:
-    """Peak of the 3 by 3 pixel box at (x, y), above the background, divided by the
-    stack's robust noise away from that position. Note: the peak of nine pixels is
-    biased upward, so an empty position typically reads about 1 to 2, not 0.
-    None when any pixel of the box is empty (flagged in too many exposures)."""
-    box = _box(image, x, y)
-    stats = background_stats(image, x, y)
-    if box is None or stats is None or stats[1] <= 0:
+    """Fixed PSF amplitude divided by its scatter in local empty apertures.
+
+    Fit a fixed Gaussian plus a constant sky in identical 5x5 apertures, including
+    pixel phase, at the target and integer offsets 4--7 pixels away. The local
+    control-aperture scatter includes correlated noise and unresolved field sources.
+    The footprint and noise sample do not grow with the requested field size.
+    """
+
+    def flux(cx, cy):
+        ix, iy = int(math.floor(cx)), int(math.floor(cy))
+        if ix < 2 or iy < 2 or ix + 2 >= image.shape[1] or iy + 2 >= image.shape[0]:
+            return None
+        patch = image[iy - 2 : iy + 3, ix - 2 : ix + 3]
+        if not np.isfinite(patch).all():
+            return None
+        yy, xx = np.mgrid[iy - 2 : iy + 3, ix - 2 : ix + 3] + 0.5
+        psf = np.exp(-((xx - cx) ** 2 + (yy - cy) ** 2) / (2 * DEFAULT_FIT_SIGMA_PX**2))
+        # Project out the constant sky term before solving for the PSF amplitude.
+        psf -= np.mean(psf)
+        return float(np.sum(patch * psf) / np.sum(psf**2))
+
+    signal = flux(x, y)
+    if signal is None:
         return None
-    y0, y1, x0, x1 = box
-    patch = image[y0:y1, x0:x1]
-    if not np.isfinite(patch).all():
-        # Part of the box is empty: the core of a saturated star, flagged in most
-        # exposures. The peak of what is left would be meaningless.
+    empty = []
+    for dy in range(-7, 8):
+        for dx in range(-7, 8):
+            if 4 <= math.hypot(dx, dy) <= 7:
+                value = flux(x + dx, y + dy)
+                if value is not None:
+                    empty.append(value)
+    if len(empty) < 20:
         return None
-    level, noise = stats
-    return float((np.nanmax(patch) - level) / noise)
+    level = float(np.median(empty))
+    scatter = float(np.std(empty, ddof=1))
+    return (signal - level) / scatter if scatter > 0 else None
 
 
 def core_flagged(image: np.ndarray, x: float, y: float) -> bool:
@@ -305,6 +325,7 @@ def fit_gaussian(
     fit_sigma: bool = False,
     box: int = FIT_BOX,
     sigma_bounds: tuple[float, float] = FIT_SIGMA_BOUNDS,
+    neighbour: tuple[float, float] | None = None,
 ) -> Fit | None:
     """Weighted least-squares fit of `A * exp(-r^2 / (2 s^2)) + level` on a `box` by `box`
     pixel window centred on pixel `start` (column, row).
@@ -312,7 +333,10 @@ def fit_gaussian(
     `level` (the background) is fixed. The width `s` is fixed at `sigma_px` unless
     `fit_sigma`, then it is fitted within `sigma_bounds`. `weight` is one over each pixel's
     variance (None: equal weights). Empty (NaN) pixels are left out, so a flagged core is
-    fitted from its wings. Levenberg-Marquardt, pure NumPy. Returns None when the fit
+    fitted from its wings. When `neighbour` is given its centre is fixed, with a free
+    nonnegative amplitude and the same fitted width as the target. The catalogue
+    position is never pulled toward the target. Levenberg-Marquardt, pure NumPy.
+    Returns None when the fit
     fails, the amplitude is not positive, or the centre leaves the window.
     """
     n_y, n_x = image.shape
@@ -326,19 +350,37 @@ def fit_gaussian(
     else:
         w = np.asarray(weight[y0:y1, x0:x1], dtype=np.float64).copy()
     use = np.isfinite(data) & np.isfinite(w) & (w > 0)
-    n_params = 4 if fit_sigma else 3
+    free = [0, 1, 2] + ([3] if fit_sigma else []) + ([4] if neighbour is not None else [])
+    n_params = len(free)
     if use.sum() < n_params + 3:
         return None
     yy, xx = np.mgrid[y0:y1, x0:x1] + 0.5
     xs, ys, d, w = xx[use], yy[use], data[use] - level, w[use]
     # Start: the window's highest value, at the start pixel's centre.
-    params = np.array([max(float(d.max()), 1e-6), cx + 0.5, cy + 0.5, sigma_px])
+    params = np.array([max(float(d.max()), 1e-6), cx + 0.5, cy + 0.5, sigma_px, 0.0])
     lo_s, hi_s = sigma_bounds
 
     def model(p):
         r2 = (xs - p[1]) ** 2 + (ys - p[2]) ** 2
         g = np.exp(-r2 / (2.0 * p[3] ** 2))
-        return p[0] * g, g, r2
+        result = p[0] * g
+        if neighbour is not None:
+            nr2 = (xs - neighbour[0]) ** 2 + (ys - neighbour[1]) ** 2
+            result = result + p[4] * np.exp(-nr2 / (2 * p[3] ** 2))
+        return result, g, r2
+
+    def derivatives(p, g, r2):
+        columns = [g, p[0] * g * (xs - p[1]) / p[3] ** 2, p[0] * g * (ys - p[2]) / p[3] ** 2]
+        width = p[0] * g * r2 / p[3] ** 3
+        if neighbour is not None:
+            nr2 = (xs - neighbour[0]) ** 2 + (ys - neighbour[1]) ** 2
+            ng = np.exp(-nr2 / (2 * p[3] ** 2))
+            width = width + p[4] * ng * nr2 / p[3] ** 3
+        if fit_sigma:
+            columns.append(width)
+        if neighbour is not None:
+            columns.append(ng)
+        return np.stack(columns, axis=1)
 
     def chi2(p):
         m, _, _ = model(p)
@@ -348,11 +390,7 @@ def fit_gaussian(
     current = chi2(params)
     for _ in range(100):
         m, g, r2 = model(params)
-        s2 = params[3] ** 2
-        columns = [g, params[0] * g * (xs - params[1]) / s2, params[0] * g * (ys - params[2]) / s2]
-        if fit_sigma:
-            columns.append(params[0] * g * r2 / params[3] ** 3)
-        jac = np.stack(columns, axis=1)
+        jac = derivatives(params, g, r2)
         hess = jac.T @ (w[:, None] * jac)
         grad = jac.T @ (w * (d - m))
         try:
@@ -360,7 +398,8 @@ def fit_gaussian(
         except np.linalg.LinAlgError:
             return None
         trial = params.copy()
-        trial[:n_params] += step
+        trial[free] += step
+        trial[4] = max(0.0, trial[4])
         trial[3] = min(max(trial[3], lo_s), hi_s)
         value = chi2(trial)
         if value < current:
@@ -375,11 +414,7 @@ def fit_gaussian(
     if params[0] <= 0 or abs(params[1] - (cx + 0.5)) > half or abs(params[2] - (cy + 0.5)) > half:
         return None
     m, g, r2 = model(params)
-    s2 = params[3] ** 2
-    columns = [g, params[0] * g * (xs - params[1]) / s2, params[0] * g * (ys - params[2]) / s2]
-    if fit_sigma:
-        columns.append(params[0] * g * r2 / params[3] ** 3)
-    jac = np.stack(columns, axis=1)
+    jac = derivatives(params, g, r2)
     dof = max(1, d.size - n_params)
     chi2_red = current / dof
     try:
@@ -407,6 +442,7 @@ def measure_visit(
     scale_arcsec: float,
     draws: int = BOOTSTRAP_DRAWS,
     seed: int = BOOTSTRAP_SEED,
+    neighbours: list[tuple[float, float]] | None = None,
 ) -> tuple[Measured | None, float | None, bool]:
     """Where the object is in one visit. Returns (measured, snr, core flagged).
 
@@ -423,24 +459,25 @@ def measure_visit(
     and re-fitted `draws` times, and the spread of the fitted centres is the error. That
     includes noise that the fit does not know about (pixels correlated by resampling,
     exposure-to-exposure position errors). Measured only at S/N of at least
-    MIN_MEASURE_SNR, or when the core is flagged (a saturated star, fitted on its wings).
+    MIN_MEASURE_SNR. Flagged cores have no motion measurement: a symmetric Gaussian
+    fitted to their wings can have a small statistical error and a large systematic bias.
     """
     centre = n / 2.0
     stack, _count, weight = combine_weighted(images, sigmas)
     snr = snr_at(stack, centre, centre)
     flagged = snr is None and core_flagged(stack, centre, centre)
+    if flagged:
+        return None, snr, True
     stats = background_stats(stack, centre, centre)
     if stats is None or (not flagged and (snr is None or snr < MIN_MEASURE_SNR)):
         return None, snr, flagged
     level = stats[0]
     start = peak_pixel(stack, centre, centre)
     options = {"fit_sigma": True}
-    if flagged or start is None:
-        # A flagged core can be several pixels wide (6 by 6 for Barnard's Star at 1.1
-        # micrometres): fit a wider window and allow a broad profile, so that the centre
-        # comes from the symmetry of the wings around the hole.
-        start = (int(math.floor(centre)), int(math.floor(centre)))
-        options = {"fit_sigma": True, "box": FLAGGED_FIT_BOX, "sigma_bounds": FLAGGED_SIGMA_BOUNDS}
+    if neighbours is not None:
+        options["neighbour"] = tuple(np.mean(neighbours, axis=0))
+    if start is None:
+        return None, snr, flagged
     fit = fit_gaussian(stack, weight, start, level, **options)
     if fit is None:
         return None, snr, flagged
@@ -454,7 +491,10 @@ def measure_visit(
         drawn_level = background_stats(drawn, centre, centre)
         if drawn_level is None:
             continue
-        again = fit_gaussian(drawn, drawn_weight, start, drawn_level[0], **options)
+        drawn_options = dict(options)
+        if neighbours is not None:
+            drawn_options["neighbour"] = tuple(np.mean([neighbours[i] for i in pick], axis=0))
+        again = fit_gaussian(drawn, drawn_weight, start, drawn_level[0], **drawn_options)
         if again is not None:
             xs.append(again.x)
             ys.append(again.y)
@@ -501,15 +541,17 @@ def build(inputs: list[StackInput], n: int, scale_arcsec: float, has_motion: boo
         return {"single": None, "tracked": None, "static": None, "epochs": [], "sigmas": []}
     centre = n / 2.0
     levels = []
+    local_sigmas = []
     for i in inputs:
-        finite = i.image[np.isfinite(i.image)]
-        levels.append(float(np.median(finite)) if finite.size else 0.0)
+        stats = background_stats(i.image, centre, centre)
+        levels.append(stats[0] if stats is not None else 0.0)
+        local_sigmas.append(stats[1] if stats is not None else 0.0)
     own = [i.image.astype(np.float64) - lv for i, lv in zip(inputs, levels, strict=True)]
     own_raw = [
         (i.raw if i.raw is not None else i.image).astype(np.float64) - lv
         for i, lv in zip(inputs, levels, strict=True)
     ]
-    sigmas = [robust_sigma(i) for i in own]
+    sigmas = local_sigmas
     mjds = [i.mjd for i in inputs]
 
     singles = [snr_at(im, centre, centre) if s > 0 else None for im, s in zip(own, sigmas, strict=True)]
@@ -551,7 +593,10 @@ def build(inputs: list[StackInput], n: int, scale_arcsec: float, has_motion: boo
 
         fixed = [to_fixed(im, i) for im, i in zip(own, inputs, strict=True)]
         fixed_raw = [to_fixed(im, i) for im, i in zip(own_raw, inputs, strict=True)]
-        fixed_sigmas = [robust_sigma(i) for i in fixed]
+        fixed_sigmas = [
+            stats[1] if (stats := background_stats(i, centre, centre)) is not None else 0.0
+            for i in fixed
+        ]
     else:
         fixed, fixed_raw, fixed_sigmas = own, own_raw, sigmas
 
@@ -591,6 +636,9 @@ def build(inputs: list[StackInput], n: int, scale_arcsec: float, has_motion: boo
             n,
             scale_arcsec,
             seed=BOOTSTRAP_SEED + index,
+            neighbours=[inputs[k].neighbour for k in members]
+            if all(inputs[k].neighbour is not None for k in members)
+            else None,
         )
         stack.measured = measured
         stack.extra["measure_snr"] = snr

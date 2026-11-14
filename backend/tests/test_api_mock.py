@@ -13,8 +13,14 @@ def test_health_reports_mock_mode(client):
 def test_bands(client):
     bands = client.get("/api/bands").json()["bands"]
     assert [b["band"] for b in bands] == [1, 2, 3, 4, 5, 6]
-    assert bands[0]["wl_min_um"] == 0.75
-    assert bands[5]["wl_max_um"] == 5.0
+    assert [(b["wl_min_um"], b["wl_max_um"]) for b in bands] == [
+        (0.746, 1.117),
+        (1.103, 1.650),
+        (1.630, 2.435),
+        (2.403, 3.847),
+        (3.811, 4.430),
+        (4.412, 5.010),
+    ]
 
 
 def test_five_targets(client):
@@ -163,4 +169,8 @@ def test_saturated_star_says_so_instead_of_an_empty_snr(monkeypatch):
     assert result["tracked"]["saturated"] is True and result["tracked"]["snr"] is None
     assert all(e["saturated"] for e in result["epochs"])
     assert all(p["saturated"] for p in result["motion"])
+    assert all(
+        p["measured_east_arcsec"] is None and p["measured_north_arcsec"] is None and p["error_arcsec"] is None
+        for p in result["motion"]
+    )
     assert any("saturated" in w for w in result["warnings"])

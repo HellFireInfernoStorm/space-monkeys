@@ -35,6 +35,16 @@ def test_wise_0855_position_in_2026():
     assert _separation_arcsec(ra, dec, 133.795129, -7.245147) > 100
 
 
+def test_patch_grid_always_has_a_central_pixel():
+    from app.resample import grid_offsets
+
+    for size in (1, 49, 120, 300, 600, 2000):
+        n = mock.patch_pixels(size)
+        assert n % 2 == 1
+        east, north = grid_offsets(n, 6.15)
+        assert east[n // 2, n // 2] == north[n // 2, n // 2] == 0
+
+
 def test_barnards_star_moves_about_ten_arcsec_a_year():
     t = find_target("Barnard's Star")
     a = propagate(t.ra, t.dec, t.pmra, t.pmdec, t.epoch, 2025.0)
@@ -88,9 +98,11 @@ def test_bad_mask_leaves_out_informational_bits():
     assert len({f.bit for f in FLAG_BITS}) == len(FLAG_BITS)
 
 
-def test_bands_do_not_overlap():
-    edges = [edge for band in sorted(BANDS) for edge in BANDS[band]]
-    assert edges == sorted(edges)
+def test_bands_cover_overlapping_detector_ranges_without_gaps():
+    for band in range(1, 6):
+        assert BANDS[band][0] < BANDS[band + 1][0] <= BANDS[band][1] < BANDS[band + 1][1]
+    for wavelength in np.linspace(0.746, 5.010, 1000):
+        assert band_of(wavelength) is not None
     assert band_of(4.7) == 6
     assert band_of(9.0) is None
 
@@ -125,9 +137,9 @@ def test_mock_patch_is_repeatable_and_sized():
     e = mock.all_exposures()[0]
     a = mock.patch(e, 10.0, 20.0, 120.0)
     b = mock.patch(e, 10.0, 20.0, 120.0)
-    assert a.shape == (20, 20)
+    assert a.shape == (21, 21)
     assert np.array_equal(a, b)
-    assert mock.patch(e, 10.0, 20.0, 5000.0).shape == (96, 96)
+    assert mock.patch(e, 10.0, 20.0, 5000.0).shape == (95, 95)
 
 
 def test_mock_barnards_star_is_the_brightest_thing_and_moves():
@@ -154,5 +166,5 @@ def test_mock_wise_0855_is_hidden_in_one_frame_but_there_in_a_stack():
         stack.append(image - np.median(image))
     mean = np.mean(stack, axis=0)
     n = mean.shape[0]
-    core = mean[n // 2 - 1 : n // 2 + 1, n // 2 - 1 : n // 2 + 1].mean()
+    core = mean[n // 2, n // 2]  # the target now falls on one pixel centre
     assert core > 3 * mock.NOISE_SIGMA / math.sqrt(len(stack))
