@@ -132,6 +132,25 @@ def test_static_grid_shift_direction():
     assert stacking.static_position(2 * SCALE, 0.0, N_PX, SCALE) == (10.5, 12.5)
 
 
+def test_flagged_star_core_is_empty_in_the_stack_but_filled_in_the_picture():
+    items = _inputs(peak=50.0)
+    for item in items:
+        item.raw = item.image.copy()
+        item.image = item.image.copy()
+        item.image[11:14, 11:14] = np.nan  # the saturated core is flagged in every exposure
+    built = stacking.build(items, N_PX, SCALE, has_motion=True)
+    assert np.isnan(built["tracked"].image[12, 12])
+    assert built["tracked"].snr is None  # no number from flagged pixels
+    assert built["tracked"].display[12, 12] > 20.0
+    assert built["static"].display[12, 12] > 10.0
+
+
+def test_single_is_a_typical_exposure():
+    built = stacking.build(_inputs(), N_PX, SCALE, has_motion=True)
+    values = built["single"].extra["single_snrs"]
+    assert built["single"].snr == values[len(values) // 2]
+
+
 def test_reversed_motion_control_has_no_sharp_source():
     items = _inputs(peak=3.0, total_motion_px=6.0)
     built = stacking.build(items, N_PX, SCALE, has_motion=True)

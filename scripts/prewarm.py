@@ -11,7 +11,7 @@ Options:
     --no-diff                   skip difference images
 
 It runs the same code as the API (/api/frames, then every /api/frame.png, plain and
-difference), in live mode, writing to the cache folder in `SM_CACHE_DIR` or the default
+difference; then /api/stack and every /api/stack.png for the targets in STACKS), in live mode, writing to the cache folder in `SM_CACHE_DIR` or the default
 `backend/.cache`. Run it again at any time: what is cached already is not fetched again.
 """
 
@@ -22,7 +22,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
 
-from app import live_frames  # noqa: E402
+from app import live_frames, stack_service  # noqa: E402
 from app.config import Settings  # noqa: E402
 from app.targets import TARGETS  # noqa: E402
 
@@ -35,6 +35,12 @@ PLANS: dict[str, list[tuple[float, float, bool]]] = {
     "wise-0855": [(4.4, 5.0, True), (4.4, 5.0, False)],
     "rw-aur": [(2.0, 2.4, False)],
     "r-dra": [(2.0, 2.4, False)],
+}
+
+# Stacks (layer 2) to warm, per target: wavelength ranges in micrometres.
+STACKS: dict[str, list[tuple[float, float]]] = {
+    "wise-0855": [(4.4, 5.0)],
+    "barnard": [(1.0, 1.2)],
 }
 
 
@@ -76,6 +82,27 @@ def warm(settings: Settings, target, wl_min: float, wl_max: float, track: bool, 
         print(f"    warning: {warning}")
 
 
+def warm_stack(settings: Settings, target, wl_min: float, wl_max: float, size: float):
+    """The stack set (/api/stack) and every one of its images (/api/stack.png)."""
+    started = time.time()
+    request = stack_service.StackRequest(
+        target.ra, target.dec, size, wl_min, wl_max, target.pmra, target.pmdec, target.epoch
+    )
+    result = stack_service.stack_result(settings, request)
+    images = [result.single, result.tracked, result.static, *result.epochs]
+    for image in images:
+        if image is not None:
+            stack_service.stack_png(settings, request, image.kind, image.index)
+    tracked = result.tracked
+    print(
+        f"{target.name}: {wl_min}-{wl_max} um stack: {result.returned} of {result.total} exposures, "
+        f"tracked S/N {tracked.snr if tracked else None}, {len(result.epochs)} epoch stacks, "
+        f"{time.time() - started:.0f} s"
+    )
+    for warning in result.warnings:
+        print(f"    warning: {warning}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--only", nargs="*", help="target ids to warm (default: all)")
@@ -94,6 +121,11 @@ def main() -> int:
                 warm(settings, target, wl_min, wl_max, track, args.size, not args.no_diff)
             except Exception as error:  # noqa: BLE001 - one target must not stop the rest
                 print(f"{target.name}: failed: {type(error).__name__}: {error}")
+        for wl_min, wl_max in STACKS.get(target.id, []):
+            try:
+                warm_stack(settings, target, wl_min, wl_max, args.size)
+            except Exception as error:  # noqa: BLE001 - one target must not stop the rest
+                print(f"{target.name}: stack failed: {type(error).__name__}: {error}")
     return 0
 
 

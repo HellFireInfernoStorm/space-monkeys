@@ -31,7 +31,7 @@ from .sampling import sample_evenly
 from .targets import position_at_mjd
 
 # Bump when the stacking changes, so old cached stacks are not reused.
-STACK_VERSION = 1
+STACK_VERSION = 4
 
 _lock = threading.Lock()
 
@@ -70,6 +70,7 @@ class _Exposure:
     image: np.ndarray
     ra: float  # predicted object position at this exposure's time
     dec: float
+    raw: np.ndarray | None = None  # without the bad-pixel mask, for filling holes in pictures
 
 
 # --- inputs --------------------------------------------------------------------------------
@@ -96,7 +97,7 @@ def _live_inputs(settings: Settings, req: StackRequest, n: int):
             failed += 1
             continue
         e, wavelength = picked[i]
-        out.append(_Exposure(e.exposure_id, e.mjd, wavelength, patch.image, *positions[i]))
+        out.append(_Exposure(e.exposure_id, e.mjd, wavelength, patch.image, *positions[i], raw=patch.raw))
     if failed:
         notes.append(f"{failed} exposure(s) could not be read and were skipped.")
     return out, len(matching), notes, len(picked) < len(matching) or probes_capped
@@ -135,7 +136,7 @@ def _compute(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np.
         east, north = sky_to_tangent(ref_ra, ref_dec, np.array([e.ra]), np.array([e.dec]))
         inputs.append(
             stacking.StackInput(
-                e.exposure_id, e.mjd, e.wavelength_um, e.image, float(east[0]), float(north[0])
+                e.exposure_id, e.mjd, e.wavelength_um, e.image, float(east[0]), float(north[0]), e.raw
             )
         )
     built = stacking.build(inputs, n, PIXEL_SCALE_ARCSEC, req.has_motion)
@@ -186,8 +187,14 @@ def _compute(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np.
         if s.measured is not None and first.measured is not None:
             point.measured_east_arcsec = round(s.measured[0] - first.measured[0], 2)
             point.measured_north_arcsec = round(s.measured[1] - first.measured[1], 2)
-            point.error_arcsec = round(s.measured[2], 2)
+            point.error_arcsec = None if s.measured[2] is None else round(s.measured[2], 2)
         motion.append(point)
+
+    if built["tracked"] is not None and built["tracked"].snr is None:
+        notes.append(
+            "The pixels at the target are flagged in most exposures (usually the saturated core of a "
+            "bright star), so no signal-to-noise ratio is given. The pictures show their unflagged values."
+        )
 
     result = m.StackResult(
         mode=settings.mode,
@@ -213,7 +220,7 @@ def _compute(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np.
     arrays: dict[str, np.ndarray] = {}
     for stack in [built["single"], built["tracked"], built["static"], *epochs]:
         if stack is not None:
-            arrays[f"{stack.kind}_{stack.index}"] = stack.image.astype(np.float32)
+            arrays[f"{stack.kind}_{stack.index}"] = stack.display.astype(np.float32)
     main = [s.image for s in (built["tracked"], built["static"]) if s is not None]
     stretches = {
         "main": common_stretch(main) if main else None,

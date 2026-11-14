@@ -51,19 +51,24 @@ class StackInput:
     image: np.ndarray  # (n, n), background not yet removed, NaN where masked
     east_arcsec: float  # predicted object position, east of the reference position
     north_arcsec: float  # predicted object position, north of the reference position
+    # The same pixels without the bad-pixel mask, only to fill holes in the picture
+    # (the cores of bright stars are flagged; see live_frames.fill_for_display).
+    raw: np.ndarray | None = None
 
 
 @dataclass
 class Stack:
     kind: str  # "single", "tracked", "static", "epoch"
     index: int
-    image: np.ndarray
+    image: np.ndarray  # the measured stack: masked pixels never count, empty pixels are NaN
+    display: np.ndarray  # for the picture only: empty pixels filled from unmasked values
     members: list[int]  # indices into the inputs
     target_x: float  # predicted object position, pixels from the left edge
     target_y: float  # pixels from the top edge
     snr: float | None
     mjd_mid: float
-    measured: tuple[float, float, float] | None = None  # east, north, error (arcsec from reference)
+    # East, north (arcsec from the reference) and error (None when not estimable).
+    measured: tuple[float, float, float | None] | None = None
     extra: dict = field(default_factory=dict)
 
 
@@ -237,31 +242,53 @@ def centroid(image: np.ndarray, x: float, y: float, scale_arcsec: float):
 # --- the whole set --------------------------------------------------------------------------
 
 
+def _median_fill(images: list[np.ndarray]) -> np.ndarray:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN pixels stay NaN
+        return np.nanmedian(np.stack(images), axis=0)
+
+
+def _filled(image: np.ndarray, fill: np.ndarray) -> np.ndarray:
+    return np.where(np.isfinite(image), image, fill)
+
+
 def build(inputs: list[StackInput], n: int, scale_arcsec: float, has_motion: bool) -> dict:
     """All stacks for one request. Returns a dict with:
 
     `single` (one typical exposure), `tracked`, `static` (None without motion), `epochs`
-    (list), and `sigmas` (per input)."""
+    (list), and `sigmas` (per input).
+
+    The single exposure shown is the one whose signal-to-noise ratio at the predicted
+    position is the median of all exposures: a typical exposure, not a lucky one."""
     if not inputs:
         return {"single": None, "tracked": None, "static": None, "epochs": [], "sigmas": []}
     centre = n / 2.0
-    own = [subtract_background(i.image) for i in inputs]
+    levels = []
+    for i in inputs:
+        finite = i.image[np.isfinite(i.image)]
+        levels.append(float(np.median(finite)) if finite.size else 0.0)
+    own = [i.image.astype(np.float64) - lv for i, lv in zip(inputs, levels, strict=True)]
+    own_raw = [
+        (i.raw if i.raw is not None else i.image).astype(np.float64) - lv
+        for i, lv in zip(inputs, levels, strict=True)
+    ]
     sigmas = [robust_sigma(i) for i in own]
-
-    # The representative single exposure: the one with the median noise ("typical").
-    usable = [k for k, s in enumerate(sigmas) if s > 0]
-    order = sorted(usable, key=lambda k: sigmas[k])
-    pick = order[len(order) // 2] if order else 0
     mjds = [i.mjd for i in inputs]
+
+    singles = [snr_at(im, centre, centre) if s > 0 else None for im, s in zip(own, sigmas, strict=True)]
+    rated = sorted((v, k) for k, v in enumerate(singles) if v is not None)
+    pick = rated[len(rated) // 2][1] if rated else 0
     single = Stack(
         kind="single",
         index=0,
         image=own[pick],
+        display=_filled(own[pick], own_raw[pick]),
         members=[pick],
         target_x=centre,
         target_y=centre,
-        snr=snr_at(own[pick], centre, centre),
+        snr=singles[pick],
         mjd_mid=inputs[pick].mjd,
+        extra={"single_snrs": [v for v, _ in rated]},
     )
 
     every = list(range(len(inputs)))
@@ -270,6 +297,7 @@ def build(inputs: list[StackInput], n: int, scale_arcsec: float, has_motion: boo
         kind="tracked",
         index=0,
         image=tracked_image,
+        display=_filled(tracked_image, _median_fill(own_raw)),
         members=every,
         target_x=centre,
         target_y=centre,
@@ -277,15 +305,31 @@ def build(inputs: list[StackInput], n: int, scale_arcsec: float, has_motion: boo
         mjd_mid=float(np.mean(mjds)),
     )
 
-    fixed = [subtract_background(onto_static_grid(i, scale_arcsec)) for i in inputs] if has_motion else own
-    fixed_sigmas = [robust_sigma(i) for i in fixed] if has_motion else sigmas
+    if has_motion:
+
+        def to_fixed(image: np.ndarray, item: StackInput) -> np.ndarray:
+            return shift(image, item.east_arcsec / scale_arcsec, item.north_arcsec / scale_arcsec)
+
+        fixed = [to_fixed(im, i) for im, i in zip(own, inputs, strict=True)]
+        fixed_raw = [to_fixed(im, i) for im, i in zip(own_raw, inputs, strict=True)]
+        fixed_sigmas = [robust_sigma(i) for i in fixed]
+    else:
+        fixed, fixed_raw, fixed_sigmas = own, own_raw, sigmas
 
     def static_stack(kind: str, index: int, members: list[int]) -> Stack:
         image, _ = combine([fixed[k] for k in members], [fixed_sigmas[k] for k in members])
         east = float(np.mean([inputs[k].east_arcsec for k in members]))
         north = float(np.mean([inputs[k].north_arcsec for k in members]))
         x, y = static_position(east, north, n, scale_arcsec)
+        display = _filled(image, _median_fill([fixed_raw[k] for k in members]))
+        snr = snr_at(image, x, y)
         found = centroid(image, x, y, scale_arcsec)
+        if found is None and snr is None:
+            # The core is flagged in most exposures (a saturated bright star): its position
+            # is still measurable from the unflagged values, though less precisely.
+            found = centroid(display, x, y, scale_arcsec)
+            if found is not None:
+                found = (found[0], found[1], None)  # no honest error estimate for saturated pixels
         measured = None
         if found is not None:
             m_east = (centre - found[0]) * scale_arcsec
@@ -295,10 +339,11 @@ def build(inputs: list[StackInput], n: int, scale_arcsec: float, has_motion: boo
             kind=kind,
             index=index,
             image=image,
+            display=display,
             members=members,
             target_x=x,
             target_y=y,
-            snr=snr_at(image, x, y),
+            snr=snr,
             mjd_mid=float(np.mean([mjds[k] for k in members])),
             measured=measured,
             extra={"east": east, "north": north},
