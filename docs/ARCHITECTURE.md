@@ -17,7 +17,7 @@ Browser
   disk cache (backend/.cache, or SM_CACHE_DIR)
 ```
 
-The front end also uses Aladin Lite (made by CDS, Strasbourg; installed from npm) for the wide-field sky map, with background tiles fetched from IRSA, and links out to WiseView for the WISE-era view.
+The front end also uses Aladin Lite (made by CDS, Strasbourg; installed from npm) for the wide-field sky map, with background tiles fetched from IRSA, and links out to WiseView for the WISE-era view. The WiseView link (`src/wiseview.ts`) moves the position along its proper motion to 2014.0, the middle of the WISE-era images; its format (`#ra=...&dec=...&size=...`, size in arcseconds, at most 2000) was checked against WiseView's page script on 2026-11-14.
 
 ## Two modes
 

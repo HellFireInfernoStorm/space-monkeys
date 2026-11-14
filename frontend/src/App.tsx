@@ -20,7 +20,7 @@ import StackView from "./components/StackView";
 import TargetPicker from "./components/TargetPicker";
 import ViewForm from "./components/ViewForm";
 import { parseView, serializeView, type ViewState } from "./urlState";
-import { wiseViewUrl } from "./wiseview";
+import { WISE_EPOCH, wiseViewUrl } from "./wiseview";
 
 const ACKNOWLEDGEMENT =
   "This publication makes use of data products from the Spectro-Photometer for the History of the " +
@@ -191,8 +191,16 @@ export default function App() {
             <>
               <AladinPanel ra={mapRa} dec={mapDec} sky={view.sky} onSky={(sky) => update({ sky })} />
               <p className="links">
-                <a href={wiseViewUrl(mapRa, mapDec, Math.max(size, 176))} target="_blank" rel="noreferrer">
-                  Compare with WISE images from 2010 onward in WiseView
+                <a
+                  href={wiseViewUrl(
+                    ra !== null && dec !== null ? { ra, dec, pmra, pmdec, epoch } : { ra: mapRa, dec: mapDec },
+                    Math.max(size, 176),
+                  )}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Compare with WISE images from 2010 onward in WiseView (centred where the object was in{" "}
+                  {WISE_EPOCH})
                 </a>
               </p>
             </>
