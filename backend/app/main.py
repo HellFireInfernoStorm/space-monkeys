@@ -306,7 +306,7 @@ def frame_png(
 
 
 def _stack_request(ra, dec, size, wl_min, wl_max, pmra, pmdec, epoch, parallax) -> stack_service.StackRequest:
-    return stack_service.StackRequest(ra, dec, size, wl_min, wl_max, pmra, pmdec, epoch, parallax)
+    return stack_service.StackRequest.normalised(ra, dec, size, wl_min, wl_max, pmra, pmdec, epoch, parallax)
 
 
 def _live_stack_call(function, *args):

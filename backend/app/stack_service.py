@@ -13,6 +13,7 @@ recomputing it. Stacks stay on the native 6.15 arcsecond grid: the cache holds p
 already resampled to that grid, and a finer grid would mean reading every file again.
 """
 
+import math
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -28,7 +29,7 @@ from .config import PIXEL_SCALE_ARCSEC, Settings
 from .live_frames import _centre_text, _safe, common_stretch, render
 from .resample import sky_to_tangent
 from .sampling import sample_evenly
-from .targets import parallax_offset, position_at_mjd
+from .targets import TARGETS, parallax_offset, position_at_mjd
 
 # Bump when the stacking changes, so old cached stacks are not reused.
 STACK_VERSION = 6
@@ -63,6 +64,56 @@ class StackRequest:
     @property
     def has_motion(self) -> bool:
         return bool(self.pmra or self.pmdec)
+
+    @classmethod
+    def normalised(
+        cls,
+        ra: float,
+        dec: float,
+        size: float,
+        wl_min: float | None,
+        wl_max: float | None,
+        pmra: float,
+        pmdec: float,
+        epoch: float,
+        parallax: float = 0.0,
+    ) -> "StackRequest":
+        """The one form of a request that the API, the stack cache and scripts/prewarm.py
+        all use, so that the same view always gives the same cache key.
+
+        The site writes coordinates with 7 decimals and motions with 3; the pre-warm uses
+        the full catalogue values. So: a request within 0.01 arcsec (and 0.01 mas/yr,
+        0.01 mas) of a built-in target with the same epoch takes that target's exact
+        catalogue values; anything else is rounded (positions to 1e-6 degree, 0.0036
+        arcsec, as patch centres are; motions and parallax to 0.01; epoch to 0.001 year;
+        wavelengths to 0.0001 micrometre; size to 0.1 arcsec). None of these roundings
+        moves anything by a measurable amount."""
+        cos_dec = math.cos(math.radians(dec))
+        for target in TARGETS:
+            near = (
+                abs(dec - target.dec) * 3600.0 < 0.01
+                and abs((ra - target.ra + 180.0) % 360.0 - 180.0) * cos_dec * 3600.0 < 0.01
+                and abs(pmra - target.pmra) < 0.01
+                and abs(pmdec - target.pmdec) < 0.01
+                and abs(epoch - target.epoch) < 1e-3
+            )
+            if near:
+                ra, dec, pmra, pmdec, epoch = target.ra, target.dec, target.pmra, target.pmdec, target.epoch
+                if abs(parallax - target.parallax) < 0.01:
+                    parallax = target.parallax
+                break
+        else:
+            ra, dec = round(ra, 6), round(dec, 6)
+            pmra, pmdec, epoch = round(pmra, 2), round(pmdec, 2), round(epoch, 3)
+        if parallax != 0.0 and not any(parallax == t.parallax for t in TARGETS):
+            parallax = round(parallax, 2)
+
+        def wavelength(value: float | None) -> float | None:
+            return None if value is None else round(value, 4)
+
+        return cls(
+            ra, dec, round(size, 1), wavelength(wl_min), wavelength(wl_max), pmra, pmdec, epoch, parallax
+        )
 
 
 @dataclass

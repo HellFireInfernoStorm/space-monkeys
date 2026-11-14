@@ -11,7 +11,8 @@ Options:
     --no-diff                   skip difference images
 
 It runs the same code as the API (/api/frames, then every /api/frame.png, plain and
-difference; then /api/stack and every /api/stack.png for the targets in STACKS), in live mode, writing to the cache folder in `SM_CACHE_DIR` or the default
+difference; then /api/stack and every /api/stack.png for the targets in STACKS), in live
+mode, writing to the cache folder in `SM_CACHE_DIR` or the default
 `backend/.cache`. Run it again at any time: what is cached already is not fetched again.
 """
 
@@ -85,8 +86,9 @@ def warm(settings: Settings, target, wl_min: float, wl_max: float, track: bool, 
 def warm_stack(settings: Settings, target, wl_min: float, wl_max: float, size: float):
     """The stack set (/api/stack) and every one of its images (/api/stack.png)."""
     started = time.time()
-    request = stack_service.StackRequest(
-        target.ra, target.dec, size, wl_min, wl_max, target.pmra, target.pmdec, target.epoch
+    # The same normalised request the site's /api/stack call becomes, so the site hits this cache.
+    request = stack_service.StackRequest.normalised(
+        target.ra, target.dec, size, wl_min, wl_max, target.pmra, target.pmdec, target.epoch, target.parallax
     )
     result = stack_service.stack_result(settings, request)
     images = [result.single, result.tracked, result.static, *result.epochs]
