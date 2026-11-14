@@ -10,6 +10,8 @@ interface Props {
   speed: number;
   mode: ViewMode;
   onChange: (change: Partial<ViewState>) => void;
+  /** Called with the frame on screen, so the sky map can follow the object. */
+  onFrame?: (frame: Frame | null) => void;
 }
 
 const MJD_OF_UNIX_EPOCH = 40587;
@@ -31,7 +33,7 @@ function targetSpot(frame: Frame, extentArcsec: number): { left: number; top: nu
 }
 
 /** Shows the frames one after another (blink), or each one minus the first (difference). */
-export default function BlinkPlayer({ list, speed, mode, onChange }: Props) {
+export default function BlinkPlayer({ list, speed, mode, onChange, onFrame }: Props) {
   const frames = list.frames;
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -44,6 +46,11 @@ export default function BlinkPlayer({ list, speed, mode, onChange }: Props) {
     );
     return () => window.clearInterval(timer);
   }, [playing, speed, frames.length]);
+
+  const shown = frames[Math.min(index, frames.length - 1)] ?? null;
+  useEffect(() => {
+    onFrame?.(shown);
+  }, [shown, onFrame]);
 
   if (frames.length === 0) {
     return (

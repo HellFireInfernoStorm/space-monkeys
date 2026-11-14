@@ -9,6 +9,7 @@ import {
   getTargets,
   type Band,
   type ExposureList,
+  type Frame,
   type FrameList,
   type Health,
   type StackResult,
@@ -43,6 +44,7 @@ export default function App() {
   const [startError, setStartError] = useState<string | null>(null);
   const [frames, setFrames] = useState<FramesState>({ status: "idle" });
   const [stack, setStack] = useState<StackResult | null>(null);
+  const [shownFrame, setShownFrame] = useState<Frame | null>(null);
 
   const update = useCallback((change: Partial<ViewState>) => {
     setView((previous) => ({ ...previous, ...change }));
@@ -111,8 +113,10 @@ export default function App() {
 
   const mode = stackMode && stack ? stack.mode : frames.status === "ready" ? frames.data.mode : health?.mode;
   // Where the object is at the time of the observations, if the server has told us.
-  const mapRa = stackMode && stack ? stack.reference_ra : frames.status === "ready" ? frames.data.ra : ra;
-  const mapDec = stackMode && stack ? stack.reference_dec : frames.status === "ready" ? frames.data.dec : dec;
+  // In blink mode, a moving object is where the frame on screen says it is.
+  const frame = !stackMode && frames.status === "ready" ? shownFrame : null;
+  const mapRa = stackMode && stack ? stack.reference_ra : frame ? frame.target_ra : frames.status === "ready" ? frames.data.ra : ra;
+  const mapDec = stackMode && stack ? stack.reference_dec : frame ? frame.target_dec : frames.status === "ready" ? frames.data.dec : dec;
 
   return (
     <div className="page">
@@ -181,6 +185,7 @@ export default function App() {
               speed={view.speed}
               mode={view.mode}
               onChange={update}
+              onFrame={setShownFrame}
             />
           )}
         </section>
