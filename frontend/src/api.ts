@@ -33,6 +33,21 @@ export function apiUrl(path: string): string {
   return BASE + path;
 }
 
+/** FastAPI sends a string, or for a 422 a list of {loc, msg}; turn either into a sentence. */
+export function detailText(detail: unknown): string | null {
+  if (typeof detail === "string") return detail;
+  if (!Array.isArray(detail)) return null;
+  const parts = detail
+    .map((item) => {
+      if (typeof item !== "object" || item === null || typeof item.msg !== "string") return null;
+      const loc: unknown[] = Array.isArray(item.loc) ? item.loc : [];
+      const field = loc.filter((p) => p !== "query" && p !== "body" && p !== "path").join(".");
+      return field ? `${field}: ${item.msg.replace(/\.$/, "")}` : item.msg.replace(/\.$/, "");
+    })
+    .filter((part): part is string => part !== null);
+  return parts.length > 0 ? `The server rejected the request. ${parts.join("; ")}.` : null;
+}
+
 async function get<T>(path: string, params: Params = {}, signal?: AbortSignal): Promise<T> {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -44,7 +59,7 @@ async function get<T>(path: string, params: Params = {}, signal?: AbortSignal): 
     let detail = response.statusText;
     try {
       const body = await response.json();
-      if (typeof body.detail === "string") detail = body.detail;
+      detail = detailText(body.detail) ?? detail;
     } catch {
       // The body was not JSON; keep the status text.
     }
