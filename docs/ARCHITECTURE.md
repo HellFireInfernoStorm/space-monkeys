@@ -14,7 +14,7 @@ Browser
      |      search  -> IRSA Simple Image Access service (one query per collection)
      |      pixels  -> AWS mirror of the archive, byte-range reads of the patch only
      v
-  disk cache (planned)
+  disk cache (backend/.cache, or SM_CACHE_DIR)
 ```
 
 The front end also uses Aladin Lite (made by CDS, Strasbourg; installed from npm) for the wide-field sky map, with background tiles fetched from IRSA, and links out to WiseView for the WISE-era view.
@@ -41,8 +41,8 @@ The contract is `docs/openapi.json`, generated from the code. Browse it at `http
 | `GET /api/targets` | The five test targets with catalogue values | yes | yes |
 | `GET /api/resolve?name=` | Name to coordinates. Built-in targets only for now | yes | yes |
 | `GET /api/exposures` | Exposures covering a position, across all collections, capped | yes | yes |
-| `GET /api/frames` | The frame list for the blink player: exposures filtered by wavelength, each with an image address | yes | **501** |
-| `GET /api/frame.png` | One image patch as PNG; with `diff_ref`, a difference image | yes | **501** |
+| `GET /api/frames` | The frame list for the blink player: exposures filtered by wavelength, each with an image address | yes | yes |
+| `GET /api/frame.png` | One image patch as PNG; with `diff_ref`, a difference image | yes | yes |
 | `GET /api/photometry` | Quick-look brightness per exposure at a point: serves both the spectrum and the light curve | yes | **501** |
 
 Planned, not in the contract yet:
@@ -63,22 +63,27 @@ Planned, not in the contract yet:
 
 ## The live data path
 
-1. **Search.** `backend/app/live.py` queries the Simple Image Access service once per collection in `settings.collections`, in parallel threads, with `pyvo`. A failed collection is reported in the response's `warnings`; the others still return.
-2. **Cap.** If more exposures match than `max_exposures` (default 300), an even sample across time is returned.
+Code: `backend/app/live.py` (search), `live_frames.py` (the two endpoints), `pixels.py` (range reads), `resample.py` (geometry, no astronomy libraries), `cache.py`.
+
+1. **Search.** `backend/app/live.py` queries the Simple Image Access service once per collection in `settings.collections`, in parallel threads, with `pyvo`. A failed collection is reported in the response's `warnings`; the others still return. If every collection fails, `/api/frames` answers 502 (or uses the last saved result for that position, with a warning).
+2. **Cap.** `/api/exposures` returns at most `max_exposures` (default 300), an even sample across time.
 3. **Locate.** Each row's `cloud_access` field gives bucket, region and key. The address is `https://{bucket}.s3.{region}.amazonaws.com/{key}`.
-4. **Cut out.** (To build.) Open that address with `astropy.io.fits.open(url, use_fsspec=True, fsspec_kwargs={"block_size": 131072, "cache_type": "bytes"})`, convert the sky position to a pixel with the image's coordinate system, and read only that patch from `IMAGE`, `FLAGS` and `VARIANCE` through `.section[...]`. Run up to `s3_concurrency` (32) of these at once.
-5. **Wavelength.** (To build.) Read the wavelength at the target pixel from the `WCS-WAVE` table (see `docs/SCIENCE.md`), and keep it with the patch.
-6. **Render.** Subtract a local background, mask bad pixels with `DEFAULT_BAD_MASK`, stretch, and encode a PNG.
+4. **Wavelength at the target.** For each exposure whose detector range overlaps the requested range (at most `max_probes`, default 400, spread in time), open the file with `astropy.io.fits.open(url, use_fsspec=True, fsspec_kwargs={"block_size": 131072, "cache_type": "bytes"})`, find the target's pixel with the full coordinate system (including the SIP distortion), and interpolate the `WCS-WAVE` table there. Keep only exposures whose wavelength at the target is inside the range (`docs/SCIENCE.md`, section 1). Then cap to `max_frames` (default 40), spread evenly in time; `capped` says so.
+5. **Cut out and resample.** Read only the block of `IMAGE` and `FLAGS` that covers the output after rotation, through `.section[...]` (`VARIANCE` is not read). Resample it onto one grid for all frames: a tangent plane centred on the frame centre, north up, east left, 6.15 arcseconds per pixel, `round(size / 6.15)` pixels wide (8 to 96), the same as mock mode. Bilinear for the image (bad pixels left out), nearest pixel for the flags. Steps 4 and 5 run `s3_concurrency` (default 16) files at once. A file that fails is skipped and counted in `warnings`.
+6. **Render.** Subtract the median of the good pixels (zodiacal light). One asinh stretch is computed over all frames of the request and stored with each frame, so the blink does not flicker. Difference images subtract the reference frame's patch at the same centre, grey meaning no change, as in mock mode.
 
-Measured on a home connection: step 1 takes 0.5 to 5 seconds per collection; step 4 takes about 75 seconds for 258 patches. That is too slow to do on every page view, which is why the cache comes next.
+**Bright stars are flagged.** The core of a bright star carries bad-pixel bits (Barnard's Star at 1.1 micrometres: OVERFLOW, SUR_ERROR, TRANSIENT and BLOOM over a 6 by 6 pixel block, measured 2026-11-14). The mask is applied to everything quantitative (background, stretch, difference images), but the blink picture shows those pixels' own values, so a bright star is not drawn as a hole.
 
-### Cache (planned, first thing after live cutouts)
+Measured on a home connection in Sri Lanka, 2026-11-14 (cold cache, 16 readers): Barnard's Star at 1.0 to 1.2 micrometres, about 120 wavelength checks and 30 patches, 34 seconds; WISE 0855 at 4.4 to 5.0 micrometres, tracked, 40 of 46 frames, 32 seconds. From the cache: about 0.1 seconds for the list and 0.1 to 0.5 seconds for all its images.
 
-- Key: `exposure_id` plus the patch centre rounded to a pixel plus the patch size.
-- Value: the patch arrays and the wavelength, as a compressed NumPy file under `settings.cache_dir`.
-- Search results: cached per collection and rounded position for a few hours; new data appears at most weekly.
-- Pre-warm the five test targets before the pitch so the demo does not depend on the network.
+### Cache
 
+- Folder: `settings.cache_dir` (environment variable `SM_CACHE_DIR`), default `backend/.cache`, git-ignored. Safe to delete.
+- Patches: compressed NumPy files keyed by `exposure_id`, the centre (6 decimals, as in the image address), the width in pixels and the grid version. A small in-memory cache sits in front.
+- Wavelength checks: per exposure and target position (4 decimals). The display stretch: per frame.
+- Search results: per rounded position, for `search_cache_hours` (default 12); new data appears at most weekly.
+- The exposure id to file address table, so `/api/frame.png` can read a patch that is not cached yet.
+- Pre-warm before the pitch: `python scripts/prewarm.py` (with the back end's environment) runs the five targets at fixed wavelength ranges, including WISE 0855 at 4.4 to 5.0 micrometres with tracking.
 ### Other data we point at
 
 - All-sky SPHEREx map for Aladin Lite: `https://irsa.ipac.caltech.edu/data/hips/SPHEREx/spherex_allsky_cube`. A cube with 102 wavelength frames; frame index = 17 x (band - 1) + (channel - 1); frames 50 and 51 are blank. Not confirmed: on 2026-11-14 the tiles for frames 0 and 50 were missing and the survey declares its first frame as 1, so the numbering may start at 1. Check before stating the wavelength of a frame.

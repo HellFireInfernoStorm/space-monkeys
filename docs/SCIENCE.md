@@ -134,6 +134,8 @@ The `FLAGS` image has one bit per condition. The names and meanings below come f
 
 **The trap:** bit 21 is set on nearly half of all pixels, including the very stars we want to look at. Masking "any flag set" throws the targets away. Use `DEFAULT_BAD_MASK` in `backend/app/flags.py`, which is every bit except 12 and 21. Read the bit names from the file header rather than assuming this table still holds for a new data release.
 
+**Bright stars carry bad-pixel bits too.** In one exposure of Barnard's Star at 1.1 micrometres (`2025W34_2B_0090_4-D2`), a 6 by 6 pixel block around the star has OVERFLOW, SUR_ERROR, TRANSIENT and BLOOM set, while most of those pixels still hold values in the hundreds to thousands of MJy/sr and three are empty (measured 2026-11-14). Masking them removes the star itself, so the live blink view shows their values and uses the mask only for background, scaling and differences (`docs/ARCHITECTURE.md`).
+
 ## 5. Where the data comes from
 
 | Collection | What it is |

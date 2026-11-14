@@ -41,7 +41,8 @@ Required SPHEREx acknowledgement (put this on the project page and in the site f
 
 | Resource | What we took | Link | Licence |
 | --- | --- | --- | --- |
-| IRSA tutorial notebooks for SPHEREx | The method for reading the wavelength at a pixel, the cloud access pattern, and facts about the file layout. Any code adapted from them must be marked in a comment where it is used | https://caltech-ipac.github.io/irsa-tutorials/ | BSD 3-Clause, Copyright (c) 2022-2026 California Institute of Technology |
+| IRSA tutorial notebooks for SPHEREx | The method for reading the wavelength at a pixel, the cloud access pattern, and facts about the file layout. Any code adapted from them must be marked in a comment where it is used (`wavelength_at` in `backend/app/resample.py`, and the comparison in `backend/tests/test_live_frames.py`) | https://caltech-ipac.github.io/irsa-tutorials/ | BSD 3-Clause, Copyright (c) 2022-2026 California Institute of Technology |
+| 2MASS Point Source Catalog, queried through IRSA's TAP service | One-off check on 2026-11-14 that live frames are north up and east left (three stars near Barnard's Star landed within one pixel of their catalogue offsets). Not used by the site | https://irsa.ipac.caltech.edu/Missions/2mass.html | 2MASS acknowledgement, if we ever show it |
 | WiseView (Backyard Worlds: Planet 9 community tool) | Inspiration for the blink interface and for keeping view state in the URL. No code copied | http://byw.tools/wiseview | Credit as inspiration |
 | NEOSSat data tutorial (Canadian Space Agency) | Read only. Nothing taken | Challenge resources page | Modified MIT, Canadian Space Agency 2023 |
 | NASA Space Apps challenge text | Objectives and test targets, restated in `docs/ACCEPTANCE.md` | Challenge page | NASA Space Apps |
@@ -61,7 +62,8 @@ Back end:
 | Pillow | Writing PNG images | MIT-CMU (HPND) |
 | Astropy (`live` extra) | FITS files, coordinates | BSD 3-Clause |
 | PyVO (`live` extra) | Archive search | BSD 3-Clause |
-| fsspec and aiohttp (`live` extra) | Byte-range reads over HTTP | BSD 3-Clause; Apache 2.0 |
+| fsspec (`live` extra) | Byte-range reads over HTTP (`astropy.io.fits.open(..., use_fsspec=True)`) | BSD-3-Clause, read from the installed package metadata (fsspec 2026.9.0) on 2026-11-14 |
+| aiohttp (`live` extra) | The HTTP client fsspec uses for those reads | Apache-2.0 AND MIT, read from the installed package metadata (aiohttp 3.14.5) on 2026-11-14 |
 | pytest, HTTPX, Ruff (`dev` extra) | Tests and lint | MIT; BSD 3-Clause; MIT |
 
 Front end:
