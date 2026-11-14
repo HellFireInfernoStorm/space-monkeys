@@ -98,9 +98,11 @@ def test_bad_mask_leaves_out_informational_bits():
     assert len({f.bit for f in FLAG_BITS}) == len(FLAG_BITS)
 
 
-def test_bands_do_not_overlap():
-    edges = [edge for band in sorted(BANDS) for edge in BANDS[band]]
-    assert edges == sorted(edges)
+def test_bands_cover_overlapping_detector_ranges_without_gaps():
+    for band in range(1, 6):
+        assert BANDS[band][0] < BANDS[band + 1][0] <= BANDS[band][1] < BANDS[band + 1][1]
+    for wavelength in np.linspace(0.746, 5.010, 1000):
+        assert band_of(wavelength) is not None
     assert band_of(4.7) == 6
     assert band_of(9.0) is None
 

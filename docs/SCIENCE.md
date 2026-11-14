@@ -12,14 +12,14 @@ Nobody on the team is an astronomer. This file holds the facts we have checked, 
 
 | Band | Wavelength range (micrometres) |
 | --- | --- |
-| 1 | 0.75 to 1.09 |
-| 2 | 1.10 to 1.62 |
-| 3 | 1.63 to 2.41 |
-| 4 | 2.42 to 3.82 |
-| 5 | 3.83 to 4.41 |
-| 6 | 4.42 to 5.00 |
+| 1 | 0.746 to 1.117 |
+| 2 | 1.103 to 1.650 |
+| 3 | 1.630 to 2.435 |
+| 4 | 2.403 to 3.847 |
+| 5 | 3.811 to 4.430 |
+| 6 | 4.412 to 5.010 |
 
-Source: IRSA SPHEREx tutorial notebooks (see `docs/RESOURCES.md`).
+Source: IRSA SPHEREx tutorial notebooks (see `docs/RESOURCES.md`), with detector endpoints corrected from the team's live check in [issue #4](https://github.com/HellFireInfernoStorm/space-monkeys/issues/4). Adjacent detector ranges overlap; the earlier rounded ranges introduced artificial gaps. This does not change wavelengths measured at a target from `WCS-WAVE`.
 
 ### The wavelength changes across each image
 
