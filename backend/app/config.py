@@ -40,12 +40,20 @@ class Settings(BaseSettings):
     search_epoch_year: float = 2026.0
     # Most exposures returned by one request; more than this are sampled evenly in time.
     max_exposures: int = 300
-    # Parallel byte-range readers against the AWS mirror (measured: 32 works well).
-    s3_concurrency: int = 32
+    # Most frames in one /api/frames answer (live mode). More matches are sampled evenly in time.
+    max_frames: int = 40
+    # Most exposures whose wavelength at the target is checked for one /api/frames request.
+    # Each check reads a little of the file; more candidates than this are sampled evenly in time.
+    max_probes: int = 400
+    # Parallel byte-range readers against the AWS mirror (32 was measured to work).
+    s3_concurrency: int = 16
     # Parallel requests to IRSA itself (it rejects about 8 or more at once).
     irsa_concurrency: int = 4
+    # Search results are kept on disk this long. New data arrives at most weekly.
+    search_cache_hours: float = 12.0
 
-    cache_dir: Path = Path(".cache")
+    # Image patches, wavelength checks and search results (live mode). Git-ignored.
+    cache_dir: Path = Path(__file__).resolve().parent.parent / ".cache"
     cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
 
     @field_validator("collections", "cors_origins", mode="before")

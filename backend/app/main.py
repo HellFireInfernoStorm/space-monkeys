@@ -11,7 +11,7 @@ from urllib.parse import urlencode
 from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import __version__, live, mock
+from . import __version__, live, live_frames, mock
 from . import models as m
 from .bands import BANDS
 from .config import PIXEL_SCALE_ARCSEC, Settings, get_settings
@@ -53,6 +53,12 @@ NOT_BUILT = "Not built yet for live data. Run the back end with SM_MODE=mock to 
 
 def _not_built() -> HTTPException:
     return HTTPException(status_code=501, detail=NOT_BUILT)
+
+
+def _missing_extra(error: Exception) -> str:
+    if isinstance(error, live.LiveDependencyMissing):
+        return str(error)
+    return f'Live mode needs extra packages ({error}). Run: python -m pip install -e ".[dev,live]"'
 
 
 def _target_model(target) -> m.Target:
@@ -199,7 +205,14 @@ def frames(
     at the middle frame), so a moving object visibly moves.
     """
     if settings.mode != "mock":
-        raise _not_built()
+        try:
+            return live_frames.frame_list(
+                settings, ra, dec, size, wl_min, wl_max, pmra, pmdec, epoch, track, max_items
+            )
+        except (live.LiveDependencyMissing, ImportError) as error:
+            raise HTTPException(status_code=503, detail=_missing_extra(error)) from error
+        except live_frames.SearchFailed as error:
+            raise HTTPException(status_code=502, detail=str(error)) from error
     cap = max_items if max_items is not None else settings.max_exposures
 
     matching = [e for e in mock.all_exposures() if _in_range(e.wavelength_um, wl_min, wl_max)]
@@ -260,7 +273,22 @@ def frame_png(
 ) -> Response:
     """One image patch as a PNG. Use the addresses given by `/api/frames`."""
     if settings.mode != "mock":
-        raise _not_built()
+        try:
+            png = live_frames.frame_png(settings, exposure_id, ra, dec, size, diff_ref)
+        except live_frames.UnknownExposure as error:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Unknown exposure_id '{error.args[0]}'. Use the addresses given by /api/frames.",
+            ) from error
+        except (live.LiveDependencyMissing, ImportError) as error:
+            raise HTTPException(status_code=503, detail=_missing_extra(error)) from error
+        except Exception as error:  # noqa: BLE001 - reading the archive failed
+            raise HTTPException(
+                status_code=502, detail=f"Could not read the image from the archive: {type(error).__name__}"
+            ) from error
+        if png is None:
+            raise HTTPException(status_code=404, detail="This position is not on that exposure's detector.")
+        return Response(content=png, media_type="image/png", headers={"Cache-Control": "public, max-age=300"})
     exposure = mock.get_exposure(exposure_id)
     if exposure is None:
         raise HTTPException(status_code=404, detail=f"Unknown exposure_id '{exposure_id}'")

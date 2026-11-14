@@ -10,16 +10,15 @@ or pulse, WISE 0855 is lost in the noise of a single frame). They are not measur
 """
 
 import hashlib
-import io
 import math
 from dataclasses import dataclass
 from functools import lru_cache
 
 import numpy as np
-from PIL import Image
 
 from .bands import BANDS, RESOLVING_POWER
 from .config import PIXEL_SCALE_ARCSEC
+from .png import encode_grey
 from .targets import TARGETS, position_at_mjd
 
 COLLECTION = "mock"
@@ -48,7 +47,6 @@ STRETCH_SOFT = 0.3
 STRETCH_LOW = -0.45
 STRETCH_HIGH = 40.0
 DIFF_HIGH = 10.0
-MIN_PNG_PIXELS = 256
 
 
 @dataclass(frozen=True)
@@ -230,13 +228,7 @@ def render_png(image: np.ndarray, reference: np.ndarray | None = None) -> bytes:
     else:
         difference = image - (reference - np.median(reference))
         scaled = 0.5 + 0.5 * np.arcsinh(difference / STRETCH_SOFT) / math.asinh(DIFF_HIGH / STRETCH_SOFT)
-    grey = (np.clip(scaled, 0.0, 1.0) * 255.0).round().astype(np.uint8)
-
-    factor = max(1, math.ceil(MIN_PNG_PIXELS / grey.shape[0]))
-    grey = np.repeat(np.repeat(grey, factor, axis=0), factor, axis=1)  # sharp pixels, no blur
-    buffer = io.BytesIO()
-    Image.fromarray(grey).save(buffer, format="PNG", optimize=True)
-    return buffer.getvalue()
+    return encode_grey(scaled)
 
 
 def frame_png(

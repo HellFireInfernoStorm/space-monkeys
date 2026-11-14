@@ -13,10 +13,7 @@ needs_network = pytest.mark.skipif(
 
 def test_unbuilt_live_endpoints_answer_501(live_client):
     assert live_client.get("/api/health").json()["mode"] == "live"
-    assert live_client.get("/api/frames", params={"ra": 10, "dec": 20}).status_code == 501
     assert live_client.get("/api/photometry", params={"ra": 10, "dec": 20}).status_code == 501
-    params = {"exposure_id": "x", "ra": 10, "dec": 20}
-    assert live_client.get("/api/frame.png", params=params).status_code == 501
 
 
 def test_targets_work_in_live_mode(live_client):
@@ -42,3 +39,24 @@ def test_live_exposure_search(live_client):
     assert 1 <= first["detector"] <= 6
     assert 0.7 < first["wl_min_um"] < first["wl_max_um"] < 5.1
     assert first["cloud_url"].startswith("https://")
+
+
+@needs_network
+def test_live_frames_barnards_star(live_client):
+    # Barnard's Star at 1.0 to 1.2 micrometres: real patches, wavelength-matched.
+    params = {
+        "ra": 269.4520769586187,
+        "dec": 4.693364966576667,
+        "pmra": -801.551,
+        "pmdec": 10362.394,
+        "wl_min": 1.0,
+        "wl_max": 1.2,
+        "max": 5,
+    }
+    body = live_client.get("/api/frames", params=params).json()
+    assert body["mode"] == "live"
+    assert body["returned"] >= 2
+    assert all(1.0 <= f["wavelength_um"] <= 1.2 for f in body["frames"])
+    png = live_client.get(body["frames"][0]["image_url"])
+    assert png.status_code == 200
+    assert png.content.startswith(b"\x89PNG\r\n\x1a\n")
