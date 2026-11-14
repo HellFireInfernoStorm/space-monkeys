@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { apiUrl, type Frame, type FrameList } from "../api";
 import { LIMITS, type ViewMode, type ViewState } from "../urlState";
+import ModeToggle from "./ModeToggle";
 
 interface Props {
   list: FrameList;
@@ -164,23 +165,7 @@ export default function BlinkPlayer({ list, speed, mode, onChange }: Props) {
           />
           <span className="value">{speed} per second</span>
         </label>
-        <div className="toggle" role="group" aria-label="Image type">
-          <button
-            type="button"
-            className={mode === "blink" ? "chip active" : "chip"}
-            onClick={() => onChange({ mode: "blink" })}
-          >
-            Images
-          </button>
-          <button
-            type="button"
-            className={mode === "diff" ? "chip active" : "chip"}
-            onClick={() => onChange({ mode: "diff" })}
-            title="Each frame minus the first frame. Grey means no change."
-          >
-            Difference from first
-          </button>
-        </div>
+        <ModeToggle mode={mode} onChange={onChange} />
       </div>
       <p className="hint mono">{current.exposure_id}</p>
     </div>

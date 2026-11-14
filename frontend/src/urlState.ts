@@ -2,7 +2,7 @@
 // A new control means a new field here, a new line in parseView and serializeView,
 // and a new case in urlState.test.ts.
 
-export type ViewMode = "blink" | "diff";
+export type ViewMode = "blink" | "diff" | "stack";
 export type SkyLayer = "wise" | "spherex";
 
 export interface ViewState {
@@ -24,7 +24,7 @@ export interface ViewState {
   epoch: number;
   /** Playback speed, frames per second. */
   speed: number;
-  /** Plain frames, or each frame minus the first one. */
+  /** Plain frames, each frame minus the first one, or many exposures added together. */
   mode: ViewMode;
   /** Re-centre every frame on the moving object. */
   track: boolean;
@@ -85,7 +85,7 @@ export function parseView(search: string): ViewState {
     pmdec: numberIn(p.get("pmdec"), -1e6, 1e6) ?? DEFAULT_VIEW.pmdec,
     epoch: numberIn(p.get("epoch"), ...LIMITS.epoch) ?? DEFAULT_VIEW.epoch,
     speed: numberIn(p.get("speed"), ...LIMITS.speed) ?? DEFAULT_VIEW.speed,
-    mode: mode === "diff" ? "diff" : "blink",
+    mode: mode === "diff" || mode === "stack" ? mode : "blink",
     track: p.get("track") === "1",
     sky: sky === "spherex" ? "spherex" : "wise",
     name: (p.get("name") ?? "").slice(0, 80),

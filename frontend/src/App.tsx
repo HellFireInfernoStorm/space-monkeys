@@ -11,10 +11,12 @@ import {
   type ExposureList,
   type FrameList,
   type Health,
+  type StackResult,
   type Target,
 } from "./api";
 import AladinPanel from "./components/AladinPanel";
 import BlinkPlayer from "./components/BlinkPlayer";
+import StackView from "./components/StackView";
 import TargetPicker from "./components/TargetPicker";
 import ViewForm from "./components/ViewForm";
 import { parseView, serializeView, type ViewState } from "./urlState";
@@ -40,6 +42,7 @@ export default function App() {
   const [targets, setTargets] = useState<Target[]>([]);
   const [startError, setStartError] = useState<string | null>(null);
   const [frames, setFrames] = useState<FramesState>({ status: "idle" });
+  const [stack, setStack] = useState<StackResult | null>(null);
 
   const update = useCallback((change: Partial<ViewState>) => {
     setView((previous) => ({ ...previous, ...change }));
@@ -80,8 +83,9 @@ export default function App() {
   }, []);
 
   const { ra, dec, size, wlmin, wlmax, pmra, pmdec, epoch, track } = view;
+  const stackMode = view.mode === "stack";
   useEffect(() => {
-    if (ra === null || dec === null) {
+    if (ra === null || dec === null || stackMode) {
       setFrames({ status: "idle" });
       return;
     }
@@ -103,12 +107,12 @@ export default function App() {
         setFrames({ status: "error", message: error instanceof Error ? error.message : String(error) });
       });
     return () => abort.abort();
-  }, [ra, dec, size, wlmin, wlmax, pmra, pmdec, epoch, track]);
+  }, [ra, dec, size, wlmin, wlmax, pmra, pmdec, epoch, track, stackMode]);
 
-  const mode = frames.status === "ready" ? frames.data.mode : health?.mode;
+  const mode = stackMode && stack ? stack.mode : frames.status === "ready" ? frames.data.mode : health?.mode;
   // Where the object is at the time of the observations, if the server has told us.
-  const mapRa = frames.status === "ready" ? frames.data.ra : ra;
-  const mapDec = frames.status === "ready" ? frames.data.dec : dec;
+  const mapRa = stackMode && stack ? stack.reference_ra : frames.status === "ready" ? frames.data.ra : ra;
+  const mapDec = stackMode && stack ? stack.reference_dec : frames.status === "ready" ? frames.data.dec : dec;
 
   return (
     <div className="page">
@@ -142,8 +146,19 @@ export default function App() {
         </section>
 
         <section className="panel">
-          <h2>{view.name ? `${view.name}: frames over time` : "Frames over time"}</h2>
-          {frames.status === "idle" && (
+          <h2>
+            {stackMode
+              ? view.name
+                ? `${view.name}: stacked exposures`
+                : "Stacked exposures"
+              : view.name
+                ? `${view.name}: frames over time`
+                : "Frames over time"}
+          </h2>
+          {stackMode && ra !== null && dec !== null && (
+            <StackView view={view} onChange={update} onResult={setStack} />
+          )}
+          {frames.status === "idle" && (ra === null || dec === null) && (
             <p className="hint">Pick a target or enter a position to see its exposures.</p>
           )}
           {frames.status === "loading" && <p className="hint">Loading frames…</p>}

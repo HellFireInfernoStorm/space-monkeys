@@ -38,6 +38,7 @@ describe("urlState", () => {
       { epoch: 2016 },
       { speed: 8 },
       { mode: "diff" },
+      { mode: "stack" },
       { track: true },
       { sky: "spherex" },
       { name: "Barnard's Star" },

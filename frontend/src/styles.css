@@ -321,6 +321,75 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+/* Stack view */
+
+.caption {
+  margin: 0 0 0.8rem;
+}
+
+h3 {
+  margin: 1.2rem 0 0.4rem;
+  font-size: 0.95rem;
+}
+
+.stack-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.stack-panel {
+  margin: 0;
+}
+
+.stack-panel figcaption {
+  margin-top: 6px;
+  font-size: 0.85rem;
+}
+
+.stack-panel figcaption .hint {
+  font-size: 0.8rem;
+}
+
+.stage.small {
+  max-width: none;
+}
+
+.reticle.small {
+  width: 36px;
+  height: 36px;
+  background-size:
+    2px 10px,
+    2px 10px,
+    10px 2px,
+    10px 2px;
+}
+
+/* The object's position at the first visit: fixed, faint, so the step to the yellow marker shows. */
+.reticle.ghost {
+  opacity: 0.55;
+  filter: grayscale(1) brightness(1.6);
+}
+
+.motion {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.motion th,
+.motion td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.motion th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
 /* Sky map */
 
 .aladin {

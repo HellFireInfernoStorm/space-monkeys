@@ -11,6 +11,9 @@ export type Exposure = Schemas["Exposure"];
 export type ExposureList = Schemas["ExposureList"];
 export type Frame = Schemas["Frame"];
 export type FrameList = Schemas["FrameList"];
+export type StackResult = Schemas["StackResult"];
+export type StackImage = Schemas["StackImage"];
+export type MotionPoint = Schemas["MotionPoint"];
 
 const BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
@@ -76,5 +79,14 @@ export const getTargets = async (signal?: AbortSignal) =>
 export const getFrames = (query: FramesQuery, signal?: AbortSignal) =>
   get<FrameList>("/api/frames", { ...query }, signal);
 
-export const getExposures = (query: PositionQuery, signal?: AbortSignal) =>
+export interface StackQuery extends PositionQuery {
+  size: number;
+  wl_min: number | null;
+  wl_max: number | null;
+}
+
+export const getStack = (query: StackQuery, signal?: AbortSignal) =>
+  get<StackResult>("/api/stack", { ...query }, signal);
+
+export const getExposures =(query: PositionQuery, signal?: AbortSignal) =>
   get<ExposureList>("/api/exposures", { ...query }, signal);
