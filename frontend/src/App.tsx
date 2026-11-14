@@ -17,9 +17,11 @@ import {
 } from "./api";
 import AladinPanel from "./components/AladinPanel";
 import BlinkPlayer from "./components/BlinkPlayer";
+import ModeToggle from "./components/ModeToggle";
 import StackView from "./components/StackView";
 import TargetPicker from "./components/TargetPicker";
 import ViewForm from "./components/ViewForm";
+import { viewForTarget } from "./targetView";
 import { isNewView, parseView, serializeView, type ViewState } from "./urlState";
 import { WISE_EPOCH, wiseViewUrl } from "./wiseview";
 
@@ -31,7 +33,7 @@ const ACKNOWLEDGEMENT =
 
 type FramesState =
   | { status: "idle" }
-  | { status: "loading" }
+  | { status: "loading"; started: number }
   | { status: "ready"; data: FrameList }
   | { status: "not-built"; exposures: ExposureList | null; message: string }
   | { status: "error"; message: string };
@@ -45,6 +47,7 @@ export default function App() {
   const [frames, setFrames] = useState<FramesState>({ status: "idle" });
   const [stack, setStack] = useState<StackResult | null>(null);
   const [shownFrame, setShownFrame] = useState<Frame | null>(null);
+  const [frameAttempt, setFrameAttempt] = useState(0);
 
   const update = useCallback((change: Partial<ViewState>) => {
     setView((previous) => ({ ...previous, ...change }));
@@ -78,6 +81,14 @@ export default function App() {
         setBands(b);
         setTargets(t);
         setStartError(null);
+        if (window.location.search === "") {
+          const barnard = t.find((target) => target.id === "barnard");
+          if (barnard) {
+            const initial = { ...parseView(""), ...viewForTarget(barnard) };
+            window.history.replaceState(null, "", `${window.location.pathname}?${serializeView(initial)}`);
+            setView(initial);
+          }
+        }
       })
       .catch((error: unknown) => {
         if (abort.signal.aborted) return;
@@ -98,7 +109,7 @@ export default function App() {
     }
     const abort = new AbortController();
     const position = { ra, dec, pmra, pmdec, epoch };
-    setFrames({ status: "loading" });
+    setFrames({ status: "loading", started: Date.now() });
     getFrames({ ...position, size, wl_min: wlmin, wl_max: wlmax, track }, abort.signal)
       .then((data) => setFrames({ status: "ready", data }))
       .catch(async (error: unknown) => {
@@ -114,7 +125,7 @@ export default function App() {
         setFrames({ status: "error", message: error instanceof Error ? error.message : String(error) });
       });
     return () => abort.abort();
-  }, [ra, dec, size, wlmin, wlmax, pmra, pmdec, epoch, track, stackMode]);
+  }, [ra, dec, size, wlmin, wlmax, pmra, pmdec, epoch, track, stackMode, frameAttempt]);
 
   const mode = stackMode && stack ? stack.mode : frames.status === "ready" ? frames.data.mode : health?.mode;
   // Where the object is at the time of the observations, if the server has told us.
@@ -142,10 +153,17 @@ export default function App() {
       {startError && <p className="notice error">{startError}</p>}
 
       <main className="layout">
-        <section className="panel controls">
-          <h2>Target</h2>
+        <section className="panel target-panel" aria-labelledby="target-heading">
+          <h2 id="target-heading">Choose a target</h2>
           <TargetPicker targets={targets} view={view} onPick={update} />
-          <h2>Position and view</h2>
+          <div className="future-search">
+            <label htmlFor="future-name">Search for a name</label>
+            <input id="future-name" disabled placeholder="Coming soon" />
+          </div>
+        </section>
+
+        <section className="panel settings-panel" aria-labelledby="position-heading">
+          <h2 id="position-heading">Or enter a sky position</h2>
           <ViewForm
             key={serializeView({ ...view, speed: 2, mode: "blink", sky: "wise", track: false })}
             view={view}
@@ -154,8 +172,9 @@ export default function App() {
           />
         </section>
 
-        <section className="panel">
-          <h2>
+        <section className="panel viewer-panel" aria-labelledby="viewer-heading">
+          <div className="viewer-heading-row">
+          <h2 id="viewer-heading">
             {stackMode
               ? view.name
                 ? `${view.name}: stacked exposures`
@@ -164,14 +183,24 @@ export default function App() {
                 ? `${view.name}: frames over time`
                 : "Frames over time"}
           </h2>
+          <ModeToggle mode={view.mode} onChange={update} />
+          </div>
           {stackMode && ra !== null && dec !== null && (
             <StackView view={view} onChange={update} onResult={setStack} />
           )}
           {frames.status === "idle" && (ra === null || dec === null) && (
             <p className="hint">Pick a target or enter a position to see its exposures.</p>
           )}
-          {frames.status === "loading" && <p className="hint">Loading frames…</p>}
-          {frames.status === "error" && <p className="notice error">{frames.message}</p>}
+          {frames.status === "loading" && <LoadingStage started={frames.started} live={mode === "live"} />}
+          {frames.status === "error" && (
+            <div className="status-stage error-stage" role="alert">
+              <div>
+                <h3>Could not load these images</h3>
+                <p>{frames.message}</p>
+                <button type="button" className="primary" onClick={() => setFrameAttempt((attempt) => attempt + 1)}>Retry loading</button>
+              </div>
+            </div>
+          )}
           {frames.status === "not-built" && (
             <div className="notice">
               <p>Image cut-outs from live data are not built yet ({frames.message}).</p>
@@ -195,8 +224,8 @@ export default function App() {
           )}
         </section>
 
-        <section className="panel">
-          <h2>Wider view</h2>
+        <section className="panel map-panel" aria-labelledby="map-heading">
+          <h2 id="map-heading">Wider sky view</h2>
           {mapRa !== null && mapDec !== null ? (
             <>
               <AladinPanel ra={mapRa} dec={mapDec} sky={view.sky} onSky={(sky) => update({ sky })} />
@@ -228,6 +257,23 @@ export default function App() {
         </p>
         <p>This project is not affiliated with or endorsed by NASA.</p>
       </footer>
+    </div>
+  );
+}
+
+function LoadingStage({ started, live }: { started: number; live: boolean }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setTick((tick) => tick + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return (
+    <div className="status-stage" role="status" aria-live="polite">
+      <div>
+        <h3>Loading sky images</h3>
+        <p aria-hidden="true">{Math.round((Date.now() - started) / 1000)} seconds elapsed</p>
+        {live && <p>The first request for a position can take 30 to 90 seconds.</p>}
+      </div>
     </div>
   );
 }

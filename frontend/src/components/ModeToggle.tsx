@@ -24,6 +24,7 @@ export default function ModeToggle({ mode, onChange }: Props) {
           key={m.mode}
           type="button"
           className={mode === m.mode ? "chip active" : "chip"}
+          aria-pressed={mode === m.mode}
           onClick={() => onChange({ mode: m.mode })}
           title={m.title}
         >

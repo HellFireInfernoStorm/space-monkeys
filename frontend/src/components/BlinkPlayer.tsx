@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { type Frame, type FrameList } from "../api";
 import { colourSpread, imageAddress, REFERENCE_LABEL } from "../blink";
 import { LIMITS, type ViewMode, type ViewState } from "../urlState";
-import ModeToggle from "./ModeToggle";
 
 interface Props {
   list: FrameList;
@@ -165,7 +164,6 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame }: Pr
           />
           <span className="value">{speed} per second</span>
         </label>
-        <ModeToggle mode={mode} onChange={onChange} />
       </div>
       <p className="hint mono">{current.exposure_id}</p>
     </div>

@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { apiUrl, getStack, type StackImage, type StackResult } from "../api";
 import { dayOf, differenceText, measuredText, predictedText, spotPercent, stackLabel } from "../stackView";
 import { LIMITS, type ViewState } from "../urlState";
-import ModeToggle from "./ModeToggle";
 
 interface Props {
   view: ViewState;
@@ -17,7 +16,7 @@ type State =
   | { status: "error"; message: string };
 
 const CAPTION =
-  "Adding many exposures together averages the random noise down (by the square root of their " +
+  "Adding many exposures together averages the random noise down (at best, by the square root of their " +
   "number) while a real object adds up, so things too faint for one exposure appear.";
 
 /** One image with optional markers. Markers are given in stack pixels. */
@@ -149,12 +148,12 @@ function MotionTable({ data }: { data: StackResult }) {
         <tbody>
           {data.motion.map((point) => (
             <tr key={point.index}>
-              <td>
+              <td data-label="Visit (middle date)">
                 {point.index + 1} ({dayOf(point.mjd_mid)})
               </td>
-              <td>{measuredText(point)}</td>
-              <td>{predictedText(point)}</td>
-              <td>{differenceText(point)}</td>
+              <td data-label="Measured offset (± 1σ)">{measuredText(point)}</td>
+              <td data-label="Predicted from catalogue">{predictedText(point)}</td>
+              <td data-label="Measured minus predicted">{differenceText(point)}</td>
             </tr>
           ))}
         </tbody>
@@ -175,6 +174,7 @@ function MotionTable({ data }: { data: StackResult }) {
 export default function StackView({ view, onChange, onResult }: Props) {
   const [state, setState] = useState<State>({ status: "loading", started: Date.now() });
   const [, setTick] = useState(0);
+  const [attempt, setAttempt] = useState(0);
   const { ra, dec, size, wlmin, wlmax, pmra, pmdec, epoch, plx } = view;
 
   useEffect(() => {
@@ -192,7 +192,7 @@ export default function StackView({ view, onChange, onResult }: Props) {
         setState({ status: "error", message: error instanceof Error ? error.message : String(error) });
       });
     return () => abort.abort();
-  }, [ra, dec, size, wlmin, wlmax, pmra, pmdec, epoch, plx, onResult]);
+  }, [ra, dec, size, wlmin, wlmax, pmra, pmdec, epoch, plx, onResult, attempt]);
 
   // Count the seconds while a cold stack is being made.
   useEffect(() => {
@@ -205,12 +205,23 @@ export default function StackView({ view, onChange, onResult }: Props) {
     <div className="player">
       <p className="caption">{CAPTION}</p>
       {state.status === "loading" && (
-        <p className="hint" role="status">
-          Stacking every exposure in this wavelength range… {Math.round((Date.now() - state.started) / 1000)} s.
-          The first stack for a position can take about a minute; after that it is saved.
-        </p>
+        <div className="status-stage" role="status" aria-live="polite">
+          <div>
+            <h3>Stacking matching exposures</h3>
+            <p aria-hidden="true">{Math.round((Date.now() - state.started) / 1000)} seconds elapsed</p>
+            <p>The first stack for a position can take about a minute; after that it is saved.</p>
+          </div>
+        </div>
       )}
-      {state.status === "error" && <p className="notice error">Could not make the stack: {state.message}</p>}
+      {state.status === "error" && (
+        <div className="status-stage error-stage" role="alert">
+          <div>
+            <h3>Could not make the stack</h3>
+            <p>{state.message}</p>
+            <button type="button" className="primary" onClick={() => setAttempt((value) => value + 1)}>Retry stacking</button>
+          </div>
+        </div>
+      )}
       {state.status === "ready" && <StackBody data={state.data} speed={view.speed} />}
       <div className="transport">
         <label>
@@ -225,7 +236,6 @@ export default function StackView({ view, onChange, onResult }: Props) {
           />
           <span className="value">{view.speed} per second</span>
         </label>
-        <ModeToggle mode={view.mode} onChange={onChange} />
       </div>
     </div>
   );
@@ -251,7 +261,7 @@ function StackBody({ data, speed }: { data: StackResult; speed: number }) {
       ))}
       {data.capped && (
         <p className="hint">
-          Stacked {data.returned} of {data.total} matching exposures, spread evenly over time.
+          Selected {data.returned} of {data.total} matching exposures, spread evenly over time.
         </p>
       )}
       <div className="stack-row">
@@ -278,7 +288,7 @@ function StackBody({ data, speed }: { data: StackResult; speed: number }) {
             image={fixed}
             pixels={data.pixels}
             label={`Fixed sky grid: ${fixed.n_exposures} exposures`}
-            note="not shifted: stars are sharp, a moving object is smeared along its path"
+            note="exposures aligned on the stars, not on the moving object: stars are sharp, a moving object is smeared along its path"
             marker={{ x: fixed.target_x, y: fixed.target_y }}
           />
         )}
