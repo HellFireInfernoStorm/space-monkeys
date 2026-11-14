@@ -16,6 +16,7 @@ Rules that apply to everything listed here:
 | 2026-11-14 | Issue #4 assignee | OpenAI Codex | Corrected bilinear masking to reject incomplete footprints, added regression coverage and invalidated affected caches | `backend/app/resample.py`, cache versions and `backend/tests/test_live_frames.py` | Not yet |
 | 2026-11-14 | Issue #4 assignee | OpenAI Codex | Replaced peak-pixel S/N with a PSF measurement and local empty-aperture scatter; centred targets on odd grids; added regression tests | `backend/app/stacking.py`, `backend/app/mock.py` and backend tests | Not yet |
 | 2026-11-14 | Issue #4 assignee | OpenAI Codex | Added a fixed catalogue neighbour to WISE 0855 visit fits and bootstrap samples; tested centroid recovery and sky-to-grid wiring | `backend/app/stacking.py`, `backend/app/stack_service.py` and backend tests | Not yet |
+| 2026-11-14 | Issue #4 assignee | OpenAI Codex | Reproduced real-data stack and saturation checks; corrected science and architecture notes and WISE target description; added a repeatable live-check script and static-detection regression | `docs/SCIENCE.md`, `docs/ARCHITECTURE.md`, `backend/app/targets.py`, `backend/scripts/check_accuracy.py` and tests | Not yet |
 
 ## Draft statement for the project page
 

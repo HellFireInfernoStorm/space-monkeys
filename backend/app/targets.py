@@ -77,7 +77,8 @@ TARGETS: tuple[Target, ...] = (
         kind="The coldest known brown dwarf",
         note="Moves 8.1 arcseconds a year, so it is about two arcminutes from the 2010 position "
         "given in the challenge text. Too faint for a single exposure; needs a "
-        "motion-tracked stack at 4.4 to 5.0 micrometres.",
+        "stack of many exposures at 4.4 to 5.0 micrometres. A static stack also shows it; "
+        "motion tracking sharpens it slightly.",
         reference="Kirkpatrick et al. 2021 (2021ApJS..253....7K), through SIMBAD",
     ),
     Target(

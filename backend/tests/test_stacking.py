@@ -57,6 +57,15 @@ def test_empty_position_reads_low():
     assert built["tracked"].snr < 4.0
 
 
+def test_static_stacking_also_reveals_a_faint_slowly_moving_source():
+    # The target note must not imply tracking is required for detection: WISE 0855
+    # moves just 1.35 native pixels over the year represented by the exposures.
+    built = stacking.build(_inputs(peak=2.0, total_motion_px=1.35, star_peak=0), N_PX, SCALE, True)
+    assert built["single"].snr < 5
+    assert built["static"].snr > 5
+    assert built["tracked"].snr > built["static"].snr
+
+
 def test_psf_snr_is_unchanged_by_field_size():
     rng = np.random.default_rng(52)
     image = rng.normal(0, 1, (49, 49)) + _gaussian(24.5, 24.5, 15, n=49)
