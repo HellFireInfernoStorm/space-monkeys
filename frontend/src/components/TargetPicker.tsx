@@ -23,9 +23,10 @@ export default function TargetPicker({ targets, view, onPick }: Props) {
             type="button"
             className={target === active ? "chip active" : "chip"}
             aria-pressed={target === active}
+            aria-label={target.name}
             onClick={() => onPick(viewForTarget(target))}
           >
-            {target.name}
+            <span>{target.name}</span>
           </button>
         ))}
       </div>

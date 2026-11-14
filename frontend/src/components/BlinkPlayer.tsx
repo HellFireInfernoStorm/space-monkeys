@@ -87,6 +87,24 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame }: Pr
         </p>
       )}
 
+      <div className="transport frame-transport">
+        <button type="button" className="primary" onClick={() => setPlaying((p) => !p)}>
+          {playing ? "Pause" : "Play"}
+        </button>
+        <input
+          type="range"
+          min={0}
+          max={frames.length - 1}
+          value={index}
+          aria-label="Frame"
+          onChange={(e) => {
+            setPlaying(false);
+            setIndex(Number(e.target.value));
+          }}
+        />
+        <span className="frame-count">{index + 1} / {frames.length}</span>
+      </div>
+
       <div className="stage" aria-label={`Frame ${index + 1} of ${frames.length}`}>
         {frames.map((frame, i) => (
           <img
@@ -135,22 +153,6 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame }: Pr
         </div>
       </dl>
 
-      <div className="transport">
-        <button type="button" className="primary" onClick={() => setPlaying((p) => !p)}>
-          {playing ? "Pause" : "Play"}
-        </button>
-        <input
-          type="range"
-          min={0}
-          max={frames.length - 1}
-          value={index}
-          aria-label="Frame"
-          onChange={(e) => {
-            setPlaying(false);
-            setIndex(Number(e.target.value));
-          }}
-        />
-      </div>
       <div className="transport">
         <label>
           Speed

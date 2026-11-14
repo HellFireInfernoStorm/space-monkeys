@@ -156,10 +156,6 @@ export default function App() {
         <section className="panel target-panel" aria-labelledby="target-heading">
           <h2 id="target-heading">Choose a target</h2>
           <TargetPicker targets={targets} view={view} onPick={update} />
-          <div className="future-search">
-            <label htmlFor="future-name">Search for a name</label>
-            <input id="future-name" disabled placeholder="Coming soon" />
-          </div>
         </section>
 
         <section className="panel settings-panel" aria-labelledby="position-heading">
@@ -170,20 +166,31 @@ export default function App() {
             bands={bands}
             onApply={update}
           />
+          <div className="future-search">
+            <label htmlFor="future-name">Search for a name</label>
+            <input id="future-name" disabled placeholder="Coming soon" />
+          </div>
         </section>
 
         <section className="panel viewer-panel" aria-labelledby="viewer-heading">
           <div className="viewer-heading-row">
-          <h2 id="viewer-heading">
-            {stackMode
-              ? view.name
-                ? `${view.name}: stacked exposures`
-                : "Stacked exposures"
-              : view.name
-                ? `${view.name}: frames over time`
-                : "Frames over time"}
-          </h2>
-          <ModeToggle mode={view.mode} onChange={update} />
+            <div>
+              <h2 id="viewer-heading">
+                {stackMode
+                  ? view.name
+                    ? `${view.name}: stacked exposures`
+                    : "Stacked exposures"
+                  : view.name
+                    ? `${view.name}: frames over time`
+                    : "Frames over time"}
+              </h2>
+              {ra !== null && dec !== null && (
+                <p className="viewer-position">
+                  ICRS position: RA {ra.toFixed(5)}°, Dec {dec >= 0 ? "+" : ""}{dec.toFixed(5)}°
+                </p>
+              )}
+            </div>
+            <ModeToggle mode={view.mode} onChange={update} />
           </div>
           {stackMode && ra !== null && dec !== null && (
             <StackView view={view} onChange={update} onResult={setStack} />
