@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Frame } from "./api";
-import { imageAddress } from "./blink";
+import { colourSpread, imageAddress } from "./blink";
 
 function frame(id: string, wavelength: number | null = 1.1): Frame {
   return {
@@ -26,5 +26,14 @@ describe("blink", () => {
       "/api/frame.png?exposure_id=B-D2&diff_ref=A-D2",
     );
     expect(imageAddress(frame("B-D2"), "blink", reference)).toBe("/api/frame.png?exposure_id=B-D2");
+  });
+
+  it("warns about colour only for a wide spread of wavelengths", () => {
+    const narrow = [frame("a", 1.0047), frame("b", 1.1995), frame("c", 1.1)]; // Barnard's Star, 1.0 to 1.2
+    expect(colourSpread(narrow).warn).toBe(false);
+    const band2 = [frame("a", 1.11), frame("b", 1.6)];
+    expect(colourSpread(band2)).toEqual({ shortest: 1.11, longest: 1.6, warn: true });
+    expect(colourSpread([frame("a", 0.8)]).warn).toBe(false);
+    expect(colourSpread([frame("a", null), frame("b", 2.0)]).warn).toBe(false);
   });
 });

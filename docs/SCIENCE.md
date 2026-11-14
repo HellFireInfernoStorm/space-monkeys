@@ -27,6 +27,8 @@ This is the fact that most affects our design. Each detector sits behind a filte
 
 **Consequence:** two exposures of the same position usually show it at different wavelengths. If we blink or subtract them, a red star will look as if it changed brightness when it only changed colour. Layer 1 therefore matches exposures by wavelength at the target before comparing them.
 
+The blink view warns about colour when the longest wavelength among its frames is more than 1.25 times the shortest (our choice, `WAVELENGTH_SPREAD_WARNING` in `frontend/src/blink.ts`). Reason: beyond its peak a star's brightness falls roughly as wavelength to the power -2, so a spread of 1.25 alone can change it by about 1.6 times; less than that is smaller than the changes our variable targets show. A narrowed range such as 1.0 to 1.2 micrometres (1.2) is not flagged, though colour can still change a star's brightness there by up to about 1.4 times.
+
 How to get the wavelength at a pixel (from the IRSA tutorial; needs the whole header unit list, not only the image):
 
 ```python

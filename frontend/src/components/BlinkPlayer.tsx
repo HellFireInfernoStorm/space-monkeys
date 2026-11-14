@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { type Frame, type FrameList } from "../api";
-import { imageAddress, REFERENCE_LABEL } from "../blink";
+import { colourSpread, imageAddress, REFERENCE_LABEL } from "../blink";
 import { LIMITS, type ViewMode, type ViewState } from "../urlState";
 import ModeToggle from "./ModeToggle";
 
@@ -12,8 +12,6 @@ interface Props {
   onChange: (change: Partial<ViewState>) => void;
 }
 
-/** Above this ratio between the longest and shortest wavelength, warn that frames differ in colour. */
-const WAVELENGTH_SPREAD_WARNING = 1.1;
 const MJD_OF_UNIX_EPOCH = 40587;
 
 function dateOf(mjd: number): string {
@@ -56,10 +54,7 @@ export default function BlinkPlayer({ list, speed, mode, onChange }: Props) {
   }
 
   const current = frames[Math.min(index, frames.length - 1)];
-  const wavelengths = frames.map((f) => f.wavelength_um).filter((w): w is number => w !== null);
-  const shortest = Math.min(...wavelengths);
-  const longest = Math.max(...wavelengths);
-  const mixedColours = wavelengths.length > 1 && longest / shortest > WAVELENGTH_SPREAD_WARNING;
+  const { shortest, longest, warn: mixedColours } = colourSpread(frames);
 
   // The server draws round(size / pixel_scale) pixels, limited to 8..96.
   const pixels = Math.min(96, Math.max(8, Math.round(list.size / list.pixel_scale)));
