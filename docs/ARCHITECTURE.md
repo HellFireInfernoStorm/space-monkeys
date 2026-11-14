@@ -1,0 +1,111 @@
+# Architecture
+
+## The parts
+
+```
+Browser
+  frontend/  (static site: React, Vite, TypeScript)
+     |  view state lives in the URL
+     |  GET /api/...
+     v
+  backend/   (Python, FastAPI)
+     |-- mock mode: synthetic data, no network
+     |-- live mode:
+     |      search  -> IRSA Simple Image Access service (one query per collection)
+     |      pixels  -> AWS mirror of the archive, byte-range reads of the patch only
+     v
+  disk cache (planned)
+```
+
+The front end also uses Aladin Lite (made by CDS, Strasbourg; installed from npm) for the wide-field sky map, with background tiles fetched from IRSA, and links out to WiseView for the WISE-era view.
+
+## Two modes
+
+Set by the environment variable `SM_MODE`.
+
+| Mode | Behaviour | Needs |
+| --- | --- | --- |
+| `mock` (default) | Every endpoint answers at once with deterministic synthetic data shaped exactly like the real thing | Only the core Python packages |
+| `live` | Real SPHEREx data. Endpoints not built yet answer HTTP 501 | The `live` extra (`pip install -e ".[dev,live]"`) and network access |
+
+The response of `/api/health` and of every list endpoint states the mode, and the front end shows it as a badge. Mock images must never be shown without that badge.
+
+## The API
+
+The contract is `docs/openapi.json`, generated from the code. Browse it at `http://localhost:8000/docs` while the back end is running.
+
+| Endpoint | Purpose | Mock | Live |
+| --- | --- | --- | --- |
+| `GET /api/health` | Status, mode, configured collections | yes | yes |
+| `GET /api/bands` | The six detector bands and their wavelength ranges, for the band selector | yes | yes |
+| `GET /api/targets` | The five test targets with catalogue values | yes | yes |
+| `GET /api/resolve?name=` | Name to coordinates. Built-in targets only for now | yes | yes |
+| `GET /api/exposures` | Exposures covering a position, across all collections, capped | yes | yes |
+| `GET /api/frames` | The frame list for the blink player: exposures filtered by wavelength, each with an image address | yes | **501** |
+| `GET /api/frame.png` | One image patch as PNG; with `diff_ref`, a difference image | yes | **501** |
+| `GET /api/photometry` | Quick-look brightness per exposure at a point: serves both the spectrum and the light curve | yes | **501** |
+
+Planned, not in the contract yet:
+
+| Endpoint | Layer | Purpose |
+| --- | --- | --- |
+| `GET /api/stack.png` | 2 | Motion-tracked stack of many exposures in a wavelength range |
+| `GET /api/flags` | 1 | Flag bits set in a patch, with names, for the metadata display |
+| `GET /api/changes` | 5 | Sources in the field that moved or changed, with a label |
+
+### Conventions
+
+- Coordinates: ICRS decimal degrees (`ra`, `dec`). Sizes on the sky: arcseconds. Wavelengths: micrometres. Times: MJD. Proper motion: milliarcseconds per year (`pmra` includes the cos(dec) factor), with `epoch` as a decimal year for the given position.
+- An exposure is identified by `exposure_id`, which is the archive's observation id plus the detector, for example `2025W18_1B_0081_2-D6`. One observation id can cover a position with more than one detector.
+- When proper motion is given, the server moves the position to each exposure's date. `/api/frames` then centres all frames on the position at the middle exposure (so the object visibly moves), or, with `track=true`, re-centres every frame on the object (so the object stays still and the background moves; this is what stacking uses).
+- List endpoints return `total`, `returned` and `capped`, so the interface can say "showing 300 of 2,502".
+- Photometry points use the column names of IRSA's Spectrophotometry Tool where they overlap (`flux`, `flux_err`, `lambda_width`, `flags`, `mjd`, `det_id`), so results can be compared side by side.
+
+## The live data path
+
+1. **Search.** `backend/app/live.py` queries the Simple Image Access service once per collection in `settings.collections`, in parallel threads, with `pyvo`. A failed collection is reported in the response's `warnings`; the others still return.
+2. **Cap.** If more exposures match than `max_exposures` (default 300), an even sample across time is returned.
+3. **Locate.** Each row's `cloud_access` field gives bucket, region and key. The address is `https://{bucket}.s3.{region}.amazonaws.com/{key}`.
+4. **Cut out.** (To build.) Open that address with `astropy.io.fits.open(url, use_fsspec=True, fsspec_kwargs={"block_size": 131072, "cache_type": "bytes"})`, convert the sky position to a pixel with the image's coordinate system, and read only that patch from `IMAGE`, `FLAGS` and `VARIANCE` through `.section[...]`. Run up to `s3_concurrency` (32) of these at once.
+5. **Wavelength.** (To build.) Read the wavelength at the target pixel from the `WCS-WAVE` table (see `docs/SCIENCE.md`), and keep it with the patch.
+6. **Render.** Subtract a local background, mask bad pixels with `DEFAULT_BAD_MASK`, stretch, and encode a PNG.
+
+Measured on a home connection: step 1 takes 0.5 to 5 seconds per collection; step 4 takes about 75 seconds for 258 patches. That is too slow to do on every page view, which is why the cache comes next.
+
+### Cache (planned, first thing after live cutouts)
+
+- Key: `exposure_id` plus the patch centre rounded to a pixel plus the patch size.
+- Value: the patch arrays and the wavelength, as a compressed NumPy file under `settings.cache_dir`.
+- Search results: cached per collection and rounded position for a few hours; new data appears at most weekly.
+- Pre-warm the five test targets before the pitch so the demo does not depend on the network.
+
+### Other data we point at
+
+- All-sky SPHEREx map for Aladin Lite: `https://irsa.ipac.caltech.edu/data/hips/SPHEREx/spherex_allsky_cube`. A cube with 102 wavelength frames; frame index = 17 x (band - 1) + (channel - 1); frames 50 and 51 are blank. Not confirmed: on 2026-11-14 the tiles for frames 0 and 50 were missing and the survey declares its first frame as 1, so the numbering may start at 1. Check before stating the wavelength of a frame.
+- Solid angle of each pixel, per detector `k`: `nasa-irsa-spherex/dr1/solid_angle_pixel_map/cal-sapm-v3-2026-191/{k}/solid_angle_pixel_map_D{k}_spx_cal-sapm-v3-2026-191.fits`.
+- Archive metadata tables through TAP: `spherex.artifact` and `spherex.plane`.
+
+## The front end
+
+- `src/urlState.ts` is the single source of view state. Parameters: `ra`, `dec`, `size` (arcseconds), `wlmin`, `wlmax`, `pmra`, `pmdec`, `epoch`, `speed` (frames per second), `mode` (`blink` or `diff`), `track` (`1` to re-centre every frame on the moving object; left out when off), `sky` (background survey in the wide-field sky map: `wise` by default, or `spherex`), `name`. A link with these parameters reproduces the view, which also makes the tool embeddable in a frame.
+- `src/api.ts` is the only file that calls the back end. Its types come from `src/api-types.ts`, generated from the contract with `npm run gen:api`.
+- `BlinkPlayer` preloads every frame image and switches which one is visible, so playback does not flicker.
+- `AladinPanel` shows the surrounding sky from existing surveys and is the place for catalogue overlays (Gaia, WISE).
+- Aladin Lite comes from the npm package `aladin-lite`. It is loaded only when the sky map panel first appears (a lazy dynamic import, so it is a separate chunk). Its usage logging is off.
+- Both backgrounds (WISE, and the experimental SPHEREx all-sky cube) are HiPS tile sets that the browser fetches straight from IRSA, because the CDS tile servers did not answer on 2026-11-14.
+- For the SPHEREx cube the site shows one fixed frame (the constant `SPHEREX_CUBE_FRAME` in `frontend/src/components/AladinPanel.tsx`), because the frame Aladin Lite opens by default is empty. This relies on the behaviour of the pinned aladin-lite version, so re-check it if the version changes.
+- In development the Vite server forwards `/api` to `http://localhost:8000`. In production the site calls the address in `VITE_API_BASE`, or the same origin if that is empty.
+
+## Hosting
+
+Planned: DigitalOcean App Platform, one app with two components, in a region near the AWS `us-east-1` mirror.
+
+- `api`: the back end as a container (`backend/Dockerfile`), with `SM_MODE=live`.
+- `web`: the front end as a static site built with `npm ci` and `npm run build`.
+- Requests to `/api` go to the back end; everything else to the static site.
+
+`.do/app.yaml` is a **draft** of this. It has not been deployed or validated.
+
+## Adding a new data release
+
+Add its collection name to `collections` in `backend/app/config.py` (or set `SM_COLLECTIONS` in the hosting dashboard). Nothing else should need to change. If something else does, that is a bug: fix the place that hard-coded the old name.

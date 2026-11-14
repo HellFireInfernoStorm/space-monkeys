@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "space-monkeys-api"
+version = "0.1.0"
+description = "API for the space-monkeys SPHEREx time-domain viewer (NASA Space Apps 2026)"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic-settings>=2.7",
+    "numpy>=1.26",
+    "pillow>=10.4",
+]
+
+[project.optional-dependencies]
+# Needed only for SM_MODE=live (real SPHEREx data).
+live = [
+    "astropy>=6.0",
+    "pyvo>=1.5",
+    "fsspec>=2024.6",
+    "aiohttp>=3.9",
+]
+dev = [
+    "pytest>=8",
+    "httpx>=0.27",
+    "ruff>=0.6",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI declares parameters with calls in defaults; that is its normal style.
+extend-immutable-calls = ["fastapi.Query", "fastapi.Depends"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

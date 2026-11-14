@@ -1,0 +1,17 @@
+# Who must review changes to each folder.
+#
+# TODO: the rules below are switched off until every teammate's GitHub username is known.
+# To switch them on, replace each placeholder with a real username (for example @octocat),
+# remove the leading "# " from the rule lines, and keep docs/OWNERSHIP.md in step.
+#
+# The last matching rule wins, so the general rule comes first.
+
+# *                        @REPO_OWNER
+# /backend/                @BACKEND_OWNER
+# /frontend/               @FRONTEND_OWNER
+# /docs/SCIENCE.md         @DATA_OWNER
+# /.github/                @REPO_OWNER
+# /.do/                    @REPO_OWNER
+# /AGENTS.md               @REPO_OWNER
+# /docs/DECISIONS.md       @REPO_OWNER
+# /docs/openapi.json       @REPO_OWNER

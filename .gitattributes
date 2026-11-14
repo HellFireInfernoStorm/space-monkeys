@@ -1,0 +1,12 @@
+# One line-ending rule for everyone: LF in the repository and in the working copy,
+# on Windows and macOS alike. Stops whole-file diffs caused by CRLF/LF flips.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.fits binary
+*.woff2 binary

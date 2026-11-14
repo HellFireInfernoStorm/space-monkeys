@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Environment files and secrets (never commit real values)
+.env
+.env.*
+!.env.example
+
+# Caches and downloaded science data (large; fetch again instead of committing)
+.cache/
+*.fits
+*.fits.gz
+*.npz
+
+# Operating system and editors
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Per-person settings of AI coding tools (shared rules live in AGENTS.md)
+.claude/
+
+# Private planning material must never be committed
+private docs/
+private-docs/

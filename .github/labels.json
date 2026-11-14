@@ -1,0 +1,11 @@
+[
+  { "name": "area:frontend", "color": "1d76db", "description": "The React site in frontend/" },
+  { "name": "area:backend", "color": "0e8a16", "description": "The FastAPI service in backend/" },
+  { "name": "area:data", "color": "5319e7", "description": "SPHEREx data, science facts and test targets" },
+  { "name": "area:infra", "color": "6a737d", "description": "Repository, CI and hosting" },
+  { "name": "area:pitch", "color": "d93f0b", "description": "Slides, video, project page and demo" },
+  { "name": "question", "color": "d876e3", "description": "Someone needs a fact or a preference" },
+  { "name": "blocker", "color": "b60205", "description": "Work cannot continue until someone else acts" },
+  { "name": "decision", "color": "fbca04", "description": "A choice that affects more than one area, or changes scope" },
+  { "name": "handoff", "color": "0052cc", "description": "Unfinished work for someone to pick up" }
+]

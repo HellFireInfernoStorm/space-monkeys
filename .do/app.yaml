@@ -1,0 +1,63 @@
+# DRAFT. Not yet deployed and not yet checked against DigitalOcean App Platform.
+# Before first use:
+#   1. Replace OWNER with the GitHub account or organisation that holds the repository.
+#   2. Pick the region and instance size on purpose (the values below are the smallest).
+#   3. Check the field names against the current App Platform app specification.
+#
+# One app, two parts:
+#   api   the FastAPI service, built from backend/Dockerfile, reached under /api
+#   web   the static site, built from frontend/, reached under /
+
+name: space-monkeys
+region: sgp
+
+services:
+  - name: api
+    github:
+      repo: OWNER/space-monkeys
+      branch: main
+      deploy_on_push: true
+    source_dir: backend
+    dockerfile_path: backend/Dockerfile
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    health_check:
+      http_path: /api/health
+    envs:
+      # mock = synthetic data. Change to live once the live image endpoints exist.
+      - key: SM_MODE
+        value: mock
+        scope: RUN_TIME
+
+static_sites:
+  - name: web
+    github:
+      repo: OWNER/space-monkeys
+      branch: main
+      deploy_on_push: true
+    source_dir: frontend
+    build_command: npm ci && npm run build
+    output_dir: dist
+    # The site keeps its state in the query string, so one page is enough.
+    index_document: index.html
+    envs:
+      # Empty means "same address as the site", which is what the ingress rule below gives.
+      - key: VITE_API_BASE
+        value: ""
+        scope: BUILD_TIME
+
+ingress:
+  rules:
+    - match:
+        path:
+          prefix: /api
+      component:
+        name: api
+        # The service's routes already start with /api, so keep the prefix.
+        preserve_path_prefix: true
+    - match:
+        path:
+          prefix: /
+      component:
+        name: web

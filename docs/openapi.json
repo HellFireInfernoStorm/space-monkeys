@@ -1,0 +1,1418 @@
+{
+  "components": {
+    "schemas": {
+      "Band": {
+        "properties": {
+          "band": {
+            "description": "Detector number, 1 to 6",
+            "title": "Band",
+            "type": "integer"
+          },
+          "wl_max_um": {
+            "title": "Wl Max Um",
+            "type": "number"
+          },
+          "wl_min_um": {
+            "title": "Wl Min Um",
+            "type": "number"
+          }
+        },
+        "required": [
+          "band",
+          "wl_min_um",
+          "wl_max_um"
+        ],
+        "title": "Band",
+        "type": "object"
+      },
+      "BandList": {
+        "properties": {
+          "bands": {
+            "items": {
+              "$ref": "#/components/schemas/Band"
+            },
+            "title": "Bands",
+            "type": "array"
+          }
+        },
+        "required": [
+          "bands"
+        ],
+        "title": "BandList",
+        "type": "object"
+      },
+      "Exposure": {
+        "properties": {
+          "access_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Download address at IRSA",
+            "title": "Access Url"
+          },
+          "bandpass": {
+            "title": "Bandpass",
+            "type": "string"
+          },
+          "cloud_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Address of the same file on the AWS mirror",
+            "title": "Cloud Url"
+          },
+          "collection": {
+            "title": "Collection",
+            "type": "string"
+          },
+          "detector": {
+            "description": "1 to 6",
+            "title": "Detector",
+            "type": "integer"
+          },
+          "exposure_id": {
+            "description": "Archive observation id plus detector, e.g. 2025W18_1B_0081_2-D6",
+            "title": "Exposure Id",
+            "type": "string"
+          },
+          "exptime_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exptime S"
+          },
+          "mjd": {
+            "description": "Middle of the exposure",
+            "title": "Mjd",
+            "type": "number"
+          },
+          "obs_id": {
+            "title": "Obs Id",
+            "type": "string"
+          },
+          "target_dec": {
+            "title": "Target Dec",
+            "type": "number"
+          },
+          "target_ra": {
+            "description": "Position of the target at this exposure's date",
+            "title": "Target Ra",
+            "type": "number"
+          },
+          "wavelength_um": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Wavelength at the target position; null until the image has been read",
+            "title": "Wavelength Um"
+          },
+          "wl_max_um": {
+            "description": "Longest wavelength anywhere on this detector image",
+            "title": "Wl Max Um",
+            "type": "number"
+          },
+          "wl_min_um": {
+            "description": "Shortest wavelength anywhere on this detector image",
+            "title": "Wl Min Um",
+            "type": "number"
+          }
+        },
+        "required": [
+          "exposure_id",
+          "obs_id",
+          "collection",
+          "detector",
+          "bandpass",
+          "mjd",
+          "exptime_s",
+          "wl_min_um",
+          "wl_max_um",
+          "wavelength_um",
+          "target_ra",
+          "target_dec",
+          "access_url",
+          "cloud_url"
+        ],
+        "title": "Exposure",
+        "type": "object"
+      },
+      "ExposureList": {
+        "properties": {
+          "capped": {
+            "description": "True if the list was cut down to the cap",
+            "title": "Capped",
+            "type": "boolean"
+          },
+          "collections": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Collections",
+            "type": "array"
+          },
+          "dec": {
+            "title": "Dec",
+            "type": "number"
+          },
+          "exposures": {
+            "items": {
+              "$ref": "#/components/schemas/Exposure"
+            },
+            "title": "Exposures",
+            "type": "array"
+          },
+          "mode": {
+            "enum": [
+              "mock",
+              "live"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "ra": {
+            "title": "Ra",
+            "type": "number"
+          },
+          "radius": {
+            "description": "Search radius, degrees",
+            "title": "Radius",
+            "type": "number"
+          },
+          "returned": {
+            "description": "How many are in this response",
+            "title": "Returned",
+            "type": "integer"
+          },
+          "total": {
+            "description": "How many matched",
+            "title": "Total",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "mode",
+          "total",
+          "returned",
+          "capped",
+          "ra",
+          "dec",
+          "radius",
+          "collections",
+          "exposures"
+        ],
+        "title": "ExposureList",
+        "type": "object"
+      },
+      "Frame": {
+        "properties": {
+          "center_dec": {
+            "title": "Center Dec",
+            "type": "number"
+          },
+          "center_ra": {
+            "description": "Sky position at the middle of this image",
+            "title": "Center Ra",
+            "type": "number"
+          },
+          "collection": {
+            "title": "Collection",
+            "type": "string"
+          },
+          "detector": {
+            "title": "Detector",
+            "type": "integer"
+          },
+          "exposure_id": {
+            "title": "Exposure Id",
+            "type": "string"
+          },
+          "image_url": {
+            "description": "Address of the PNG, relative to the API root",
+            "title": "Image Url",
+            "type": "string"
+          },
+          "mjd": {
+            "title": "Mjd",
+            "type": "number"
+          },
+          "target_dec": {
+            "title": "Target Dec",
+            "type": "number"
+          },
+          "target_ra": {
+            "description": "Position of the target at this frame's date",
+            "title": "Target Ra",
+            "type": "number"
+          },
+          "wavelength_um": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wavelength Um"
+          }
+        },
+        "required": [
+          "exposure_id",
+          "collection",
+          "detector",
+          "mjd",
+          "wavelength_um",
+          "image_url",
+          "center_ra",
+          "center_dec",
+          "target_ra",
+          "target_dec"
+        ],
+        "title": "Frame",
+        "type": "object"
+      },
+      "FrameList": {
+        "properties": {
+          "capped": {
+            "description": "True if the list was cut down to the cap",
+            "title": "Capped",
+            "type": "boolean"
+          },
+          "dec": {
+            "title": "Dec",
+            "type": "number"
+          },
+          "frames": {
+            "items": {
+              "$ref": "#/components/schemas/Frame"
+            },
+            "title": "Frames",
+            "type": "array"
+          },
+          "mode": {
+            "enum": [
+              "mock",
+              "live"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "pixel_scale": {
+            "description": "Arcseconds per original pixel",
+            "title": "Pixel Scale",
+            "type": "number"
+          },
+          "ra": {
+            "title": "Ra",
+            "type": "number"
+          },
+          "returned": {
+            "description": "How many are in this response",
+            "title": "Returned",
+            "type": "integer"
+          },
+          "size": {
+            "description": "Width of each image on the sky, arcseconds",
+            "title": "Size",
+            "type": "number"
+          },
+          "total": {
+            "description": "How many matched",
+            "title": "Total",
+            "type": "integer"
+          },
+          "track": {
+            "title": "Track",
+            "type": "boolean"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "mode",
+          "total",
+          "returned",
+          "capped",
+          "ra",
+          "dec",
+          "size",
+          "pixel_scale",
+          "track",
+          "frames"
+        ],
+        "title": "FrameList",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Health": {
+        "properties": {
+          "collections": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Collections",
+            "type": "array"
+          },
+          "mode": {
+            "enum": [
+              "mock",
+              "live"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "status": {
+            "const": "ok",
+            "default": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "collections",
+          "version"
+        ],
+        "title": "Health",
+        "type": "object"
+      },
+      "PhotometryPoint": {
+        "description": "Column names follow IRSA's Spectrophotometry Tool where they overlap.",
+        "properties": {
+          "det_id": {
+            "title": "Det Id",
+            "type": "integer"
+          },
+          "exposure_id": {
+            "title": "Exposure Id",
+            "type": "string"
+          },
+          "flags": {
+            "description": "Bitwise OR of the pixel flags in the aperture",
+            "title": "Flags",
+            "type": "integer"
+          },
+          "flux": {
+            "description": "In `flux_unit`",
+            "title": "Flux",
+            "type": "number"
+          },
+          "flux_err": {
+            "title": "Flux Err",
+            "type": "number"
+          },
+          "lambda_width": {
+            "description": "Width of the bandpass, micrometres",
+            "title": "Lambda Width",
+            "type": "number"
+          },
+          "mjd": {
+            "title": "Mjd",
+            "type": "number"
+          },
+          "obs_id": {
+            "title": "Obs Id",
+            "type": "string"
+          },
+          "wavelength": {
+            "description": "Micrometres, at the measured position",
+            "title": "Wavelength",
+            "type": "number"
+          }
+        },
+        "required": [
+          "exposure_id",
+          "obs_id",
+          "det_id",
+          "mjd",
+          "wavelength",
+          "lambda_width",
+          "flux",
+          "flux_err",
+          "flags"
+        ],
+        "title": "PhotometryPoint",
+        "type": "object"
+      },
+      "PhotometryResult": {
+        "properties": {
+          "capped": {
+            "description": "True if the list was cut down to the cap",
+            "title": "Capped",
+            "type": "boolean"
+          },
+          "dec": {
+            "title": "Dec",
+            "type": "number"
+          },
+          "flux_unit": {
+            "title": "Flux Unit",
+            "type": "string"
+          },
+          "method": {
+            "description": "How the numbers were made; quick-look values are not precise",
+            "title": "Method",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "mock",
+              "live"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/PhotometryPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "ra": {
+            "title": "Ra",
+            "type": "number"
+          },
+          "returned": {
+            "description": "How many are in this response",
+            "title": "Returned",
+            "type": "integer"
+          },
+          "total": {
+            "description": "How many matched",
+            "title": "Total",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "mode",
+          "total",
+          "returned",
+          "capped",
+          "ra",
+          "dec",
+          "flux_unit",
+          "method",
+          "points"
+        ],
+        "title": "PhotometryResult",
+        "type": "object"
+      },
+      "ResolveResult": {
+        "properties": {
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "source": {
+            "description": "Where the answer came from; 'builtin' for the test targets",
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/Target"
+          }
+        },
+        "required": [
+          "query",
+          "source",
+          "target"
+        ],
+        "title": "ResolveResult",
+        "type": "object"
+      },
+      "Target": {
+        "properties": {
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Aliases",
+            "type": "array"
+          },
+          "dec": {
+            "description": "Degrees, ICRS, at `epoch`",
+            "title": "Dec",
+            "type": "number"
+          },
+          "epoch": {
+            "description": "Decimal year of the position",
+            "title": "Epoch",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "parallax": {
+            "description": "mas",
+            "title": "Parallax",
+            "type": "number"
+          },
+          "pmdec": {
+            "description": "Proper motion in Dec, mas/yr",
+            "title": "Pmdec",
+            "type": "number"
+          },
+          "pmra": {
+            "description": "Proper motion in RA, mas/yr, including cos(dec)",
+            "title": "Pmra",
+            "type": "number"
+          },
+          "ra": {
+            "description": "Degrees, ICRS, at `epoch`",
+            "title": "Ra",
+            "type": "number"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "aliases",
+          "ra",
+          "dec",
+          "pmra",
+          "pmdec",
+          "parallax",
+          "epoch",
+          "kind",
+          "note",
+          "reference"
+        ],
+        "title": "Target",
+        "type": "object"
+      },
+      "TargetList": {
+        "properties": {
+          "mode": {
+            "enum": [
+              "mock",
+              "live"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/Target"
+            },
+            "title": "Targets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "mode",
+          "targets"
+        ],
+        "title": "TargetList",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "SPHEREx sky images over time for a position on the sky. Units: degrees (ICRS), arcseconds, micrometres, MJD, milliarcseconds per year. The `mode` field of every response says whether the data is real (`live`) or synthetic (`mock`).",
+    "title": "space-monkeys API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/bands": {
+      "get": {
+        "description": "The six detector bands and their wavelength ranges.",
+        "operationId": "bands_api_bands_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BandList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Bands",
+        "tags": [
+          "status"
+        ]
+      }
+    },
+    "/api/exposures": {
+      "get": {
+        "description": "Exposures that cover a position, across all configured collections, oldest first.",
+        "operationId": "exposures_api_exposures_get",
+        "parameters": [
+          {
+            "description": "Right Ascension, degrees, ICRS, at `epoch`",
+            "in": "query",
+            "name": "ra",
+            "required": true,
+            "schema": {
+              "description": "Right Ascension, degrees, ICRS, at `epoch`",
+              "maximum": 360,
+              "minimum": 0,
+              "title": "Ra",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Declination, degrees, ICRS, at `epoch`",
+            "in": "query",
+            "name": "dec",
+            "required": true,
+            "schema": {
+              "description": "Declination, degrees, ICRS, at `epoch`",
+              "maximum": 90,
+              "minimum": -90,
+              "title": "Dec",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Search radius, degrees",
+            "in": "query",
+            "name": "radius",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "maximum": 0.5,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Search radius, degrees",
+              "title": "Radius"
+            }
+          },
+          {
+            "description": "Proper motion in RA, mas/yr, including cos(dec)",
+            "in": "query",
+            "name": "pmra",
+            "required": false,
+            "schema": {
+              "default": 0.0,
+              "description": "Proper motion in RA, mas/yr, including cos(dec)",
+              "title": "Pmra",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Proper motion in Dec, mas/yr",
+            "in": "query",
+            "name": "pmdec",
+            "required": false,
+            "schema": {
+              "default": 0.0,
+              "description": "Proper motion in Dec, mas/yr",
+              "title": "Pmdec",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Decimal year of the given position",
+            "in": "query",
+            "name": "epoch",
+            "required": false,
+            "schema": {
+              "default": 2000.0,
+              "description": "Decimal year of the given position",
+              "maximum": 2100,
+              "minimum": 1900,
+              "title": "Epoch",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Most items to return; server default if empty",
+            "in": "query",
+            "name": "max",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 2000,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Most items to return; server default if empty",
+              "title": "Max"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExposureList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Exposures",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/api/frame.png": {
+      "get": {
+        "description": "One image patch as a PNG. Use the addresses given by `/api/frames`.",
+        "operationId": "frame_png_api_frame_png_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "exposure_id",
+            "required": true,
+            "schema": {
+              "maxLength": 120,
+              "minLength": 1,
+              "title": "Exposure Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Centre of the image, degrees",
+            "in": "query",
+            "name": "ra",
+            "required": true,
+            "schema": {
+              "description": "Centre of the image, degrees",
+              "maximum": 360,
+              "minimum": 0,
+              "title": "Ra",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Centre of the image, degrees",
+            "in": "query",
+            "name": "dec",
+            "required": true,
+            "schema": {
+              "description": "Centre of the image, degrees",
+              "maximum": 90,
+              "minimum": -90,
+              "title": "Dec",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Width of the image on the sky, arcseconds",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 120.0,
+              "description": "Width of the image on the sky, arcseconds",
+              "maximum": 600,
+              "minimum": 30,
+              "title": "Size",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Exposure to subtract; gives a difference image (grey: no change)",
+            "in": "query",
+            "name": "diff_ref",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exposure to subtract; gives a difference image (grey: no change)",
+              "title": "Diff Ref"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/png": {}
+            },
+            "description": "Greyscale PNG, north up, east left"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Frame Png",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/api/frames": {
+      "get": {
+        "description": "The frame list for the blink player: exposures in a wavelength range, each with an image address.\n\nWithout `track`, every frame is centred on the same sky position (where the object is\nat the middle frame), so a moving object visibly moves.",
+        "operationId": "frames_api_frames_get",
+        "parameters": [
+          {
+            "description": "Right Ascension, degrees, ICRS, at `epoch`",
+            "in": "query",
+            "name": "ra",
+            "required": true,
+            "schema": {
+              "description": "Right Ascension, degrees, ICRS, at `epoch`",
+              "maximum": 360,
+              "minimum": 0,
+              "title": "Ra",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Declination, degrees, ICRS, at `epoch`",
+            "in": "query",
+            "name": "dec",
+            "required": true,
+            "schema": {
+              "description": "Declination, degrees, ICRS, at `epoch`",
+              "maximum": 90,
+              "minimum": -90,
+              "title": "Dec",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Width of the image on the sky, arcseconds",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 120.0,
+              "description": "Width of the image on the sky, arcseconds",
+              "maximum": 600,
+              "minimum": 30,
+              "title": "Size",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Shortest wavelength to include, micrometres",
+            "in": "query",
+            "name": "wl_min",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Shortest wavelength to include, micrometres",
+              "title": "Wl Min"
+            }
+          },
+          {
+            "description": "Longest wavelength to include, micrometres",
+            "in": "query",
+            "name": "wl_max",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Longest wavelength to include, micrometres",
+              "title": "Wl Max"
+            }
+          },
+          {
+            "description": "Proper motion in RA, mas/yr, including cos(dec)",
+            "in": "query",
+            "name": "pmra",
+            "required": false,
+            "schema": {
+              "default": 0.0,
+              "description": "Proper motion in RA, mas/yr, including cos(dec)",
+              "title": "Pmra",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Proper motion in Dec, mas/yr",
+            "in": "query",
+            "name": "pmdec",
+            "required": false,
+            "schema": {
+              "default": 0.0,
+              "description": "Proper motion in Dec, mas/yr",
+              "title": "Pmdec",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Decimal year of the given position",
+            "in": "query",
+            "name": "epoch",
+            "required": false,
+            "schema": {
+              "default": 2000.0,
+              "description": "Decimal year of the given position",
+              "maximum": 2100,
+              "minimum": 1900,
+              "title": "Epoch",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Re-centre every frame on the moving object (it stays still)",
+            "in": "query",
+            "name": "track",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Re-centre every frame on the moving object (it stays still)",
+              "title": "Track",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Most items to return; server default if empty",
+            "in": "query",
+            "name": "max",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 2000,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Most items to return; server default if empty",
+              "title": "Max"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FrameList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Frames",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "description": "Is the service up, and is it serving real or synthetic data?",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "status"
+        ]
+      }
+    },
+    "/api/photometry": {
+      "get": {
+        "description": "Quick-look brightness at a point in every exposure: plot against wavelength for a\nspectrum, or against time for a light curve.",
+        "operationId": "photometry_api_photometry_get",
+        "parameters": [
+          {
+            "description": "Right Ascension, degrees, ICRS, at `epoch`",
+            "in": "query",
+            "name": "ra",
+            "required": true,
+            "schema": {
+              "description": "Right Ascension, degrees, ICRS, at `epoch`",
+              "maximum": 360,
+              "minimum": 0,
+              "title": "Ra",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Declination, degrees, ICRS, at `epoch`",
+            "in": "query",
+            "name": "dec",
+            "required": true,
+            "schema": {
+              "description": "Declination, degrees, ICRS, at `epoch`",
+              "maximum": 90,
+              "minimum": -90,
+              "title": "Dec",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Proper motion in RA, mas/yr, including cos(dec)",
+            "in": "query",
+            "name": "pmra",
+            "required": false,
+            "schema": {
+              "default": 0.0,
+              "description": "Proper motion in RA, mas/yr, including cos(dec)",
+              "title": "Pmra",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Proper motion in Dec, mas/yr",
+            "in": "query",
+            "name": "pmdec",
+            "required": false,
+            "schema": {
+              "default": 0.0,
+              "description": "Proper motion in Dec, mas/yr",
+              "title": "Pmdec",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Decimal year of the given position",
+            "in": "query",
+            "name": "epoch",
+            "required": false,
+            "schema": {
+              "default": 2000.0,
+              "description": "Decimal year of the given position",
+              "maximum": 2100,
+              "minimum": 1900,
+              "title": "Epoch",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Shortest wavelength to include, micrometres",
+            "in": "query",
+            "name": "wl_min",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Shortest wavelength to include, micrometres",
+              "title": "Wl Min"
+            }
+          },
+          {
+            "description": "Longest wavelength to include, micrometres",
+            "in": "query",
+            "name": "wl_max",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Longest wavelength to include, micrometres",
+              "title": "Wl Max"
+            }
+          },
+          {
+            "description": "Most items to return; server default if empty",
+            "in": "query",
+            "name": "max",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 2000,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Most items to return; server default if empty",
+              "title": "Max"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotometryResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Photometry",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/api/resolve": {
+      "get": {
+        "description": "Name to coordinates. Knows only the built-in test targets for now.",
+        "operationId": "resolve_api_resolve_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "maxLength": 80,
+              "minLength": 1,
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolveResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve",
+        "tags": [
+          "targets"
+        ]
+      }
+    },
+    "/api/targets": {
+      "get": {
+        "description": "The five test targets from the challenge, with catalogue positions and motions.",
+        "operationId": "targets_api_targets_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Targets",
+        "tags": [
+          "targets"
+        ]
+      }
+    }
+  }
+}
