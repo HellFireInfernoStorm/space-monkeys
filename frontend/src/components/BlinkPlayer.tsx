@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { apiUrl, type Frame, type FrameList } from "../api";
+import { type Frame, type FrameList } from "../api";
+import { imageAddress, REFERENCE_LABEL } from "../blink";
 import { LIMITS, type ViewMode, type ViewState } from "../urlState";
 import ModeToggle from "./ModeToggle";
 
@@ -19,12 +20,6 @@ function dateOf(mjd: number): string {
   return new Date((mjd - MJD_OF_UNIX_EPOCH) * 86_400_000).toISOString().slice(0, 16).replace("T", " ");
 }
 
-function imageAddress(frame: Frame, mode: ViewMode, reference: Frame): string {
-  const address = apiUrl(frame.image_url);
-  return mode === "diff"
-    ? `${address}&diff_ref=${encodeURIComponent(reference.exposure_id)}`
-    : address;
-}
 
 /**
  * Where the target sits in a frame, as fractions of the image from the top-left corner.
@@ -107,6 +102,9 @@ export default function BlinkPlayer({ list, speed, mode, onChange }: Props) {
             style={{ left: `${spot.left * 100}%`, top: `${spot.top * 100}%` }}
             title="Predicted position of the target on this date"
           />
+        )}
+        {mode === "diff" && current.exposure_id === frames[0].exposure_id && (
+          <span className="stage-label">{REFERENCE_LABEL}</span>
         )}
         <span className="compass">N up, E left</span>
       </div>

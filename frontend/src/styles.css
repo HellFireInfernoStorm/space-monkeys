@@ -276,6 +276,19 @@ button {
   text-shadow: 0 0 3px #000;
 }
 
+.stage-label {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+}
+
 .facts {
   display: flex;
   flex-wrap: wrap;
