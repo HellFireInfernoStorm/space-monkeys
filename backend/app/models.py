@@ -135,7 +135,12 @@ class StackImage(BaseModel):
     target_y: float = Field(description="Predicted object position, pixels from the top (north) edge")
     snr: float | None = Field(
         description="Signal-to-noise ratio at the predicted position: peak of a 3 by 3 pixel box "
-        "divided by the robust noise of the image away from it. Empty positions read about 1 to 2."
+        "divided by the robust noise of the image away from it. Empty positions read about 1 to 2. "
+        "Null when `saturated`, or when the image has too few usable pixels"
+    )
+    saturated: bool = Field(
+        description="True when pixels at the predicted position are flagged in most exposures, as in the "
+        "saturated core of a bright star. Then there is no S/N: `snr` is null by design, not missing"
     )
     image_url: str = Field(description="Address of the PNG, relative to the API root")
 
@@ -170,6 +175,10 @@ class MotionPoint(BaseModel):
     )
     snr: float | None = Field(
         description="S/N at the predicted position in the object-centred stack of this visit"
+    )
+    saturated: bool = Field(
+        description="The object's core is flagged in this visit (a saturated star): no S/N, and the "
+        "position is fitted to the wings, so its error is statistical only"
     )
 
 

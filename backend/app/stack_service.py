@@ -32,7 +32,7 @@ from .sampling import sample_evenly
 from .targets import TARGETS, parallax_offset, position_at_mjd
 
 # Bump when the stacking changes, so old cached stacks are not reused.
-STACK_VERSION = 6
+STACK_VERSION = 7
 
 _lock = threading.Lock()
 
@@ -229,6 +229,7 @@ def _compute(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np.
             target_x=round(stack.target_x, 3),
             target_y=round(stack.target_y, 3),
             snr=None if stack.snr is None else round(stack.snr, 2),
+            saturated=stack.saturated,
             image_url=_image_url(req, stack.kind, stack.index),
         )
 
@@ -252,6 +253,7 @@ def _compute(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np.
             error_method=None,
             error_arcsec=None,
             snr=None if snr is None else round(snr, 2),
+            saturated=s.saturated,
         )
         here, there = s.measured, first.measured
         if here is not None and there is not None:
@@ -266,10 +268,11 @@ def _compute(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np.
                 point.error_method = "bootstrap" if both == {"bootstrap"} else "fit"
         motion.append(point)
 
-    if built["tracked"] is not None and built["tracked"].snr is None:
+    if built["tracked"] is not None and built["tracked"].saturated:
         notes.append(
             "The pixels at the target are flagged in most exposures (usually the saturated core of a "
-            "bright star), so no signal-to-noise ratio is given. The pictures show their unflagged values."
+            "bright star), so no signal-to-noise ratio is given: it is marked saturated. The pictures "
+            "show their unflagged values, and positions are fitted to the star's wings."
         )
 
     result = m.StackResult(

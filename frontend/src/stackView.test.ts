@@ -28,6 +28,7 @@ function image(change: Partial<StackImage>): StackImage {
     target_x: 10,
     target_y: 10,
     snr: 18.6,
+    saturated: false,
     image_url: "/api/stack.png?kind=tracked",
     ...change,
   };
@@ -40,6 +41,11 @@ describe("stackView", () => {
     expect(sigmaText(4.49)).toBe("about 4.5 sigma");
     expect(stackLabel(image({ snr: null }))).toBe("46 exposures stacked");
     expect(sigmaText(undefined)).toBe("");
+    // A saturated core has no S/N by design: the label says so instead of leaving it out.
+    expect(stackLabel(image({ snr: null, saturated: true }))).toBe("46 exposures stacked, saturated");
+    expect(stackLabel(image({ kind: "single", n_exposures: 1, snr: null, saturated: true }))).toBe(
+      "1 exposure, saturated",
+    );
   });
 
   it("places markers by stack pixel", () => {
@@ -64,6 +70,7 @@ describe("stackView", () => {
       error_method: "bootstrap",
       error_arcsec: 0.5,
       snr: 14,
+      saturated: false,
     };
     expect(measuredText(point)).toBe("3.9 ± 0.5″ W, 1.0 ± 0.3″ N");
     expect(measuredText({ ...point, error_east_arcsec: null, error_north_arcsec: null })).toBe("3.9″ W, 1.0″ N");
@@ -72,5 +79,9 @@ describe("stackView", () => {
     expect(predictedText({ ...point, parallax_east_arcsec: 0, parallax_north_arcsec: 0 })).toBe("4.4″ W, 0.5″ N");
     expect(differenceText(point)).toBe("0.5″ E (1.0σ), 0.5″ N (2.0σ)");
     expect(differenceText({ ...point, error_east_arcsec: null })).toBe("");
+    expect(measuredText({ ...point, saturated: true })).toBe(
+      "3.9 ± 0.5″ W, 1.0 ± 0.3″ N (saturated: fitted to the wings, error statistical only)",
+    );
+    expect(measuredText({ ...point, saturated: true, measured_north_arcsec: null })).toBe("saturated, not measured");
   });
 });

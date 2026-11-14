@@ -26,8 +26,10 @@ export function stackLabel(image: StackImage): string {
   const count = `${image.n_exposures} exposure${image.n_exposures === 1 ? "" : "s"}`;
   // A single exposure is just "1 exposure": its number is in the API, but a peak-of-nine
   // reading on one noisy image is easy to misread as a detection.
-  if (image.kind === "single") return "1 exposure";
-  return `${count} stacked${sigma ? `, ${sigma}` : ""}`;
+  if (image.kind === "single") return image.saturated ? "1 exposure, saturated" : "1 exposure";
+  // A flagged (saturated) core has no S/N by design: say so rather than show nothing.
+  const quality = image.saturated ? "saturated" : sigma;
+  return `${count} stacked${quality ? `, ${quality}` : ""}`;
 }
 
 /** An offset east and north in arcseconds, as text such as "3.6″ W, 0.3″ N". */
@@ -47,8 +49,11 @@ function axisText(value: number, error: number | null | undefined, positive: str
 export function measuredText(point: MotionPoint): string {
   const east = point.measured_east_arcsec;
   const north = point.measured_north_arcsec;
-  if (east === null || east === undefined || north === null || north === undefined) return "too faint";
-  return `${axisText(east, point.error_east_arcsec, "E", "W")}, ${axisText(north, point.error_north_arcsec, "N", "S")}`;
+  if (east === null || east === undefined || north === null || north === undefined) {
+    return point.saturated ? "saturated, not measured" : "too faint";
+  }
+  const text = `${axisText(east, point.error_east_arcsec, "E", "W")}, ${axisText(north, point.error_north_arcsec, "N", "S")}`;
+  return point.saturated ? `${text} (saturated: fitted to the wings, error statistical only)` : text;
 }
 
 /** Predicted offset, with the parallax part named when there is one. */

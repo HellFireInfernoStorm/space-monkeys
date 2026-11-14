@@ -136,3 +136,31 @@ def test_stack_without_motion_has_no_static(client):
 def test_stack_png_unknown_image(client):
     params = {"ra": 10, "dec": 20, "kind": "epoch", "index": 99}
     assert client.get("/api/stack.png", params=params).status_code == 404
+
+
+def test_saturated_star_says_so_instead_of_an_empty_snr(monkeypatch):
+    import numpy as np
+
+    from app import stack_service
+    from app.config import Settings
+
+    real = stack_service._mock_inputs
+
+    def flagged(req, n):
+        exposures, total, notes, capped = real(req, n)
+        for e in exposures:
+            centre = n // 2
+            e.raw = e.image.copy()
+            e.raw[centre - 1 : centre + 1, centre - 1 : centre + 1] += 500.0
+            e.image = e.raw.copy()
+            e.image[centre - 1 : centre + 1, centre - 1 : centre + 1] = np.nan  # flagged core
+        return exposures, total, notes, capped
+
+    monkeypatch.setattr(stack_service, "_mock_inputs", flagged)
+    req = stack_service.StackRequest.normalised(**{**WISE, "size": 120.0, "wl_min": 4.4, "wl_max": 5.0})
+    meta, _ = stack_service._compute(Settings(mode="mock", _env_file=None), req)
+    result = meta["result"]
+    assert result["tracked"]["saturated"] is True and result["tracked"]["snr"] is None
+    assert all(e["saturated"] for e in result["epochs"])
+    assert all(p["saturated"] for p in result["motion"])
+    assert any("saturated" in w for w in result["warnings"])
