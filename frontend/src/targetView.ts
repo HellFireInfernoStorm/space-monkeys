@@ -10,7 +10,7 @@ export const SUGGESTED_RANGES: Readonly<Record<string, readonly [number, number]
   "wise-0855": [4.4, 5.0],
 };
 
-/** The view change for picking a built-in target: position, motion, epoch, name, and range if suggested. */
+/** The view change for picking a built-in target: position, motion, epoch, parallax, name, and range if suggested. */
 export function viewForTarget(target: Target): Partial<ViewState> {
   const change: Partial<ViewState> = {
     ra: target.ra,
@@ -18,6 +18,7 @@ export function viewForTarget(target: Target): Partial<ViewState> {
     pmra: target.pmra,
     pmdec: target.pmdec,
     epoch: target.epoch,
+    plx: target.parallax,
     name: target.name,
   };
   const range = SUGGESTED_RANGES[target.id];

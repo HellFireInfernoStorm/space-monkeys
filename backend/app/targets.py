@@ -142,6 +142,41 @@ def position_at_mjd(
     return propagate(ra, dec, pmra, pmdec, epoch, mjd_to_year(mjd))
 
 
+def earth_position_au(mjd: float) -> tuple[float, float, float]:
+    """Earth's position relative to the Sun (ICRS-aligned equatorial axes, astronomical
+    units) at a date. Low-precision solar formula of the Astronomical Almanac (accurate to
+    about 0.01 degree, 1990 to 2100), so no astronomy library is needed. The Sun-to-
+    barycentre offset (under 0.01 AU) and the spacecraft's orbit (about 700 km) are ignored:
+    each moves a parallax of 0.5 arcsec by less than 0.005 arcsec."""
+    n = mjd + 2400000.5 - 2451545.0
+    mean_longitude = math.radians((280.460 + 0.9856474 * n) % 360.0)
+    anomaly = math.radians((357.528 + 0.9856003 * n) % 360.0)
+    longitude = mean_longitude + math.radians(1.915 * math.sin(anomaly) + 0.020 * math.sin(2 * anomaly))
+    distance = 1.00014 - 0.01671 * math.cos(anomaly) - 0.00014 * math.cos(2 * anomaly)
+    obliquity = math.radians(23.439 - 0.0000004 * n)
+    # The Sun as seen from Earth, then the other way round.
+    sun = (
+        distance * math.cos(longitude),
+        distance * math.cos(obliquity) * math.sin(longitude),
+        distance * math.sin(obliquity) * math.sin(longitude),
+    )
+    return -sun[0], -sun[1], -sun[2]
+
+
+def parallax_offset(ra: float, dec: float, parallax_mas: float, mjd: float) -> tuple[float, float]:
+    """Apparent shift (east, north, arcseconds) of a star at a parallax, seen from Earth
+    on a date, relative to where it would be seen from the Sun. Standard formula: the star
+    appears displaced away from Earth's position, by parallax times the projected distance."""
+    if parallax_mas == 0.0:
+        return 0.0, 0.0
+    x, y, z = earth_position_au(mjd)
+    a, d = math.radians(ra), math.radians(dec)
+    p = parallax_mas / 1000.0
+    east = p * (x * math.sin(a) - y * math.cos(a))
+    north = p * (x * math.cos(a) * math.sin(d) + y * math.sin(a) * math.sin(d) - z * math.cos(d))
+    return east, north
+
+
 def _normalise(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", name.lower())
 

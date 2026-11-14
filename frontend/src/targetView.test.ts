@@ -28,6 +28,7 @@ describe("viewForTarget", () => {
     expect(view.wlmax).toBe(5);
     const back = parseView(serializeView(view));
     expect([back.wlmin, back.wlmax, back.name]).toEqual([4.4, 5, "WISE 0855"]);
+    expect(back.plx).toBe(439); // the parallax travels with the link
   });
 
   it("leaves the wavelength range alone for other targets", () => {

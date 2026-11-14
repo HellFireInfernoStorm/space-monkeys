@@ -18,6 +18,7 @@ describe("urlState", () => {
       pmra: -8123.7,
       pmdec: 673.2,
       epoch: 2014.5,
+      plx: 439,
       speed: 4,
       mode: "diff",
       track: true,
@@ -36,6 +37,7 @@ describe("urlState", () => {
       { pmra: -801.551 },
       { pmdec: 10362.394 },
       { epoch: 2016 },
+      { plx: 546.976 },
       { speed: 8 },
       { mode: "diff" },
       { mode: "stack" },
@@ -50,7 +52,7 @@ describe("urlState", () => {
   });
 
   it("ignores values that are out of range or not numbers", () => {
-    const view = parseView("?ra=400&dec=20&size=5&speed=fast&mode=sideways&epoch=1500&sky=moon");
+    const view = parseView("?ra=400&dec=20&size=5&speed=fast&mode=sideways&epoch=1500&sky=moon&plx=-3");
     expect(view).toEqual(DEFAULT_VIEW);
   });
 

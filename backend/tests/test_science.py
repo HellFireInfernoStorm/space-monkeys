@@ -3,13 +3,22 @@
 import math
 
 import numpy as np
+import pytest
 
 from app import mock
 from app.bands import BANDS, band_of
 from app.config import Settings
 from app.flags import DEFAULT_BAD_MASK, FLAG_BITS, describe, is_bad
 from app.sampling import sample_evenly
-from app.targets import TARGETS, find_target, mjd_to_year, propagate, year_to_mjd
+from app.targets import (
+    TARGETS,
+    earth_position_au,
+    find_target,
+    mjd_to_year,
+    parallax_offset,
+    propagate,
+    year_to_mjd,
+)
 
 
 def _separation_arcsec(ra1, dec1, ra2, dec2):
@@ -31,6 +40,29 @@ def test_barnards_star_moves_about_ten_arcsec_a_year():
     a = propagate(t.ra, t.dec, t.pmra, t.pmdec, t.epoch, 2025.0)
     b = propagate(t.ra, t.dec, t.pmra, t.pmdec, t.epoch, 2026.0)
     assert 10.0 < _separation_arcsec(*a, *b) < 10.8
+
+
+def test_earth_position_agrees_with_astropy():
+    pytest.importorskip("astropy")
+    from astropy.coordinates import get_body_barycentric
+    from astropy.time import Time
+
+    for mjd in (60800.0, 60990.0, 61160.0, 61300.0):
+        expected = get_body_barycentric("earth", Time(mjd, format="mjd", scale="tt")).xyz.to("AU").value
+        # The formula is heliocentric; the Sun is within 0.01 AU of the barycentre.
+        assert np.max(np.abs(np.array(earth_position_au(mjd)) - expected)) < 0.015
+
+
+def test_parallax_shift_of_wise_0855():
+    t = find_target("WISE 0855")
+    # Expected values: the star's direction seen from astropy's barycentric Earth position,
+    # computed once on 2026-11-14 for a parallax of 400 mas. In November the star appears
+    # east of its mean position, in late April west.
+    east, north = parallax_offset(133.76, -7.24, 400.0, 60990.0)
+    assert east == pytest.approx(0.375, abs=0.01) and north == pytest.approx(-0.118, abs=0.01)
+    east, north = parallax_offset(133.76, -7.24, 400.0, 61160.0)
+    assert east == pytest.approx(-0.389, abs=0.01) and north == pytest.approx(0.096, abs=0.01)
+    assert parallax_offset(t.ra, t.dec, 0.0, 61160.0) == (0.0, 0.0)
 
 
 def test_year_and_mjd_round_trip():

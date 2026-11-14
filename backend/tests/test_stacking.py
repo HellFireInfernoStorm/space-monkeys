@@ -77,11 +77,12 @@ def test_epoch_stacks_share_one_grid_and_show_the_step():
     for e in epochs:
         box = e.image[int(star_y) - 1 : int(star_y) + 2, int(star_x) - 1 : int(star_x) + 2]
         assert np.nanmax(box) > 4.0
-    # Measured positions follow the predicted ones.
+    # Measured positions follow the predicted ones, within their (bootstrap) errors.
     for e in epochs:
-        assert e.measured is not None
-        assert e.measured[0] == pytest.approx(e.extra["east"], abs=2.5)
-        assert e.measured[1] == pytest.approx(0.0, abs=2.5)
+        assert e.measured is not None and e.measured.method == "bootstrap"
+        assert 0.0 < e.measured.err_east < 2.0 and 0.0 < e.measured.err_north < 2.0
+        assert e.measured.east == pytest.approx(e.extra["east"], abs=4 * e.measured.err_east)
+        assert e.measured.north == pytest.approx(0.0, abs=4 * e.measured.err_north)
 
 
 def test_faint_epoch_is_not_measured():
@@ -143,6 +144,105 @@ def test_flagged_star_core_is_empty_in_the_stack_but_filled_in_the_picture():
     assert built["tracked"].snr is None  # no number from flagged pixels
     assert built["tracked"].display[12, 12] > 20.0
     assert built["static"].display[12, 12] > 10.0
+
+
+def test_gaussian_fit_finds_a_sub_pixel_position():
+    image = _gaussian(11.83, 13.27, 10.0)
+    fit = stacking.fit_gaussian(image, None, (11, 13), 0.0, sigma_px=0.7, fit_sigma=True)
+    assert fit is not None
+    assert fit.x == pytest.approx(11.83, abs=1e-3) and fit.y == pytest.approx(13.27, abs=1e-3)
+    assert fit.sigma_px == pytest.approx(SIGMA_PX, abs=1e-3)
+    # A flagged core: the position still comes from the wings.
+    holed = image.copy()
+    holed[12:15, 10:13] = np.nan
+    wings = stacking.fit_gaussian(holed, None, (11, 13), 0.0, fit_sigma=True)
+    assert wings.x == pytest.approx(11.83, abs=1e-2) and wings.y == pytest.approx(13.27, abs=1e-2)
+
+
+def test_bootstrap_error_matches_the_real_scatter():
+    """Repeat a visit with fresh noise: the spread of the measured positions should be
+    about the bootstrap error of one of them (within a factor of two)."""
+    positions, errors = [], []
+    for seed in range(12):
+        rng = np.random.default_rng(100 + seed)
+        images = [rng.normal(0.0, 1.0, (N_PX, N_PX)) + _gaussian(12.5, 12.5, 2.5) for _ in range(20)]
+        measured, snr, flagged = stacking.measure_visit(
+            images, [1.0] * 20, [0.0] * 20, [0.0] * 20, N_PX, SCALE, draws=60, seed=seed
+        )
+        assert measured is not None and not flagged and snr > 5
+        positions.append(measured.east)
+        errors.append(measured.err_east)
+    spread = float(np.std(positions, ddof=1))
+    assert 0.5 * spread < float(np.median(errors)) < 2.0 * spread
+
+
+def _native_to_patch(rng, centre_east: float, centre_north: float, peak: float) -> np.ndarray:
+    """An object-centred patch read from a native detector image the way live mode does
+    (bilinear, random rotation and pixel phase). The object is at (centre_east,
+    centre_north) arcsec from the patch centre. Native star: 7.5 arcsec FWHM."""
+    from app.resample import bilinear
+
+    size = 40
+    sigma = 7.5 / 2.3548 / SCALE
+    sx, sy = size / 2 + rng.uniform(-0.5, 0.5), size / 2 + rng.uniform(-0.5, 0.5)
+    yy, xx = np.mgrid[0:size, 0:size]
+    native = peak * np.exp(-((xx - sx) ** 2 + (yy - sy) ** 2) / (2 * sigma**2))
+    theta = rng.uniform(0.0, 2.0 * math.pi)
+    centres = np.arange(N_PX) + 0.5
+    east = (N_PX / 2 - centres)[None, :] * SCALE - centre_east
+    north = (N_PX / 2 - centres)[:, None] * SCALE - centre_north
+    east, north = np.broadcast_to(east, (N_PX, N_PX)), np.broadcast_to(north, (N_PX, N_PX))
+    u = (-east * math.cos(theta) + north * math.sin(theta)) / SCALE
+    v = (-east * math.sin(theta) - north * math.cos(theta)) / SCALE
+    return bilinear(native, sx + u, sy + v)
+
+
+def test_measured_step_has_no_resampling_bias():
+    """Two visits whose fixed-grid shifts have different sub-pixel phases (0.3 and 0.8
+    pixel). With almost no noise, the measured step must equal the true step within the
+    bootstrap error. What is left is the first resampling (detector to grid) at a
+    different pixel phase in every exposure: about 0.1 arcsec for 20 exposures."""
+    rng = np.random.default_rng(7)
+    items = []
+    for visit, east_px in enumerate((-0.3, 0.8)):
+        for k in range(20):
+            image = _native_to_patch(rng, 0.0, 0.0, 100.0) + rng.normal(0.0, 0.01, (N_PX, N_PX))
+            mjd = 60800.0 + 180 * visit + k
+            items.append(StackInput(f"v{visit}_{k}", mjd, 4.7, image, east_px * SCALE, 0.0))
+    built = stacking.build(items, N_PX, SCALE, has_motion=True)
+    first, second = built["epochs"]
+    error_east = math.hypot(first.measured.err_east, second.measured.err_east)
+    error_north = math.hypot(first.measured.err_north, second.measured.err_north)
+    assert error_east < 0.3 and error_north < 0.3
+    step_east = second.measured.east - first.measured.east
+    step_north = second.measured.north - first.measured.north
+    assert step_east == pytest.approx(1.1 * SCALE, abs=max(0.1, 3 * error_east))
+    assert step_north == pytest.approx(0.0, abs=max(0.1, 3 * error_north))
+
+
+def test_parallax_enters_the_prediction_not_the_image_centre():
+    items = _inputs(peak=6.0)
+    for item in items:
+        item.parallax_east, item.parallax_north = 0.4, -0.2
+    built = stacking.build(items, N_PX, SCALE, has_motion=True)
+    plain = stacking.build(_inputs(peak=6.0), N_PX, SCALE, has_motion=True)
+    for e, p in zip(built["epochs"], plain["epochs"], strict=True):
+        assert e.extra["east"] == pytest.approx(p.extra["east"] + 0.4)
+        assert e.extra["north"] == pytest.approx(p.extra["north"] - 0.2)
+        assert e.measured.east == pytest.approx(p.measured.east)  # same pixels, same measurement
+
+
+def test_saturated_star_is_measured_from_its_wings():
+    items = _inputs(peak=50.0)
+    for item in items:
+        item.raw = item.image.copy()
+        item.image = item.image.copy()
+        item.image[12, 12] = np.nan  # the core pixel is flagged in every exposure
+    built = stacking.build(items, N_PX, SCALE, has_motion=True)
+    assert built["tracked"].saturated and built["tracked"].snr is None
+    for e in built["epochs"]:
+        assert e.saturated and e.measured is not None
+        assert e.measured.east == pytest.approx(e.extra["east"], abs=1.0)
 
 
 def test_single_is_a_typical_exposure():

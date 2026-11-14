@@ -60,9 +60,10 @@ ra  = ra0  + pmra  * years / 3_600_000 / cos(dec0)
 dec = dec0 + pmdec * years / 3_600_000
 ```
 
-This straight-line formula ignores parallax and the curvature of the sky. For our targets and a 6.15 arcsecond pixel the error is well under one pixel. The code is `propagate()` in `backend/app/targets.py`.
+This straight-line formula ignores parallax and the curvature of the sky. For our targets and a 6.15 arcsecond pixel the error is well under one pixel, so searches, cut-outs and tracking use it. The code is `propagate()` in `backend/app/targets.py`.
 
-- **WISE 0855 is not where the challenge text says.** The coordinates in the challenge (133.795129, -7.245147) are its position around 2010. It moves 8.1 arcseconds a year. In 2026 it is near 133.7601, -7.2422, about two arcminutes away. During the SPHEREx survey so far it moves about 7 arcseconds, roughly one pixel.
+- **Parallax** is the yearly wobble caused by Earth going round the Sun: a star appears displaced away from Earth's position, by its parallax times the part of Earth's distance from the Sun seen across the line of sight. For WISE 0855 (439 mas) it moves the star by up to 0.44 arcseconds, and between the two visits we stack (November 2025 and late April 2026, Earth on opposite sides of the Sun) it changes the predicted step by 0.82 arcseconds west and 0.24 north: larger than our measurement error, so the motion table includes it when the parallax is given (`parallax_offset()` in `backend/app/targets.py`; Earth's position from the low-precision solar formula of the Astronomical Almanac, checked against Astropy). Patches are still centred by proper motion alone: parallax is under a tenth of a pixel.
+- **WISE 0855 is not where the challenge text says.** The coordinates in the challenge (133.795129, -7.245147) are its position around 2010. It moves 8.15 arcseconds a year. In 2026 it is near 133.7601, -7.2422, about two arcminutes away. Across the SPHEREx data we stack (2025-05-05 to 2026-05-11, 1.02 years) it moves about 8.3 arcseconds, 1.35 pixels; between the two visits with enough exposures, 3.6 arcseconds from proper motion alone.
 
 ## 3. The five test targets
 
@@ -178,15 +179,32 @@ Collection names live in `backend/app/config.py` and nowhere else.
 | Visit 2 stack, 21 exposures, 2026-04-21 to 2026-05-11 | 14.0 |
 | Eight empty positions 5 pixels from the object, tracked stack | -0.4 to 2.6 |
 
-Between the two visits the object should move 3.6 arcseconds west and 0.3 north (catalogue motion). We measured 4.3 west and 2.2 north, with a rough uncertainty of 0.5 to 0.6 arcseconds per visit. The east-west motion agrees; the north-south difference (about 2 arcseconds, a third of a pixel) is larger than the rough uncertainty suggests, which probably underestimates the real error.
+**How the position in a visit is measured** (since 2026-11-14, second version; code `measure_visit` in `backend/app/stacking.py`):
+
+- The visit's exposures are stacked as they were read, each centred on the object's predicted position (proper motion only). A Gaussian (width fitted between 0.45 and 1.6 pixels) is fitted to the 5 by 5 pixels around the peak, weighted by each pixel's formal noise. The object's offset from the image centre, added to the predicted position, is the measured position.
+- Why not the fixed-grid visit stacks shown in the blink: those have been resampled twice (detector to grid, then a sub-pixel shift onto the fixed grid). In a simulation of this pipeline with the real WISE 0855 exposure times and shifts and almost no noise, the second shift moved the fitted step between the two visits by 0.5 arcseconds east, and the old method (brightness-weighted centre of 3 by 3 pixels) by 0.5 west and 0.5 north. In object-centred stacks the object sits at the same pixel phase in both visits, and the same simulation recovers the step to 0.03 arcseconds.
+- Uncertainty: a bootstrap. Each visit is re-stacked 200 times from its own exposures drawn at random with repeats, and re-fitted; the spread of the fitted positions is the error. The two visits are independent, so their errors add in quadrature. The bootstrap error (0.41 to 0.44 arcseconds for the step) is about 20 % larger than the fit's own error (0.36), because resampling makes neighbouring pixels share noise.
+- Checks for systematic errors (2026-11-14, a 400 arcsecond field around WISE 0855 at 4.4 to 5.0 micrometres): the three brightest field stars (S/N 93 to 183) scatter by 0.25 to 0.6 arcseconds from exposure to exposure (this includes their measurement noise), and their mean position moves by 0.0 to 0.2 arcseconds between the two visits. So per-exposure pointing errors are not the cause of a 1 to 2 arcsecond difference, and the bootstrap already contains them. Splitting each visit into its shorter and longer half of wavelengths (4.55 and 4.84 micrometres on average) moves the fitted position by 0.3 to 0.8 arcseconds, within those halves' errors (0.3 to 0.5): no wavelength effect is detected. The two visits have similar mean wavelengths (4.68 and 4.72).
+
+**The measured motion of WISE 0855 between its two visits** (46 exposures, 4.4 to 5.0 micrometres, parallax 439 mas; offsets of visit 2 from visit 1, arcseconds):
+
+| | East-west | North-south |
+| --- | --- | --- |
+| Predicted: proper motion | 3.62 W | 0.30 N |
+| Predicted: parallax | 0.82 W | 0.24 N |
+| Predicted: total | 4.44 W | 0.54 N |
+| Measured (± 1 sigma, bootstrap) | 3.88 ± 0.44 W | 1.01 ± 0.41 N |
+| Measured minus predicted | 0.56 E (1.3 sigma) | 0.47 N (1.1 sigma) |
+
+The measurement agrees with the prediction within its errors in both directions. The earlier figure (4.3 W, 2.2 N with a "rough" error of 0.5 to 0.6, measured with the 3 by 3 brightness-weighted centre on the fixed grid and compared with proper motion alone) is superseded: that method was biased by the pixel grid (see above) and left out parallax. With an error of about 0.4 arcseconds per direction, a residual below about 1 arcsecond is all this data can confirm.
 
 **Limits:**
 
-- The object moves only about 8 arcseconds (1.3 pixels) across the year of data, and 3.6 arcseconds (0.6 pixel) between the two visits that have enough exposures. Tracked and static stacks therefore look similar, and following the opposite motion as a test still gives S/N 15: with this little motion it is not a useful control. The empty positions above are the better control.
+- The object moves only about 8 arcseconds (1.35 pixels) across the year of data, and 4.4 arcseconds (0.7 pixel) between the two visits that have enough exposures. Tracked and static stacks therefore look similar, and following the opposite motion as a test still gives S/N 15: with this little motion it is not a useful control. The empty positions above are the better control.
 - The stack is broadband: it adds exposures from 4.4 to 5.0 micrometres, each at a different wavelength. It shows that something is there, not its spectrum.
-- Parallax (the yearly wobble from Earth's orbit, 0.44 arcseconds for WISE 0855) is ignored; it is under a tenth of a pixel.
-- Stacks are on the 6.15 arcsecond pixel grid. Positions finer than about a third of a pixel are not reliable.
-- Bright stars: their cores are flagged in most exposures, so no S/N is given and the position is measured from unflagged values without an error estimate. For Barnard's Star at 1.0 to 1.2 micrometres the measured motion was 6.2 then 8.5 arcseconds north against 5.7 and 10.3 predicted, and 2 to 3 arcseconds off in east-west.
+- The pictures and markers are on the 6.15 arcsecond pixel grid. The fitted positions are finer than that, with the errors stated; what limits them is the object's S/N (12 to 14 per visit) and the different pixel phase of each exposure's resampling, not the grid.
+- Parallax enters only through the `parallax` parameter (the site sends the built-in targets' values). Without it the prediction is proper motion alone and, for WISE 0855, off by 0.8 arcseconds.
+- Bright stars: their cores are flagged in most exposures, so no S/N is given ("saturated"). The position is fitted to the unflagged wings around the hole (an 11 by 11 pixel window and a wider profile), with a bootstrap error. That error is statistical only: the wings are not Gaussian and the star's image is not symmetric. Barnard's Star at 1.0 to 1.2 micrometres (three visits, 9 or 10 exposures each, parallax 547 mas): visit 3 measured 0.4 ± 0.5 W, 10.2 ± 0.4 N against 0.8 W, 10.3 N predicted (agrees); visit 2 measured 2.8 ± 0.5 E, 4.6 ± 0.5 N against 0.6 E, 5.6 N (off by 2.2 E and 1.0 S, 4 and 2 sigma). Positions of saturated stars are therefore good to about 2 arcseconds, not to their stated error.
 
 ## 7. What we must not claim
 

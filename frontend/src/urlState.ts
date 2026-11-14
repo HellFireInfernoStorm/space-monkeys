@@ -22,6 +22,8 @@ export interface ViewState {
   pmdec: number;
   /** Decimal year for which `ra` and `dec` are given. */
   epoch: number;
+  /** Parallax, milliarcseconds. Used only for the predicted positions in the Stack view. */
+  plx: number;
   /** Playback speed, frames per second. */
   speed: number;
   /** Plain frames, each frame minus the first one, or many exposures added together. */
@@ -43,6 +45,7 @@ export const DEFAULT_VIEW: ViewState = {
   pmra: 0,
   pmdec: 0,
   epoch: 2000,
+  plx: 0,
   speed: 2,
   mode: "blink",
   track: false,
@@ -54,6 +57,7 @@ export const LIMITS = {
   size: [30, 600],
   speed: [0.5, 20],
   epoch: [1900, 2100],
+  plx: [0, 1000],
 } as const;
 
 function numberIn(value: string | null, min: number, max: number): number | null {
@@ -84,6 +88,7 @@ export function parseView(search: string): ViewState {
     pmra: numberIn(p.get("pmra"), -1e6, 1e6) ?? DEFAULT_VIEW.pmra,
     pmdec: numberIn(p.get("pmdec"), -1e6, 1e6) ?? DEFAULT_VIEW.pmdec,
     epoch: numberIn(p.get("epoch"), ...LIMITS.epoch) ?? DEFAULT_VIEW.epoch,
+    plx: numberIn(p.get("plx"), ...LIMITS.plx) ?? DEFAULT_VIEW.plx,
     speed: numberIn(p.get("speed"), ...LIMITS.speed) ?? DEFAULT_VIEW.speed,
     mode: mode === "diff" || mode === "stack" ? mode : "blink",
     track: p.get("track") === "1",
@@ -105,6 +110,7 @@ export function serializeView(view: ViewState): string {
   if (view.pmra !== 0) p.set("pmra", trim(view.pmra, 3));
   if (view.pmdec !== 0) p.set("pmdec", trim(view.pmdec, 3));
   if (view.epoch !== DEFAULT_VIEW.epoch) p.set("epoch", trim(view.epoch, 3));
+  if (view.plx !== DEFAULT_VIEW.plx) p.set("plx", trim(view.plx, 3));
   if (view.speed !== DEFAULT_VIEW.speed) p.set("speed", trim(view.speed, 2));
   if (view.mode !== DEFAULT_VIEW.mode) p.set("mode", view.mode);
   if (view.track) p.set("track", "1");

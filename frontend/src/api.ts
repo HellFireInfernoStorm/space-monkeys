@@ -83,6 +83,8 @@ export interface StackQuery extends PositionQuery {
   size: number;
   wl_min: number | null;
   wl_max: number | null;
+  /** Milliarcseconds; 0 leaves parallax out of the predicted positions. */
+  parallax: number;
 }
 
 export const getStack = (query: StackQuery, signal?: AbortSignal) =>

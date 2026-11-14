@@ -19,7 +19,7 @@ import numpy as np
 from .bands import BANDS, RESOLVING_POWER
 from .config import PIXEL_SCALE_ARCSEC
 from .png import encode_grey
-from .targets import TARGETS, position_at_mjd
+from .targets import TARGETS, parallax_offset, position_at_mjd
 
 COLLECTION = "mock"
 
@@ -189,8 +189,9 @@ def _sources(
         if look is None or wl < look.min_wl:
             continue
         t_ra, t_dec = position_at_mjd(target.ra, target.dec, target.pmra, target.pmdec, target.epoch, mjd)
-        t_east = (((t_ra - ra_c + 180.0) % 360.0) - 180.0) * cos_c * 3600.0
-        t_north = (t_dec - dec_c) * 3600.0
+        plx_east, plx_north = parallax_offset(t_ra, t_dec, target.parallax, mjd)
+        t_east = (((t_ra - ra_c + 180.0) % 360.0) - 180.0) * cos_c * 3600.0 + plx_east
+        t_north = (t_dec - dec_c) * 3600.0 + plx_north
         if abs(t_east) >= half_arcsec or abs(t_north) >= half_arcsec:
             continue
         t_peak = look.peak * (wl / 2.5) ** look.alpha

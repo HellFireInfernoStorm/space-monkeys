@@ -438,9 +438,21 @@ export interface components {
         MotionPoint: {
             /**
              * Error Arcsec
-             * @description Rough uncertainty: star image width / signal-to-noise
+             * @description The larger of `error_east_arcsec` and `error_north_arcsec`
              */
             error_arcsec: number | null;
+            /**
+             * Error East Arcsec
+             * @description 1-sigma uncertainty of the measured offset (both visits combined); null for the first visit, whose offset is zero by definition
+             */
+            error_east_arcsec: number | null;
+            /**
+             * Error Method
+             * @description `bootstrap`: spread of the fitted position when the visit is re-stacked from its exposures drawn with replacement; `fit`: the fit's own covariance (too few bootstrap fits)
+             */
+            error_method: ("bootstrap" | "fit") | null;
+            /** Error North Arcsec */
+            error_north_arcsec: number | null;
             /**
              * Index
              * @description Epoch number, as in `epochs`
@@ -448,18 +460,31 @@ export interface components {
             index: number;
             /**
              * Measured East Arcsec
-             * @description Null when the source is too faint to measure
+             * @description Gaussian fit in the object-centred stack of this visit. Null when too faint to measure
              */
             measured_east_arcsec: number | null;
             /** Measured North Arcsec */
             measured_north_arcsec: number | null;
             /** Mjd Mid */
             mjd_mid: number;
-            /** Predicted East Arcsec */
+            /**
+             * Parallax East Arcsec
+             * @description The part of the predicted offset that is parallax (0 without `parallax`)
+             */
+            parallax_east_arcsec: number;
+            /** Parallax North Arcsec */
+            parallax_north_arcsec: number;
+            /**
+             * Predicted East Arcsec
+             * @description Proper motion plus parallax (when `parallax` is given)
+             */
             predicted_east_arcsec: number;
             /** Predicted North Arcsec */
             predicted_north_arcsec: number;
-            /** Snr */
+            /**
+             * Snr
+             * @description S/N at the predicted position in the object-centred stack of this visit
+             */
             snr: number | null;
         };
         /**
@@ -643,6 +668,11 @@ export interface components {
             mode: "mock" | "live";
             /** Motion */
             motion: components["schemas"]["MotionPoint"][];
+            /**
+             * Parallax
+             * @description Parallax used in the predicted positions, mas (0: ignored)
+             */
+            parallax: number;
             /**
              * Pixel Scale
              * @description Arcseconds per stack pixel
@@ -1029,6 +1059,8 @@ export interface operations {
                 pmdec?: number;
                 /** @description Decimal year of the given position */
                 epoch?: number;
+                /** @description Parallax, mas. Used only for the predicted positions in `motion` */
+                parallax?: number;
             };
             header?: never;
             path?: never;
@@ -1075,6 +1107,8 @@ export interface operations {
                 pmdec?: number;
                 /** @description Decimal year of the given position */
                 epoch?: number;
+                /** @description Parallax, mas. Used only for the predicted positions in `motion` */
+                parallax?: number;
                 /** @description Which image of the stack set */
                 kind?: "single" | "tracked" | "static" | "epoch";
                 /** @description Epoch number, for kind `epoch` */

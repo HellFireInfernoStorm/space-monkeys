@@ -146,12 +146,31 @@ class MotionPoint(BaseModel):
 
     index: int = Field(description="Epoch number, as in `epochs`")
     mjd_mid: float
-    predicted_east_arcsec: float
+    predicted_east_arcsec: float = Field(description="Proper motion plus parallax (when `parallax` is given)")
     predicted_north_arcsec: float
-    measured_east_arcsec: float | None = Field(description="Null when the source is too faint to measure")
+    parallax_east_arcsec: float = Field(
+        description="The part of the predicted offset that is parallax (0 without `parallax`)"
+    )
+    parallax_north_arcsec: float
+    measured_east_arcsec: float | None = Field(
+        description="Gaussian fit in the object-centred stack of this visit. Null when too faint to measure"
+    )
     measured_north_arcsec: float | None
-    error_arcsec: float | None = Field(description="Rough uncertainty: star image width / signal-to-noise")
-    snr: float | None
+    error_east_arcsec: float | None = Field(
+        description="1-sigma uncertainty of the measured offset (both visits combined); null for the "
+        "first visit, whose offset is zero by definition"
+    )
+    error_north_arcsec: float | None
+    error_method: Literal["bootstrap", "fit"] | None = Field(
+        description="`bootstrap`: spread of the fitted position when the visit is re-stacked from its "
+        "exposures drawn with replacement; `fit`: the fit's own covariance (too few bootstrap fits)"
+    )
+    error_arcsec: float | None = Field(
+        description="The larger of `error_east_arcsec` and `error_north_arcsec`"
+    )
+    snr: float | None = Field(
+        description="S/N at the predicted position in the object-centred stack of this visit"
+    )
 
 
 class StackResult(ListMeta):
@@ -165,6 +184,7 @@ class StackResult(ListMeta):
     has_motion: bool = Field(
         description="False without proper motion: then `tracked` is also the static stack"
     )
+    parallax: float = Field(description="Parallax used in the predicted positions, mas (0: ignored)")
     reference_ra: float = Field(description="Centre of the fixed grid used by `static` and `epochs`")
     reference_dec: float
     single: StackImage | None

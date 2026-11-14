@@ -27,6 +27,7 @@ export default function ViewForm({ view, bands, onApply }: Props) {
   const [pmra, setPmra] = useState(text(view.pmra));
   const [pmdec, setPmdec] = useState(text(view.pmdec));
   const [epoch, setEpoch] = useState(text(view.epoch));
+  const [plx, setPlx] = useState(text(view.plx));
   const [track, setTrack] = useState(view.track);
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -57,6 +58,11 @@ export default function ViewForm({ view, bands, onApply }: Props) {
       setProblem(`Epoch must be a year from ${LIMITS.epoch[0]} to ${LIMITS.epoch[1]}.`);
       return;
     }
+    const nPlx = numberOrNull(plx) ?? 0;
+    if (nPlx < LIMITS.plx[0] || nPlx > LIMITS.plx[1]) {
+      setProblem(`Parallax must be from ${LIMITS.plx[0]} to ${LIMITS.plx[1]} mas.`);
+      return;
+    }
     const nMin = numberOrNull(wlmin);
     const nMax = numberOrNull(wlmax);
     if (nMin !== null && nMax !== null && nMin >= nMax) {
@@ -74,6 +80,7 @@ export default function ViewForm({ view, bands, onApply }: Props) {
       pmra: numberOrNull(pmra) ?? 0,
       pmdec: numberOrNull(pmdec) ?? 0,
       epoch: nEpoch,
+      plx: nPlx,
       track,
       // A hand-typed position is no longer the named target.
       name: changed ? "" : view.name,
@@ -125,6 +132,10 @@ export default function ViewForm({ view, bands, onApply }: Props) {
       <label>
         Position is for year
         <input value={epoch} onChange={(e) => setEpoch(e.target.value)} inputMode="decimal" />
+      </label>
+      <label>
+        Parallax (mas)
+        <input value={plx} onChange={(e) => setPlx(e.target.value)} inputMode="decimal" />
       </label>
       <label className="check">
         <input type="checkbox" checked={track} onChange={(e) => setTrack(e.target.checked)} />

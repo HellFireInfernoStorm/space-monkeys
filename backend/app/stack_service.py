@@ -28,10 +28,10 @@ from .config import PIXEL_SCALE_ARCSEC, Settings
 from .live_frames import _centre_text, _safe, common_stretch, render
 from .resample import sky_to_tangent
 from .sampling import sample_evenly
-from .targets import position_at_mjd
+from .targets import parallax_offset, position_at_mjd
 
 # Bump when the stacking changes, so old cached stacks are not reused.
-STACK_VERSION = 5
+STACK_VERSION = 6
 
 _lock = threading.Lock()
 
@@ -46,6 +46,7 @@ class StackRequest:
     pmra: float
     pmdec: float
     epoch: float
+    parallax: float = 0.0  # mas; only enters the predicted positions
 
     def query(self) -> dict[str, str]:
         out = {"ra": repr(self.ra), "dec": repr(self.dec), "size": f"{self.size:g}"}
@@ -55,6 +56,8 @@ class StackRequest:
             out["wl_max"] = repr(self.wl_max)
         if self.pmra or self.pmdec:
             out.update(pmra=repr(self.pmra), pmdec=repr(self.pmdec), epoch=repr(self.epoch))
+        if self.parallax:
+            out["parallax"] = repr(self.parallax)
         return out
 
     @property
@@ -134,9 +137,18 @@ def _compute(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np.
     inputs = []
     for e in exposures:
         east, north = sky_to_tangent(ref_ra, ref_dec, np.array([e.ra]), np.array([e.dec]))
+        plx_east, plx_north = parallax_offset(e.ra, e.dec, req.parallax, e.mjd)
         inputs.append(
             stacking.StackInput(
-                e.exposure_id, e.mjd, e.wavelength_um, e.image, float(east[0]), float(north[0]), e.raw
+                e.exposure_id,
+                e.mjd,
+                e.wavelength_um,
+                e.image,
+                float(east[0]),
+                float(north[0]),
+                e.raw,
+                parallax_east=plx_east,
+                parallax_north=plx_north,
             )
         )
     built = stacking.build(inputs, n, PIXEL_SCALE_ARCSEC, req.has_motion)
@@ -174,20 +186,33 @@ def _compute(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np.
     motion = []
     for s in epochs:
         e0, n0 = first.extra["east"], first.extra["north"]
+        snr = s.extra.get("measure_snr")
         point = m.MotionPoint(
             index=s.index,
             mjd_mid=s.mjd_mid,
             predicted_east_arcsec=round(s.extra["east"] - e0, 2),
             predicted_north_arcsec=round(s.extra["north"] - n0, 2),
+            parallax_east_arcsec=round(s.extra["parallax_east"] - first.extra["parallax_east"], 2),
+            parallax_north_arcsec=round(s.extra["parallax_north"] - first.extra["parallax_north"], 2),
             measured_east_arcsec=None,
             measured_north_arcsec=None,
+            error_east_arcsec=None,
+            error_north_arcsec=None,
+            error_method=None,
             error_arcsec=None,
-            snr=None if s.snr is None else round(s.snr, 2),
+            snr=None if snr is None else round(snr, 2),
         )
-        if s.measured is not None and first.measured is not None:
-            point.measured_east_arcsec = round(s.measured[0] - first.measured[0], 2)
-            point.measured_north_arcsec = round(s.measured[1] - first.measured[1], 2)
-            point.error_arcsec = None if s.measured[2] is None else round(s.measured[2], 2)
+        here, there = s.measured, first.measured
+        if here is not None and there is not None:
+            point.measured_east_arcsec = round(here.east - there.east, 2)
+            point.measured_north_arcsec = round(here.north - there.north, 2)
+            if s is not first:
+                # Independent bootstraps of the two visits: the variances add.
+                point.error_east_arcsec = round(float(np.hypot(here.err_east, there.err_east)), 2)
+                point.error_north_arcsec = round(float(np.hypot(here.err_north, there.err_north)), 2)
+                point.error_arcsec = max(point.error_east_arcsec, point.error_north_arcsec)
+                both = {here.method, there.method}
+                point.error_method = "bootstrap" if both == {"bootstrap"} else "fit"
         motion.append(point)
 
     if built["tracked"] is not None and built["tracked"].snr is None:
@@ -208,6 +233,7 @@ def _compute(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np.
         pixel_scale=PIXEL_SCALE_ARCSEC,
         pixels=n,
         has_motion=req.has_motion,
+        parallax=req.parallax,
         reference_ra=ref_ra,
         reference_dec=ref_dec,
         single=describe(built["single"]),

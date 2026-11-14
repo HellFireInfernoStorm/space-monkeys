@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { apiUrl, getStack, type StackImage, type StackResult } from "../api";
-import { dayOf, measuredText, offsetText, spotPercent, stackLabel } from "../stackView";
+import { dayOf, differenceText, measuredText, predictedText, spotPercent, stackLabel } from "../stackView";
 import { LIMITS, type ViewState } from "../urlState";
 import ModeToggle from "./ModeToggle";
 
@@ -141,8 +141,9 @@ function MotionTable({ data }: { data: StackResult }) {
         <thead>
           <tr>
             <th>Visit (middle date)</th>
-            <th>Measured offset</th>
-            <th>Predicted from catalogue motion</th>
+            <th>Measured offset (± 1σ)</th>
+            <th>Predicted from catalogue {data.parallax ? "motion and parallax" : "motion"}</th>
+            <th>Measured minus predicted</th>
           </tr>
         </thead>
         <tbody>
@@ -152,15 +153,19 @@ function MotionTable({ data }: { data: StackResult }) {
                 {point.index + 1} ({dayOf(point.mjd_mid)})
               </td>
               <td>{measuredText(point)}</td>
-              <td>{offsetText(point.predicted_east_arcsec, point.predicted_north_arcsec)}</td>
+              <td>{predictedText(point)}</td>
+              <td>{differenceText(point)}</td>
             </tr>
           ))}
         </tbody>
       </table>
       <p className="hint">
         Offsets from the first visit where the object was measured, in arcseconds (one pixel is{" "}
-        {data.pixel_scale}″). Measured: the brightness-weighted centre of the object in each visit's stack.
-        Uncertainty is a rough rule of thumb (image width divided by signal-to-noise).
+        {data.pixel_scale}″). Measured: a Gaussian fitted to the object in the stack of each visit's
+        exposures, each centred on the predicted position. Uncertainty (1σ): the spread of the fitted position
+        when each visit is re-stacked from its own exposures drawn at random with repeats (a bootstrap), both
+        visits combined.
+        {data.parallax ? "" : " Parallax is not included; enter it to include it."}
       </p>
     </>
   );
@@ -170,14 +175,14 @@ function MotionTable({ data }: { data: StackResult }) {
 export default function StackView({ view, onChange, onResult }: Props) {
   const [state, setState] = useState<State>({ status: "loading", started: Date.now() });
   const [, setTick] = useState(0);
-  const { ra, dec, size, wlmin, wlmax, pmra, pmdec, epoch } = view;
+  const { ra, dec, size, wlmin, wlmax, pmra, pmdec, epoch, plx } = view;
 
   useEffect(() => {
     if (ra === null || dec === null) return;
     const abort = new AbortController();
     setState({ status: "loading", started: Date.now() });
     onResult(null);
-    getStack({ ra, dec, size, wl_min: wlmin, wl_max: wlmax, pmra, pmdec, epoch }, abort.signal)
+    getStack({ ra, dec, size, wl_min: wlmin, wl_max: wlmax, pmra, pmdec, epoch, parallax: plx }, abort.signal)
       .then((data) => {
         setState({ status: "ready", data });
         onResult(data);
@@ -187,7 +192,7 @@ export default function StackView({ view, onChange, onResult }: Props) {
         setState({ status: "error", message: error instanceof Error ? error.message : String(error) });
       });
     return () => abort.abort();
-  }, [ra, dec, size, wlmin, wlmax, pmra, pmdec, epoch, onResult]);
+  }, [ra, dec, size, wlmin, wlmax, pmra, pmdec, epoch, plx, onResult]);
 
   // Count the seconds while a cold stack is being made.
   useEffect(() => {

@@ -40,6 +40,10 @@ Dec = Annotated[float, Query(ge=-90, le=90, description="Declination, degrees, I
 PmRa = Annotated[float, Query(description="Proper motion in RA, mas/yr, including cos(dec)")]
 PmDec = Annotated[float, Query(description="Proper motion in Dec, mas/yr")]
 Epoch = Annotated[float, Query(ge=1900, le=2100, description="Decimal year of the given position")]
+Parallax = Annotated[
+    float,
+    Query(ge=0, le=1000, description="Parallax, mas. Used only for the predicted positions in `motion`"),
+]
 Size = Annotated[float, Query(ge=30, le=600, description="Width of the image on the sky, arcseconds")]
 WlMin = Annotated[float | None, Query(ge=0, description="Shortest wavelength to include, micrometres")]
 WlMax = Annotated[float | None, Query(ge=0, description="Longest wavelength to include, micrometres")]
@@ -301,8 +305,8 @@ def frame_png(
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "public, max-age=300"})
 
 
-def _stack_request(ra, dec, size, wl_min, wl_max, pmra, pmdec, epoch) -> stack_service.StackRequest:
-    return stack_service.StackRequest(ra, dec, size, wl_min, wl_max, pmra, pmdec, epoch)
+def _stack_request(ra, dec, size, wl_min, wl_max, pmra, pmdec, epoch, parallax) -> stack_service.StackRequest:
+    return stack_service.StackRequest(ra, dec, size, wl_min, wl_max, pmra, pmdec, epoch, parallax)
 
 
 def _live_stack_call(function, *args):
@@ -325,6 +329,7 @@ def stack(
     pmra: PmRa = 0.0,
     pmdec: PmDec = 0.0,
     epoch: Epoch = 2000.0,
+    parallax: Parallax = 0.0,
 ) -> m.StackResult:
     """Many exposures added together, so that faint objects appear.
 
@@ -335,7 +340,7 @@ def stack(
     grid), and the object's measured and predicted motion between visits. A first
     request for a position can take about a minute in live mode; then it is cached.
     """
-    req = _stack_request(ra, dec, size, wl_min, wl_max, pmra, pmdec, epoch)
+    req = _stack_request(ra, dec, size, wl_min, wl_max, pmra, pmdec, epoch, parallax)
     return _live_stack_call(stack_service.stack_result, settings, req)
 
 
@@ -355,11 +360,12 @@ def stack_png(
     pmra: PmRa = 0.0,
     pmdec: PmDec = 0.0,
     epoch: Epoch = 2000.0,
+    parallax: Parallax = 0.0,
     kind: Annotated[m.StackKind, Query(description="Which image of the stack set")] = "tracked",
     index: Annotated[int, Query(ge=0, le=100, description="Epoch number, for kind `epoch`")] = 0,
 ) -> Response:
     """One image of a stack set as a PNG. Use the addresses given by `/api/stack`."""
-    req = _stack_request(ra, dec, size, wl_min, wl_max, pmra, pmdec, epoch)
+    req = _stack_request(ra, dec, size, wl_min, wl_max, pmra, pmdec, epoch, parallax)
     png = _live_stack_call(stack_service.stack_png, settings, req, kind, index)
     if png is None:
         raise HTTPException(status_code=404, detail=f"This stack set has no '{kind}' image number {index}.")

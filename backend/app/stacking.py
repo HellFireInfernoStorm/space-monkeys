@@ -41,6 +41,18 @@ FWHM_ARCSEC = 7.5
 MIN_MEASURE_SNR = 5.0
 # Pixels closer than this to the object are left out of the stack's noise estimate.
 NOISE_EXCLUDE_PX = 3.0
+# Position fit: a 2-D Gaussian on a FIT_BOX by FIT_BOX window. Its width (sigma, pixels) is
+# fitted within FIT_SIGMA_BOUNDS. 7.5 arcsec FWHM is 0.52 pixel; each bilinear resampling
+# widens a star by about 1/6 pixel^2 in variance, and a stack image has been resampled twice.
+FIT_BOX = 5
+DEFAULT_FIT_SIGMA_PX = 0.8
+FIT_SIGMA_BOUNDS = (0.45, 1.6)
+# Saturated stars (flagged core): a wider window and a broader profile, fitted to the wings.
+FLAGGED_FIT_BOX = 11
+FLAGGED_SIGMA_BOUNDS = (0.45, 4.0)
+# Position uncertainty: re-stack each visit from its exposures drawn with replacement.
+BOOTSTRAP_DRAWS = 200
+BOOTSTRAP_SEED = 20261114
 
 
 @dataclass
@@ -49,11 +61,32 @@ class StackInput:
     mjd: float
     wavelength_um: float
     image: np.ndarray  # (n, n), background not yet removed, NaN where masked
-    east_arcsec: float  # predicted object position, east of the reference position
-    north_arcsec: float  # predicted object position, north of the reference position
+    # Where the image is centred: the object's position from proper motion alone, east and
+    # north of the reference position (arcsec). This is geometry: the patch was read here.
+    east_arcsec: float
+    north_arcsec: float
     # The same pixels without the bad-pixel mask, only to fill holes in the picture
     # (the cores of bright stars are flagged; see live_frames.fill_for_display).
     raw: np.ndarray | None = None
+    # Parallax shift at this exposure's date (arcsec east, north). Part of the predicted
+    # position, not of the image centre (under a tenth of a pixel for every target).
+    parallax_east: float = 0.0
+    parallax_north: float = 0.0
+
+
+@dataclass
+class Measured:
+    """Position of the object in one visit, from a Gaussian fit (arcsec from the reference)."""
+
+    east: float
+    north: float
+    err_east: float  # 1-sigma; from the bootstrap over exposures, else from the fit
+    err_north: float
+    method: str  # "bootstrap" or "fit"
+    fit_err_east: float
+    fit_err_north: float
+    draws: int  # bootstrap draws that gave a fit
+    sigma_px: float
 
 
 @dataclass
@@ -67,8 +100,10 @@ class Stack:
     target_y: float  # pixels from the top edge
     snr: float | None
     mjd_mid: float
-    # East, north (arcsec from the reference) and error (None when not estimable).
-    measured: tuple[float, float, float | None] | None = None
+    measured: Measured | None = None
+    # True when pixels at the target are empty because they are flagged in most exposures
+    # (the saturated core of a bright star): then there is no S/N.
+    saturated: bool = False
     extra: dict = field(default_factory=dict)
 
 
@@ -147,6 +182,15 @@ def combine(
     noise and the spread across exposures at that pixel (so a star whose brightness
     differs between exposures, because each sees it at a different wavelength, is kept).
     """
+    stack, count, _weight = combine_weighted(images, sigmas, min_count, clip)
+    return stack, count
+
+
+def combine_weighted(
+    images: list[np.ndarray], sigmas: list[float], min_count: int | None = None, clip: float = CLIP_SIGMA
+):
+    """As `combine`, and also the summed weight per pixel: one over it is the formal
+    variance of the stacked value (0 where the pixel is empty)."""
     if not images:
         raise ValueError("nothing to combine")
     cube = np.stack([np.asarray(i, dtype=np.float64) for i in images])
@@ -166,8 +210,9 @@ def combine(
     with np.errstate(invalid="ignore", divide="ignore"):
         stack = (weights * np.nan_to_num(values, nan=0.0)).sum(axis=0) / total_weight
     needed = default_min_count(len(images)) if min_count is None else min_count
-    stack[(count < needed) | (total_weight <= 0)] = np.nan
-    return stack, count
+    empty = (count < needed) | (total_weight <= 0)
+    stack[empty] = np.nan
+    return stack, count, np.where(empty, 0.0, total_weight)
 
 
 # --- measuring -----------------------------------------------------------------------------
@@ -214,32 +259,221 @@ def snr_at(image: np.ndarray, x: float, y: float) -> float | None:
     return float((np.nanmax(patch) - level) / noise)
 
 
-def centroid(image: np.ndarray, x: float, y: float, scale_arcsec: float):
-    """Flux-weighted centroid near (x, y): find the brightest pixel within one pixel of
-    (x, y), then weight the 3 by 3 box around it by its positive values.
+def core_flagged(image: np.ndarray, x: float, y: float) -> bool:
+    """True when part of the 3 by 3 box at (x, y) is empty: pixels flagged in most
+    exposures, which at a source means the saturated core of a bright star."""
+    box = _box(image, x, y)
+    if box is None:
+        return False
+    y0, y1, x0, x1 = box
+    return bool((~np.isfinite(image[y0:y1, x0:x1])).any())
 
-    Returns (x, y, error_arcsec) in pixel coordinates, or None if the source is too
-    faint (signal-to-noise below MIN_MEASURE_SNR). The error is the rule of thumb
-    FWHM / (signal-to-noise)."""
-    snr = snr_at(image, x, y)
-    stats = background_stats(image, x, y)
-    if snr is None or stats is None or snr < MIN_MEASURE_SNR:
+
+@dataclass
+class Fit:
+    """A 2-D Gaussian fitted to a source. Pixel coordinates as elsewhere in this module."""
+
+    x: float
+    y: float
+    amplitude: float
+    sigma_px: float
+    err_x: float  # 1-sigma, pixels, from the fit covariance (scaled by the reduced chi-square if above 1)
+    err_y: float
+    chi2_red: float
+    n_pixels: int
+
+
+def peak_pixel(image: np.ndarray, x: float, y: float) -> tuple[int, int] | None:
+    """(column, row) of the brightest usable pixel in the 3 by 3 box at (x, y)."""
+    box = _box(image, x, y)
+    if box is None:
         return None
-    level = stats[0]
-    search = _box(image, x, y)
-    y0, y1, x0, x1 = search
+    y0, y1, x0, x1 = box
     patch = image[y0:y1, x0:x1]
-    py, px = np.unravel_index(np.nanargmax(patch), patch.shape)
-    cy, cx = y0 + int(py), x0 + int(px)
-    box = _box(image, cx + 0.5, cy + 0.5)
-    by0, by1, bx0, bx1 = box
-    values = np.nan_to_num(image[by0:by1, bx0:bx1] - level, nan=0.0)
-    values = np.clip(values, 0.0, None)
-    total = values.sum()
-    if total <= 0:
+    if not np.isfinite(patch).any():
         return None
-    yy, xx = np.mgrid[by0:by1, bx0:bx1] + 0.5
-    return float((values * xx).sum() / total), float((values * yy).sum() / total), FWHM_ARCSEC / snr
+    py, px = np.unravel_index(np.nanargmax(patch), patch.shape)
+    return x0 + int(px), y0 + int(py)
+
+
+def fit_gaussian(
+    image: np.ndarray,
+    weight: np.ndarray | None,
+    start: tuple[int, int],
+    level: float,
+    sigma_px: float = DEFAULT_FIT_SIGMA_PX,
+    fit_sigma: bool = False,
+    box: int = FIT_BOX,
+    sigma_bounds: tuple[float, float] = FIT_SIGMA_BOUNDS,
+) -> Fit | None:
+    """Weighted least-squares fit of `A * exp(-r^2 / (2 s^2)) + level` on a `box` by `box`
+    pixel window centred on pixel `start` (column, row).
+
+    `level` (the background) is fixed. The width `s` is fixed at `sigma_px` unless
+    `fit_sigma`, then it is fitted within `sigma_bounds`. `weight` is one over each pixel's
+    variance (None: equal weights). Empty (NaN) pixels are left out, so a flagged core is
+    fitted from its wings. Levenberg-Marquardt, pure NumPy. Returns None when the fit
+    fails, the amplitude is not positive, or the centre leaves the window.
+    """
+    n_y, n_x = image.shape
+    half = box // 2
+    cx, cy = start
+    y0, y1 = max(0, cy - half), min(n_y, cy + half + 1)
+    x0, x1 = max(0, cx - half), min(n_x, cx + half + 1)
+    data = image[y0:y1, x0:x1].astype(np.float64)
+    if weight is None:
+        w = np.ones_like(data)
+    else:
+        w = np.asarray(weight[y0:y1, x0:x1], dtype=np.float64).copy()
+    use = np.isfinite(data) & np.isfinite(w) & (w > 0)
+    n_params = 4 if fit_sigma else 3
+    if use.sum() < n_params + 3:
+        return None
+    yy, xx = np.mgrid[y0:y1, x0:x1] + 0.5
+    xs, ys, d, w = xx[use], yy[use], data[use] - level, w[use]
+    # Start: the window's highest value, at the start pixel's centre.
+    params = np.array([max(float(d.max()), 1e-6), cx + 0.5, cy + 0.5, sigma_px])
+    lo_s, hi_s = sigma_bounds
+
+    def model(p):
+        r2 = (xs - p[1]) ** 2 + (ys - p[2]) ** 2
+        g = np.exp(-r2 / (2.0 * p[3] ** 2))
+        return p[0] * g, g, r2
+
+    def chi2(p):
+        m, _, _ = model(p)
+        return float(np.sum(w * (d - m) ** 2))
+
+    damping = 1e-3
+    current = chi2(params)
+    for _ in range(100):
+        m, g, r2 = model(params)
+        s2 = params[3] ** 2
+        columns = [g, params[0] * g * (xs - params[1]) / s2, params[0] * g * (ys - params[2]) / s2]
+        if fit_sigma:
+            columns.append(params[0] * g * r2 / params[3] ** 3)
+        jac = np.stack(columns, axis=1)
+        hess = jac.T @ (w[:, None] * jac)
+        grad = jac.T @ (w * (d - m))
+        try:
+            step = np.linalg.solve(hess + damping * np.diag(np.diag(hess)), grad)
+        except np.linalg.LinAlgError:
+            return None
+        trial = params.copy()
+        trial[:n_params] += step
+        trial[3] = min(max(trial[3], lo_s), hi_s)
+        value = chi2(trial)
+        if value < current:
+            converged = current - value < 1e-10 * max(current, 1.0)
+            params, current, damping = trial, value, max(damping / 10.0, 1e-9)
+            if converged:
+                break
+        else:
+            damping *= 10.0
+            if damping > 1e9:
+                break
+    if params[0] <= 0 or abs(params[1] - (cx + 0.5)) > half or abs(params[2] - (cy + 0.5)) > half:
+        return None
+    m, g, r2 = model(params)
+    s2 = params[3] ** 2
+    columns = [g, params[0] * g * (xs - params[1]) / s2, params[0] * g * (ys - params[2]) / s2]
+    if fit_sigma:
+        columns.append(params[0] * g * r2 / params[3] ** 3)
+    jac = np.stack(columns, axis=1)
+    dof = max(1, d.size - n_params)
+    chi2_red = current / dof
+    try:
+        cov = np.linalg.inv(jac.T @ (w[:, None] * jac)) * max(1.0, chi2_red)
+    except np.linalg.LinAlgError:
+        return None
+    return Fit(
+        x=float(params[1]),
+        y=float(params[2]),
+        amplitude=float(params[0]),
+        sigma_px=float(params[3]),
+        err_x=float(math.sqrt(max(cov[1, 1], 0.0))),
+        err_y=float(math.sqrt(max(cov[2, 2], 0.0))),
+        chi2_red=float(chi2_red),
+        n_pixels=int(d.size),
+    )
+
+
+def measure_visit(
+    images: list[np.ndarray],
+    sigmas: list[float],
+    east: list[float],
+    north: list[float],
+    n: int,
+    scale_arcsec: float,
+    draws: int = BOOTSTRAP_DRAWS,
+    seed: int = BOOTSTRAP_SEED,
+) -> tuple[Measured | None, float | None, bool]:
+    """Where the object is in one visit. Returns (measured, snr, core flagged).
+
+    The images are object-centred (each was read centred on the predicted position from
+    proper motion, `east`, `north`), so they are stacked as they are: one resampling only.
+    Stacks shifted onto a fixed grid have been resampled twice, and a second bilinear
+    shift with a sub-pixel phase that differs from visit to visit moves a fitted peak by
+    up to 0.05 pixel (0.3 arcsec) in a simulation of this pipeline. In object-centred
+    stacks the object sits at the same pixel phase in every visit, so that cancels.
+
+    The object's offset from the grid centre comes from a Gaussian fit (`fit_gaussian`,
+    width fitted within bounds, weighted by the stack's formal variance). Its uncertainty
+    comes from a bootstrap: the visit's exposures are drawn with replacement, re-stacked
+    and re-fitted `draws` times, and the spread of the fitted centres is the error. That
+    includes noise that the fit does not know about (pixels correlated by resampling,
+    exposure-to-exposure position errors). Measured only at S/N of at least
+    MIN_MEASURE_SNR, or when the core is flagged (a saturated star, fitted on its wings).
+    """
+    centre = n / 2.0
+    stack, _count, weight = combine_weighted(images, sigmas)
+    snr = snr_at(stack, centre, centre)
+    flagged = snr is None and core_flagged(stack, centre, centre)
+    stats = background_stats(stack, centre, centre)
+    if stats is None or (not flagged and (snr is None or snr < MIN_MEASURE_SNR)):
+        return None, snr, flagged
+    level = stats[0]
+    start = peak_pixel(stack, centre, centre)
+    options = {"fit_sigma": True}
+    if flagged or start is None:
+        # A flagged core can be several pixels wide (6 by 6 for Barnard's Star at 1.1
+        # micrometres): fit a wider window and allow a broad profile, so that the centre
+        # comes from the symmetry of the wings around the hole.
+        start = (int(math.floor(centre)), int(math.floor(centre)))
+        options = {"fit_sigma": True, "box": FLAGGED_FIT_BOX, "sigma_bounds": FLAGGED_SIGMA_BOUNDS}
+    fit = fit_gaussian(stack, weight, start, level, **options)
+    if fit is None:
+        return None, snr, flagged
+
+    rng = np.random.default_rng(seed)
+    xs, ys = [], []
+    count = len(images)
+    for _ in range(draws):
+        pick = rng.integers(0, count, count)
+        drawn, _c, drawn_weight = combine_weighted([images[i] for i in pick], [sigmas[i] for i in pick])
+        drawn_level = background_stats(drawn, centre, centre)
+        if drawn_level is None:
+            continue
+        again = fit_gaussian(drawn, drawn_weight, start, drawn_level[0], **options)
+        if again is not None:
+            xs.append(again.x)
+            ys.append(again.y)
+    if len(xs) >= 20:
+        err_x, err_y, method = float(np.std(xs, ddof=1)), float(np.std(ys, ddof=1)), "bootstrap"
+    else:
+        err_x, err_y, method = fit.err_x, fit.err_y, "fit"
+    measured = Measured(
+        east=float(np.mean(east)) + (centre - fit.x) * scale_arcsec,
+        north=float(np.mean(north)) + (centre - fit.y) * scale_arcsec,
+        err_east=err_x * scale_arcsec,
+        err_north=err_y * scale_arcsec,
+        method=method,
+        fit_err_east=fit.err_x * scale_arcsec,
+        fit_err_north=fit.err_y * scale_arcsec,
+        draws=len(xs),
+        sigma_px=fit.sigma_px,
+    )
+    return measured, snr, flagged
 
 
 # --- the whole set --------------------------------------------------------------------------
@@ -307,6 +541,8 @@ def build(inputs: list[StackInput], n: int, scale_arcsec: float, has_motion: boo
         snr=snr_at(tracked_image, centre, centre),
         mjd_mid=float(np.mean(mjds)),
     )
+    tracked.saturated = tracked.snr is None and core_flagged(tracked_image, centre, centre)
+    single.saturated = single.snr is None and core_flagged(own[pick], centre, centre)
 
     if has_motion:
 
@@ -321,23 +557,14 @@ def build(inputs: list[StackInput], n: int, scale_arcsec: float, has_motion: boo
 
     def static_stack(kind: str, index: int, members: list[int]) -> Stack:
         image, _ = combine([fixed[k] for k in members], [fixed_sigmas[k] for k in members])
-        east = float(np.mean([inputs[k].east_arcsec for k in members]))
-        north = float(np.mean([inputs[k].north_arcsec for k in members]))
+        # Predicted position: proper motion (the image centres) plus parallax.
+        plx_east = float(np.mean([inputs[k].parallax_east for k in members]))
+        plx_north = float(np.mean([inputs[k].parallax_north for k in members]))
+        east = float(np.mean([inputs[k].east_arcsec for k in members])) + plx_east
+        north = float(np.mean([inputs[k].north_arcsec for k in members])) + plx_north
         x, y = static_position(east, north, n, scale_arcsec)
         display = _filled(image, _median_fill([fixed_raw[k] for k in members]))
         snr = snr_at(image, x, y)
-        found = centroid(image, x, y, scale_arcsec)
-        if found is None and snr is None:
-            # The core is flagged in most exposures (a saturated bright star): its position
-            # is still measurable from the unflagged values, though less precisely.
-            found = centroid(display, x, y, scale_arcsec)
-            if found is not None:
-                found = (found[0], found[1], None)  # no honest error estimate for saturated pixels
-        measured = None
-        if found is not None:
-            m_east = (centre - found[0]) * scale_arcsec
-            m_north = (centre - found[1]) * scale_arcsec
-            measured = (m_east, m_north, found[2])
         return Stack(
             kind=kind,
             index=index,
@@ -348,12 +575,30 @@ def build(inputs: list[StackInput], n: int, scale_arcsec: float, has_motion: boo
             target_y=y,
             snr=snr,
             mjd_mid=float(np.mean([mjds[k] for k in members])),
-            measured=measured,
-            extra={"east": east, "north": north},
+            saturated=snr is None and core_flagged(image, x, y),
+            extra={"east": east, "north": north, "parallax_east": plx_east, "parallax_north": plx_north},
         )
 
+    def epoch_stack(index: int, members: list[int]) -> Stack:
+        """The picture is on the fixed grid (for the blink); the position is measured in the
+        object-centred stack of the same exposures (`measure_visit`)."""
+        stack = static_stack("epoch", index, members)
+        measured, snr, flagged = measure_visit(
+            [own[k] for k in members],
+            [sigmas[k] for k in members],
+            [inputs[k].east_arcsec for k in members],
+            [inputs[k].north_arcsec for k in members],
+            n,
+            scale_arcsec,
+            seed=BOOTSTRAP_SEED + index,
+        )
+        stack.measured = measured
+        stack.extra["measure_snr"] = snr
+        stack.saturated = stack.saturated or flagged
+        return stack
+
     static = static_stack("static", 0, every) if has_motion else None
-    epochs = [static_stack("epoch", i, g) for i, g in enumerate(group_epochs(mjds))]
+    epochs = [epoch_stack(i, g) for i, g in enumerate(group_epochs(mjds))]
     return {"single": single, "tracked": tracked, "static": static, "epochs": epochs, "sigmas": sigmas}
 
 

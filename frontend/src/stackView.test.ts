@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import type { MotionPoint, StackImage } from "./api";
-import { dayOf, measuredText, offsetText, sigmaText, spotPercent, stackLabel } from "./stackView";
+import {
+  dayOf,
+  differenceText,
+  measuredText,
+  offsetText,
+  predictedText,
+  sigmaText,
+  spotPercent,
+  stackLabel,
+} from "./stackView";
 
 function image(change: Partial<StackImage>): StackImage {
   return {
@@ -44,14 +53,24 @@ describe("stackView", () => {
     const point: MotionPoint = {
       index: 1,
       mjd_mid: 61157.9,
-      predicted_east_arcsec: -3.61,
-      predicted_north_arcsec: 0.3,
-      measured_east_arcsec: -4.33,
-      measured_north_arcsec: 2.22,
-      error_arcsec: 0.54,
+      predicted_east_arcsec: -4.43,
+      predicted_north_arcsec: 0.54,
+      parallax_east_arcsec: -0.82,
+      parallax_north_arcsec: 0.24,
+      measured_east_arcsec: -3.93,
+      measured_north_arcsec: 1.04,
+      error_east_arcsec: 0.5,
+      error_north_arcsec: 0.25,
+      error_method: "bootstrap",
+      error_arcsec: 0.5,
       snr: 14,
     };
-    expect(measuredText(point)).toBe("4.3″ W, 2.2″ N (± 0.5″)");
-    expect(measuredText({ ...point, error_arcsec: null })).toBe("4.3″ W, 2.2″ N");
+    expect(measuredText(point)).toBe("3.9 ± 0.5″ W, 1.0 ± 0.3″ N");
+    expect(measuredText({ ...point, error_east_arcsec: null, error_north_arcsec: null })).toBe("3.9″ W, 1.0″ N");
+    expect(measuredText({ ...point, measured_east_arcsec: null })).toBe("too faint");
+    expect(predictedText(point)).toBe("4.4″ W, 0.5″ N (parallax 0.8″ W, 0.2″ N)");
+    expect(predictedText({ ...point, parallax_east_arcsec: 0, parallax_north_arcsec: 0 })).toBe("4.4″ W, 0.5″ N");
+    expect(differenceText(point)).toBe("0.5″ E (1.0σ), 0.5″ N (2.0σ)");
+    expect(differenceText({ ...point, error_east_arcsec: null })).toBe("");
   });
 });

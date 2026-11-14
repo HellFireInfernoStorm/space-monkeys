@@ -436,8 +436,47 @@
                 "type": "null"
               }
             ],
-            "description": "Rough uncertainty: star image width / signal-to-noise",
+            "description": "The larger of `error_east_arcsec` and `error_north_arcsec`",
             "title": "Error Arcsec"
+          },
+          "error_east_arcsec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "1-sigma uncertainty of the measured offset (both visits combined); null for the first visit, whose offset is zero by definition",
+            "title": "Error East Arcsec"
+          },
+          "error_method": {
+            "anyOf": [
+              {
+                "enum": [
+                  "bootstrap",
+                  "fit"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`bootstrap`: spread of the fitted position when the visit is re-stacked from its exposures drawn with replacement; `fit`: the fit's own covariance (too few bootstrap fits)",
+            "title": "Error Method"
+          },
+          "error_north_arcsec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error North Arcsec"
           },
           "index": {
             "description": "Epoch number, as in `epochs`",
@@ -453,7 +492,7 @@
                 "type": "null"
               }
             ],
-            "description": "Null when the source is too faint to measure",
+            "description": "Gaussian fit in the object-centred stack of this visit. Null when too faint to measure",
             "title": "Measured East Arcsec"
           },
           "measured_north_arcsec": {
@@ -471,7 +510,17 @@
             "title": "Mjd Mid",
             "type": "number"
           },
+          "parallax_east_arcsec": {
+            "description": "The part of the predicted offset that is parallax (0 without `parallax`)",
+            "title": "Parallax East Arcsec",
+            "type": "number"
+          },
+          "parallax_north_arcsec": {
+            "title": "Parallax North Arcsec",
+            "type": "number"
+          },
           "predicted_east_arcsec": {
+            "description": "Proper motion plus parallax (when `parallax` is given)",
             "title": "Predicted East Arcsec",
             "type": "number"
           },
@@ -488,6 +537,7 @@
                 "type": "null"
               }
             ],
+            "description": "S/N at the predicted position in the object-centred stack of this visit",
             "title": "Snr"
           }
         },
@@ -496,8 +546,13 @@
           "mjd_mid",
           "predicted_east_arcsec",
           "predicted_north_arcsec",
+          "parallax_east_arcsec",
+          "parallax_north_arcsec",
           "measured_east_arcsec",
           "measured_north_arcsec",
+          "error_east_arcsec",
+          "error_north_arcsec",
+          "error_method",
           "error_arcsec",
           "snr"
         ],
@@ -806,6 +861,11 @@
             "title": "Motion",
             "type": "array"
           },
+          "parallax": {
+            "description": "Parallax used in the predicted positions, mas (0: ignored)",
+            "title": "Parallax",
+            "type": "number"
+          },
           "pixel_scale": {
             "description": "Arcseconds per stack pixel",
             "title": "Pixel Scale",
@@ -893,6 +953,7 @@
           "pixel_scale",
           "pixels",
           "has_motion",
+          "parallax",
           "reference_ra",
           "reference_dec",
           "single",
@@ -1840,6 +1901,20 @@
               "title": "Epoch",
               "type": "number"
             }
+          },
+          {
+            "description": "Parallax, mas. Used only for the predicted positions in `motion`",
+            "in": "query",
+            "name": "parallax",
+            "required": false,
+            "schema": {
+              "default": 0.0,
+              "description": "Parallax, mas. Used only for the predicted positions in `motion`",
+              "maximum": 1000,
+              "minimum": 0,
+              "title": "Parallax",
+              "type": "number"
+            }
           }
         ],
         "responses": {
@@ -1988,6 +2063,20 @@
               "maximum": 2100,
               "minimum": 1900,
               "title": "Epoch",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Parallax, mas. Used only for the predicted positions in `motion`",
+            "in": "query",
+            "name": "parallax",
+            "required": false,
+            "schema": {
+              "default": 0.0,
+              "description": "Parallax, mas. Used only for the predicted positions in `motion`",
+              "maximum": 1000,
+              "minimum": 0,
+              "title": "Parallax",
               "type": "number"
             }
           },
