@@ -17,7 +17,10 @@ function numberOrNull(value: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Position, image size, wavelength range and motion. Nothing changes until "Show" is pressed. */
+/**
+ * Position, image size, wavelength range and motion: nothing changes until "Show" is pressed.
+ * The "Follow the object" box is a view switch, not an input, so it applies at once.
+ */
 export default function ViewForm({ view, bands, onApply }: Props) {
   const [ra, setRa] = useState(text(view.ra));
   const [dec, setDec] = useState(text(view.dec));
@@ -28,7 +31,6 @@ export default function ViewForm({ view, bands, onApply }: Props) {
   const [pmdec, setPmdec] = useState(text(view.pmdec));
   const [epoch, setEpoch] = useState(text(view.epoch));
   const [plx, setPlx] = useState(text(view.plx));
-  const [track, setTrack] = useState(view.track);
   const [problem, setProblem] = useState<string | null>(null);
 
   const band = bands.find((b) => String(b.wl_min_um) === wlmin && String(b.wl_max_um) === wlmax);
@@ -81,7 +83,6 @@ export default function ViewForm({ view, bands, onApply }: Props) {
       pmdec: numberOrNull(pmdec) ?? 0,
       epoch: nEpoch,
       plx: nPlx,
-      track,
       // A hand-typed position is no longer the named target.
       name: changed ? "" : view.name,
     });
@@ -138,7 +139,7 @@ export default function ViewForm({ view, bands, onApply }: Props) {
         <input value={plx} onChange={(e) => setPlx(e.target.value)} inputMode="decimal" />
       </label>
       <label className="check">
-        <input type="checkbox" checked={track} onChange={(e) => setTrack(e.target.checked)} />
+        <input type="checkbox" checked={view.track} onChange={(e) => onApply({ track: e.target.checked })} />
         Follow the object (re-centre every frame)
       </label>
       {problem && <p className="notice error wide">{problem}</p>}

@@ -138,7 +138,7 @@ export default function App() {
           <TargetPicker targets={targets} view={view} onPick={update} />
           <h2>Position and view</h2>
           <ViewForm
-            key={serializeView({ ...view, speed: 2, mode: "blink", sky: "wise" })}
+            key={serializeView({ ...view, speed: 2, mode: "blink", sky: "wise", track: false })}
             view={view}
             bands={bands}
             onApply={update}
