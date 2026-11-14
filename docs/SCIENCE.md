@@ -151,7 +151,44 @@ Collection names live in `backend/app/config.py` and nowhere else.
 - **Pixels:** every search row carries a `cloud_access` field giving the file's location on the AWS mirror (bucket `nasa-irsa-spherex`, region `us-east-1`). We read only the bytes for the patch we need. Measured: 258 patches in 75 seconds with 32 parallel readers. Both `spherex_dr1` and `spherex_qr3` rows carry this field.
 - **Do not use the IRSA cutout service for bulk work.** Measured: about 4 MB and 8 to 16 seconds per cutout, and it answers HTTP 503 when more than about 8 requests run at once.
 
-## 6. What we must not claim
+## 6. Stacking (layer 2)
+
+**What it is.** Stacking means adding many exposures of the same patch of sky together (strictly, averaging them pixel by pixel). Every exposure has random noise, different each time, plus the light of whatever is really there, the same each time. Averaging keeps the real light and lets the noise partly cancel.
+
+**Why the noise falls with the square root.** The average of N independent noisy values scatters by the noise of one value divided by the square root of N. So 4 exposures halve the noise, 100 exposures cut it to a tenth. An object at 2 sigma in one exposure (signal twice the noise) should reach about 2 times the square root of 46, roughly 13.5 sigma, in a stack of 46. That is ideal; in practice the gain is smaller, because the exposures are at different wavelengths, some noise is shared between neighbouring pixels after resampling, and faint stars add a little "noise" of their own.
+
+"Sigma" here means signal-to-noise ratio (S/N): how many times larger the signal is than the typical random scatter. Our S/N is the brightest of the 3 by 3 pixels at the predicted position divided by the image's robust noise elsewhere. Taking the brightest of nine pixels makes an empty position read about 1 to 2, not 0, so treat anything under about 5 as nothing.
+
+**Three kinds of stack** (code: `backend/app/stacking.py`; details in `docs/ARCHITECTURE.md`):
+
+- **Tracked**: every exposure is shifted so that the object's predicted position (catalogue position moved by its proper motion to that exposure's date, section 2) lands on the same pixel. The object adds up; background stars, which do not move, are smeared along the object's path in reverse.
+- **Static**: every exposure on one fixed sky grid. Stars are sharp; a moving object is smeared along its path.
+- **Per visit ("epoch")**: SPHEREx sees each part of the sky in visits about six months apart. One static stack per visit, all on the same grid. Blinking them shows the object step from visit to visit while the stars stay put. Measuring where the object is in each visit's stack, and comparing with where the catalogue motion says it should be, is a direct check that the faint dot is the moving brown dwarf and not a background star.
+
+**Masked pixels and outliers.** Flagged pixels (section 4) never count. A value far from the other exposures at the same pixel (more than 4 noise levels from their median) is dropped: cosmic rays, satellite trails and artifacts appear in one exposure only. Each exposure counts in proportion to 1 / noise squared, so quieter exposures count more.
+
+**WISE 0855, measured 2026-11-14** (4.4 to 5.0 micrometres, 46 exposures from 2025-05-05 to 2026-05-11, `dr1` only):
+
+| Image | S/N at the predicted position |
+| --- | --- |
+| A typical single exposure (the median of all 46) | 4.5 (peak of nine pixels; see the note above) |
+| Tracked stack, 46 exposures | 18.6 (the data spike measured 18.7 with 47) |
+| Static stack, 46 exposures | 17.0 |
+| Visit 1 stack, 22 exposures, 2025-11-07 to 2025-12-13 | 12.0 |
+| Visit 2 stack, 21 exposures, 2026-04-22 to 2026-05-11 | 14.0 |
+| Eight empty positions 5 pixels from the object, tracked stack | -0.4 to 2.6 |
+
+Between the two visits the object should move 3.6 arcseconds west and 0.3 north (catalogue motion). We measured 4.3 west and 2.2 north, with a rough uncertainty of 0.5 to 0.6 arcseconds per visit. The east-west motion agrees; the north-south difference (about 2 arcseconds, a third of a pixel) is larger than the rough uncertainty suggests, which probably underestimates the real error.
+
+**Limits:**
+
+- The object moves only about 8 arcseconds (1.3 pixels) across the year of data, and 3.6 arcseconds (0.6 pixel) between the two visits that have enough exposures. Tracked and static stacks therefore look similar, and following the opposite motion as a test still gives S/N 15: with this little motion it is not a useful control. The empty positions above are the better control.
+- The stack is broadband: it adds exposures from 4.4 to 5.0 micrometres, each at a different wavelength. It shows that something is there, not its spectrum.
+- Parallax (the yearly wobble from Earth's orbit, 0.44 arcseconds for WISE 0855) is ignored; it is under a tenth of a pixel.
+- Stacks are on the 6.15 arcsecond pixel grid. Positions finer than about a third of a pixel are not reliable.
+- Bright stars: their cores are flagged in most exposures, so no S/N is given and the position is measured from unflagged values without an error estimate. For Barnard's Star at 1.0 to 1.2 micrometres the measured motion was 6.2 then 8.5 arcseconds north against 5.7 and 10.3 predicted, and 2 to 3 arcseconds off in east-west.
+
+## 7. What we must not claim
 
 - A moving dot is not a new planet. Asteroids move through these images all the time. Layer 5 labels moving detections "possible asteroid or artifact" unless they match a known catalogue object.
 - A brightness change between two exposures at different wavelengths is not variability (section 1).

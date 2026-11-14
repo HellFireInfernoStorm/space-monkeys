@@ -43,13 +43,14 @@ The contract is `docs/openapi.json`, generated from the code. Browse it at `http
 | `GET /api/exposures` | Exposures covering a position, across all collections, capped | yes | yes |
 | `GET /api/frames` | The frame list for the blink player: exposures filtered by wavelength, each with an image address | yes | yes |
 | `GET /api/frame.png` | One image patch as PNG; with `diff_ref`, a difference image | yes | yes |
+| `GET /api/stack` | Layer 2: many exposures added together. One typical single exposure, the tracked stack, the fixed-grid stack, one stack per visit, and the measured versus predicted motion | yes | yes |
+| `GET /api/stack.png` | One image of a stack set as PNG (`kind` = `single`, `tracked`, `static` or `epoch`, and `index` for epochs) | yes | yes |
 | `GET /api/photometry` | Quick-look brightness per exposure at a point: serves both the spectrum and the light curve | yes | **501** |
 
 Planned, not in the contract yet:
 
 | Endpoint | Layer | Purpose |
 | --- | --- | --- |
-| `GET /api/stack.png` | 2 | Motion-tracked stack of many exposures in a wavelength range |
 | `GET /api/flags` | 1 | Flag bits set in a patch, with names, for the metadata display |
 | `GET /api/changes` | 5 | Sources in the field that moved or changed, with a label |
 
@@ -76,6 +77,19 @@ Code: `backend/app/live.py` (search), `live_frames.py` (the two endpoints), `pix
 
 Measured on a home connection in Sri Lanka, 2026-11-14 (cold cache, 16 readers): Barnard's Star at 1.0 to 1.2 micrometres: 362 exposures found, 121 wavelength checks, 30 frames, 34 seconds. WISE 0855 at 4.4 to 5.0 micrometres, tracked: 258 found, 93 checks, 40 of 46 matching frames, 32 seconds. From the cache: about 0.1 seconds for the list and 0.1 to 0.5 seconds for all its images.
 
+### Stacks (layer 2)
+
+Code: `backend/app/stacking.py` (pure NumPy, tested without the network) and `stack_service.py` (inputs, cache, images). The science is in `docs/SCIENCE.md`, section 6.
+
+1. **Inputs.** Steps 1 to 4 above give every exposure whose wavelength at the moving target is in range. Stacks use all of them up to `max_stack_frames` (default 150, environment variable `SM_MAX_STACK_FRAMES`), not the blink player's 40. Each patch is read centred on the object's predicted position at that exposure's time, which is the same cache entry as a `/api/frames?track=true` frame of the same size, so nothing is read twice. In mock mode the inputs are 48 synthetic exposures in four visits about six months apart (`mock.stack_exposures`), drawn like the other mock images.
+2. **Grid.** Stacks stay on the 6.15 arcsecond grid. The cache holds patches already resampled to it; a finer grid would mean reading every file again.
+3. **Kinds.** `tracked`: the patches as they are. `static`: each patch shifted (bilinear, sub-pixel) onto one fixed grid centred on the object's position at the mean time of all exposures. `epoch`: the same fixed grid, one stack per visit; a gap of more than 30 days starts a new visit, visits with fewer than 5 exposures are skipped. Without proper motion there is no `static` (it would equal `tracked`).
+4. **Combining.** Each exposure: the median of its good pixels is subtracted, and its noise is 1.4826 times the median absolute deviation. Per pixel: values more than 4 times the larger of the exposure's noise and the spread across exposures from the median are dropped, masked pixels never count, and the rest are averaged with weights 1 / noise squared. A pixel with fewer than max(2, a quarter of the exposures) values is empty.
+5. **Numbers.** Signal-to-noise ratio (S/N) at the predicted position: the peak of the 3 by 3 pixels there, minus the stack's median, divided by the stack's robust noise more than 3 pixels away. None when any of those 9 pixels is empty (a saturated star core). Motion: in each visit stack, the brightness-weighted centre of the 3 by 3 pixels around the brightest pixel near the prediction; only when S/N is at least 5; error = 7.5 arcseconds / S/N.
+6. **Pictures.** Empty pixels (flagged star cores) are drawn from the median of the unflagged values, as in the blink view. One stretch is shared by `single`, `tracked` and `static`, another by all epoch stacks, so they compare and blink cleanly. The `single` image is the exposure with the median S/N: typical, not lucky.
+
+Measured on 2026-11-14 (same home connection): the WISE 0855 stack at 4.4 to 5.0 micrometres (46 exposures) takes 31 seconds with an empty cache (search, 93 wavelength checks, 46 patches, all images), 5.7 seconds when the layer 1 pre-warm has already cached 40 of the patches, and 0.01 seconds from the stack cache.
+
 ### Cache
 
 - Folder: `settings.cache_dir` (environment variable `SM_CACHE_DIR`), default `backend/.cache`, git-ignored. Safe to delete.
@@ -83,7 +97,8 @@ Measured on a home connection in Sri Lanka, 2026-11-14 (cold cache, 16 readers):
 - Wavelength checks: per exposure and target position (4 decimals). The display stretch: per frame.
 - Search results: per rounded position, for `search_cache_hours` (default 12); new data appears at most weekly.
 - The exposure id to file address table, so `/api/frame.png` can read a patch that is not cached yet.
-- Pre-warm before the pitch: `python scripts/prewarm.py` (with the back end's environment) runs the five targets at fixed wavelength ranges, including WISE 0855 at 4.4 to 5.0 micrometres with tracking.
+- Stacks: the result (`stack`, JSON with the two stretches) and its pictures (`stackimg`, one `.npz`), keyed by the request, `max_stack_frames`, the collections and `STACK_VERSION` in `stack_service.py` (bump it when the stacking changes). Kept for `search_cache_hours`, then rebuilt from the cached patches. Cold stacks are built one at a time (a lock), so the image requests that follow a slow `/api/stack` wait and then hit the cache.
+- Pre-warm before the pitch: `python scripts/prewarm.py` (with the back end's environment) runs the five targets at fixed wavelength ranges, including WISE 0855 at 4.4 to 5.0 micrometres with tracking, and builds the stacks in its `STACKS` table (WISE 0855 at 4.4 to 5.0, Barnard's Star at 1.0 to 1.2 micrometres).
 ### Other data we point at
 
 - All-sky SPHEREx map for Aladin Lite: `https://irsa.ipac.caltech.edu/data/hips/SPHEREx/spherex_allsky_cube`. A cube with 102 wavelength frames; frame index = 17 x (band - 1) + (channel - 1); frames 50 and 51 are blank. Not confirmed: on 2026-11-14 the tiles for frames 0 and 50 were missing and the survey declares its first frame as 1, so the numbering may start at 1. Check before stating the wavelength of a frame.
@@ -92,9 +107,10 @@ Measured on a home connection in Sri Lanka, 2026-11-14 (cold cache, 16 readers):
 
 ## The front end
 
-- `src/urlState.ts` is the single source of view state. Parameters: `ra`, `dec`, `size` (arcseconds), `wlmin`, `wlmax`, `pmra`, `pmdec`, `epoch`, `speed` (frames per second), `mode` (`blink` or `diff`), `track` (`1` to re-centre every frame on the moving object; left out when off), `sky` (background survey in the wide-field sky map: `wise` by default, or `spherex`), `name`. A link with these parameters reproduces the view, which also makes the tool embeddable in a frame.
+- `src/urlState.ts` is the single source of view state. Parameters: `ra`, `dec`, `size` (arcseconds), `wlmin`, `wlmax`, `pmra`, `pmdec`, `epoch`, `speed` (frames per second), `mode` (`blink`, `diff` or `stack`), `track` (`1` to re-centre every frame on the moving object; left out when off), `sky` (background survey in the wide-field sky map: `wise` by default, or `spherex`), `name`. A link with these parameters reproduces the view, which also makes the tool embeddable in a frame.
 - `src/api.ts` is the only file that calls the back end. Its types come from `src/api-types.ts`, generated from the contract with `npm run gen:api`.
 - `BlinkPlayer` preloads every frame image and switches which one is visible, so playback does not flicker.
+- `StackView` (`mode=stack`) shows one exposure beside the tracked stack, the fixed-grid stack, a blink of the per-visit stacks with markers at the predicted positions, and the motion table. In this mode the page does not load the frame list. Its pure helpers are in `src/stackView.ts`. `ModeToggle` switches between the three modes.
 - `AladinPanel` shows the surrounding sky from existing surveys and is the place for catalogue overlays (Gaia, WISE).
 - Aladin Lite comes from the npm package `aladin-lite`. It is loaded only when the sky map panel first appears (a lazy dynamic import, so it is a separate chunk). Its usage logging is off.
 - Both backgrounds (WISE, and the experimental SPHEREx all-sky cube) are HiPS tile sets that the browser fetches straight from IRSA, because the CDS tile servers did not answer on 2026-11-14.

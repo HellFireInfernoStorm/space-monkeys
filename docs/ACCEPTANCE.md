@@ -28,7 +28,7 @@ For each: the object is found from its name, real SPHEREx frames load, and the e
 - [ ] Easy to update with the latest data release (one configuration change; shown in the demo or the documentation)
 - [ ] Creative display of the 102 wavelength bands (for example, one combined image per detector)
 - [ ] Spectrum on the fly for a chosen point ("extra kudos" in the challenge text)
-- [ ] Add together images taken at different times (stacking)
+- [ ] Add together images taken at different times (stacking). Built and checked locally on 2026-11-14 (live data, local servers, WISE 0855 Stack view in the browser); not yet on a deployed site
 - [ ] Subtract images taken at different times (difference image)
 - [ ] The user can choose the field of view
 - [ ] Overlay of Gaia or WISE data
@@ -70,3 +70,8 @@ Nothing on a deployed site. From the data spike on 2026-11-14 (throwaway scripts
 
 - The archive search returns exposures for all five targets.
 - WISE 0855 appears at a signal-to-noise ratio of about 18.7 in a motion-tracked stack of 47 exposures.
+
+From the project's own code, run locally in live mode on 2026-11-14 (not a deployed site):
+
+- `/api/stack` for WISE 0855 at 4.4 to 5.0 micrometres: 46 exposures, tracked stack S/N 18.6; two visit stacks show the object stepping about 4 arcseconds west, as predicted (`docs/SCIENCE.md`, section 6). Seen in the browser in the Stack view, and the view came back after reloading the page.
+- Barnard's Star blink and difference views load 30 real frames at 1.0 to 1.2 micrometres in the browser.
