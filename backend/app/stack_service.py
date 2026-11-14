@@ -32,7 +32,7 @@ from .sampling import sample_evenly
 from .targets import TARGETS, parallax_offset, position_at_mjd
 
 # Bump when the stacking changes, so old cached stacks are not reused.
-STACK_VERSION = 7
+STACK_VERSION = 8
 
 _lock = threading.Lock()
 

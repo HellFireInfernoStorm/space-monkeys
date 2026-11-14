@@ -149,9 +149,13 @@ def test_grid_is_north_up_east_left():
     assert north[0, 0] > 0 and north[-1, 0] < 0  # row 0 is north
 
 
-def test_bilinear_skips_masked_pixels():
+def test_bilinear_rejects_partly_masked_footprint():
     image = np.array([[1.0, 1.0], [1.0, np.nan]])
-    assert bilinear(image, np.array([0.5]), np.array([0.5]))[0] == pytest.approx(1.0)
+    assert np.isnan(bilinear(image, np.array([0.5]), np.array([0.5]))[0])
+    assert bilinear(image, np.array([0.0]), np.array([0.0]))[0] == 1.0
+    assert np.isnan(bilinear(image, np.array([-0.1]), np.array([0.0]))[0])
+    intact = np.array([[2.0, 4.0], [6.0, 8.0]])
+    assert bilinear(intact, np.array([0.5]), np.array([0.5]))[0] == 5.0
     assert np.isnan(bilinear(image, np.array([5.0]), np.array([5.0]))[0])
 
 
