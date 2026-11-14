@@ -14,6 +14,8 @@ Rules that apply to everything listed here:
 | 2026-11-14 | Dinura | Claude Code (Anthropic) | Wrote the repository scaffold: instructions, documents, templates, back end with mock data, front end shell, tests, `.github` (issue templates, pull request template, CI workflow, labels), `scripts/`, the `.do/app.yaml` draft, the docs | Everything in the first commit | Not yet |
 | 2026-11-14 | Deeshan | Codex (OpenAI) | Shaped the guided sky viewer design and implemented the front-end redesign for issue #2 | `PRODUCT.md`, `DESIGN.md`, `frontend/`, and this pull request | Not yet |
 
+- 2026-11-15: Codex refined the responsive Pick, Watch, Compare workflow for issue #2, including keyboard controls, dated thumbnails, and design documentation.
+
 ## Draft statement for the project page
 
 Keep this current; copy it to the project page at submission.

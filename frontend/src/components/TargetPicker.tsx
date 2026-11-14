@@ -16,6 +16,16 @@ export default function TargetPicker({ targets, view, onPick }: Props) {
   const active = targets.find((target) => target.name === view.name);
   return (
     <div>
+      <label className="phone-target">
+        <span className="sr-only">Target</span>
+        <select value={active?.id ?? ""} onChange={(event) => {
+          const target = targets.find((item) => item.id === event.target.value);
+          if (target) onPick(viewForTarget(target));
+        }}>
+          <option value="" disabled>Choose a preset</option>
+          {targets.map((target) => <option key={target.id} value={target.id}>{target.name}</option>)}
+        </select>
+      </label>
       <div className="targets">
         {targets.map((target) => (
           <button
@@ -31,12 +41,12 @@ export default function TargetPicker({ targets, view, onPick }: Props) {
         ))}
       </div>
       {active && (
-        <p className="hint">
+        <details className="target-about"><summary>About this target</summary><p className="hint">
           <strong>{active.kind}.</strong>{" "}
           {active.id === "wise-0855"
             ? "Moves 8.1 arcseconds a year, so it is about two arcminutes from the 2010 position given in the challenge text. Too faint for a single exposure; it needs many exposures stacked at 4.4 to 5.0 micrometres, and tracking its motion sharpens the stack slightly."
             : active.note}
-        </p>
+        </p></details>
       )}
     </div>
   );

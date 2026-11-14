@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
 import { type Frame, type FrameList } from "../api";
@@ -7,6 +8,7 @@ import { LIMITS, type ViewMode, type ViewState } from "../urlState";
 interface Props {
   list: FrameList;
   speed: number;
+  compare: ReactNode;
   mode: ViewMode;
   onChange: (change: Partial<ViewState>) => void;
   /** Called with the frame on screen, so the sky map can follow the object. */
@@ -32,10 +34,17 @@ function targetSpot(frame: Frame, extentArcsec: number): { left: number; top: nu
 }
 
 /** Shows the frames one after another (blink), or each one minus the first (difference). */
-export default function BlinkPlayer({ list, speed, mode, onChange, onFrame }: Props) {
+export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, compare }: Props) {
   const frames = list.frames;
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [browseOpen, setBrowseOpen] = useState(() => !matchMedia("(max-width: 760px)").matches);
+  useEffect(() => {
+    const phone = matchMedia("(max-width: 760px)");
+    const sync = () => setBrowseOpen(!phone.matches);
+    phone.addEventListener("change", sync);
+    return () => phone.removeEventListener("change", sync);
+  }, []);
 
   useEffect(() => {
     if (!playing || frames.length < 2) return;
@@ -87,24 +96,6 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame }: Pr
         </p>
       )}
 
-      <div className="transport frame-transport">
-        <button type="button" className="primary" onClick={() => setPlaying((p) => !p)}>
-          {playing ? "Pause" : "Play"}
-        </button>
-        <input
-          type="range"
-          min={0}
-          max={frames.length - 1}
-          value={index}
-          aria-label="Frame"
-          onChange={(e) => {
-            setPlaying(false);
-            setIndex(Number(e.target.value));
-          }}
-        />
-        <span className="frame-count">{index + 1} / {frames.length}</span>
-      </div>
-
       <div className="stage" aria-label={`Frame ${index + 1} of ${frames.length}`}>
         {frames.map((frame, i) => (
           <img
@@ -125,9 +116,57 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame }: Pr
         {mode === "diff" && current.exposure_id === frames[0].exposure_id && (
           <span className="stage-label">{REFERENCE_LABEL}</span>
         )}
+        <span className="observation-date">{dateOf(current.mjd)} UTC</span>
         <span className="compass">N up, E left</span>
       </div>
 
+      <div className="transport frame-transport">
+        <button type="button" className="primary" onClick={() => setPlaying((p) => !p)}>
+          {playing ? "Pause" : "Play"}
+        </button>
+        <input
+          type="range"
+          min={0}
+          max={frames.length - 1}
+          value={index}
+          aria-label="Frame"
+          aria-valuetext={`Frame ${index + 1} of ${frames.length}, ${dateOf(current.mjd)} UTC`}
+          onChange={(e) => {
+            setPlaying(false);
+            setIndex(Number(e.target.value));
+          }}
+        />
+        <span className="frame-count">{index + 1} / {frames.length}</span>
+      </div>
+
+      {compare}
+
+      <details className="browse-frames" open={browseOpen} onToggle={(event) => setBrowseOpen(event.currentTarget.open)}>
+        <summary>Browse frames ({frames.length})</summary>
+      <div className="exposure-strip" role="group" aria-label="Dated exposure frames">
+        {frames.map((frame, frameIndex) => (
+          <button
+            className="exposure-thumb"
+            key={frame.exposure_id}
+            type="button"
+            aria-label={`Frame ${frameIndex + 1}, ${dateOf(frame.mjd)} UTC`}
+            aria-pressed={frameIndex === index}
+            onClick={() => {
+              setPlaying(false);
+              setIndex(frameIndex);
+            }}
+          >
+            <img src={imageAddress(frame, mode, frames[0])} alt="" loading="lazy" />
+            <time dateTime={dateOf(frame.mjd).replace(" ", "T") + "Z"}>
+              {dateOf(frame.mjd).slice(0, 10)}
+            </time>
+          </button>
+        ))}
+      </div>
+
+      </details>
+      <details className="secondary-details frame-details">
+        <summary>Frame details and playback speed</summary>
       <dl className="facts">
         <div>
           <dt>Frame</dt>
@@ -168,6 +207,7 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame }: Pr
         </label>
       </div>
       <p className="hint mono">{current.exposure_id}</p>
+      </details>
     </div>
   );
 }

@@ -134,6 +134,13 @@ export default function App() {
   const mapRa = stackMode && stack ? stack.reference_ra : frame ? frame.target_ra : frames.status === "ready" ? frames.data.ra : ra;
   const mapDec = stackMode && stack ? stack.reference_dec : frame ? frame.target_dec : frames.status === "ready" ? frames.data.dec : dec;
 
+  const compare = (
+    <section className="panel compare-panel" aria-label="Compare">
+      <h2><span className="step">3</span> Compare</h2>
+      <ModeToggle mode={view.mode} onChange={update} />
+    </section>
+  );
+
   return (
     <div className="page">
       <header className="top">
@@ -154,28 +161,15 @@ export default function App() {
 
       <main className="layout">
         <section className="panel target-panel" aria-labelledby="target-heading">
-          <h2 id="target-heading">Choose a target</h2>
+          <h2 id="target-heading"><span className="step">1</span> Pick a target</h2>
           <TargetPicker targets={targets} view={view} onPick={update} />
         </section>
 
-        <section className="panel settings-panel" aria-labelledby="position-heading">
-          <h2 id="position-heading">Or enter a sky position</h2>
-          <ViewForm
-            key={serializeView({ ...view, speed: 2, mode: "blink", sky: "wise", track: false })}
-            view={view}
-            bands={bands}
-            onApply={update}
-          />
-          <div className="future-search">
-            <label htmlFor="future-name">Search for a name</label>
-            <input id="future-name" disabled placeholder="Coming soon" />
-          </div>
-        </section>
-
         <section className="panel viewer-panel" aria-labelledby="viewer-heading">
+          <h2 id="viewer-heading"><span className="step">2</span> Watch it change</h2>
           <div className="viewer-heading-row">
             <div>
-              <h2 id="viewer-heading">
+              <h3 className="observation-title">
                 {stackMode
                   ? view.name
                     ? `${view.name}: stacked exposures`
@@ -183,15 +177,15 @@ export default function App() {
                   : view.name
                     ? `${view.name}: frames over time`
                     : "Frames over time"}
-              </h2>
+              </h3>
               {ra !== null && dec !== null && (
                 <p className="viewer-position">
                   ICRS position: RA {ra.toFixed(5)}°, Dec {dec >= 0 ? "+" : ""}{dec.toFixed(5)}°
                 </p>
               )}
             </div>
-            <ModeToggle mode={view.mode} onChange={update} />
           </div>
+          {(stackMode || frames.status !== "ready" || !frames.data.frames.length) && <div className="phone-compare">{compare}</div>}
           {stackMode && ra !== null && dec !== null && (
             <StackView view={view} onChange={update} onResult={setStack} />
           )}
@@ -227,12 +221,32 @@ export default function App() {
               mode={view.mode}
               onChange={update}
               onFrame={setShownFrame}
+              compare={<div className="phone-compare">{compare}</div>}
             />
           )}
         </section>
 
+        <div className="desktop-compare">{compare}</div>
+
+        <section className="panel settings-panel" aria-labelledby="position-heading">
+          <details className="secondary-details">
+          <summary id="position-heading">Enter coordinates</summary>
+          <ViewForm
+            key={serializeView({ ...view, speed: 2, mode: "blink", sky: "wise", track: false })}
+            view={view}
+            bands={bands}
+            onApply={update}
+          />
+          <div className="future-search">
+            <label htmlFor="future-name">Search for a name</label>
+            <input id="future-name" disabled placeholder="Coming soon" />
+          </div>
+          </details>
+        </section>
+
         <section className="panel map-panel" aria-labelledby="map-heading">
-          <h2 id="map-heading">Wider sky view</h2>
+          <details className="secondary-details">
+          <summary id="map-heading">Wider sky view</summary>
           {mapRa !== null && mapDec !== null ? (
             <>
               <AladinPanel ra={mapRa} dec={mapDec} sky={view.sky} onSky={(sky) => update({ sky })} />
@@ -253,6 +267,7 @@ export default function App() {
           ) : (
             <p className="hint">The sky map appears once a position is chosen.</p>
           )}
+          </details>
         </section>
       </main>
 

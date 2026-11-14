@@ -28,7 +28,8 @@ export default function ModeToggle({ mode, onChange }: Props) {
           onClick={() => onChange({ mode: m.mode })}
           title={m.title}
         >
-          {m.label}
+          <strong>{m.label}</strong>
+          <span>{m.title}</span>
         </button>
       ))}
     </div>
