@@ -72,6 +72,8 @@ class StackInput:
     # position, not of the image centre (under a tenth of a pixel for every target).
     parallax_east: float = 0.0
     parallax_north: float = 0.0
+    # Fixed catalogue neighbour in this object's grid, only when explicitly known.
+    neighbour: tuple[float, float] | None = None
 
 
 @dataclass
@@ -326,6 +328,7 @@ def fit_gaussian(
     fit_sigma: bool = False,
     box: int = FIT_BOX,
     sigma_bounds: tuple[float, float] = FIT_SIGMA_BOUNDS,
+    neighbour: tuple[float, float] | None = None,
 ) -> Fit | None:
     """Weighted least-squares fit of `A * exp(-r^2 / (2 s^2)) + level` on a `box` by `box`
     pixel window centred on pixel `start` (column, row).
@@ -333,7 +336,10 @@ def fit_gaussian(
     `level` (the background) is fixed. The width `s` is fixed at `sigma_px` unless
     `fit_sigma`, then it is fitted within `sigma_bounds`. `weight` is one over each pixel's
     variance (None: equal weights). Empty (NaN) pixels are left out, so a flagged core is
-    fitted from its wings. Levenberg-Marquardt, pure NumPy. Returns None when the fit
+    fitted from its wings. When `neighbour` is given its centre is fixed, with a free
+    nonnegative amplitude and the same fitted width as the target. The catalogue
+    position is never pulled toward the target. Levenberg-Marquardt, pure NumPy.
+    Returns None when the fit
     fails, the amplitude is not positive, or the centre leaves the window.
     """
     n_y, n_x = image.shape
@@ -347,19 +353,37 @@ def fit_gaussian(
     else:
         w = np.asarray(weight[y0:y1, x0:x1], dtype=np.float64).copy()
     use = np.isfinite(data) & np.isfinite(w) & (w > 0)
-    n_params = 4 if fit_sigma else 3
+    free = [0, 1, 2] + ([3] if fit_sigma else []) + ([4] if neighbour is not None else [])
+    n_params = len(free)
     if use.sum() < n_params + 3:
         return None
     yy, xx = np.mgrid[y0:y1, x0:x1] + 0.5
     xs, ys, d, w = xx[use], yy[use], data[use] - level, w[use]
     # Start: the window's highest value, at the start pixel's centre.
-    params = np.array([max(float(d.max()), 1e-6), cx + 0.5, cy + 0.5, sigma_px])
+    params = np.array([max(float(d.max()), 1e-6), cx + 0.5, cy + 0.5, sigma_px, 0.0])
     lo_s, hi_s = sigma_bounds
 
     def model(p):
         r2 = (xs - p[1]) ** 2 + (ys - p[2]) ** 2
         g = np.exp(-r2 / (2.0 * p[3] ** 2))
-        return p[0] * g, g, r2
+        result = p[0] * g
+        if neighbour is not None:
+            nr2 = (xs - neighbour[0]) ** 2 + (ys - neighbour[1]) ** 2
+            result = result + p[4] * np.exp(-nr2 / (2 * p[3] ** 2))
+        return result, g, r2
+
+    def derivatives(p, g, r2):
+        columns = [g, p[0] * g * (xs - p[1]) / p[3] ** 2, p[0] * g * (ys - p[2]) / p[3] ** 2]
+        width = p[0] * g * r2 / p[3] ** 3
+        if neighbour is not None:
+            nr2 = (xs - neighbour[0]) ** 2 + (ys - neighbour[1]) ** 2
+            ng = np.exp(-nr2 / (2 * p[3] ** 2))
+            width = width + p[4] * ng * nr2 / p[3] ** 3
+        if fit_sigma:
+            columns.append(width)
+        if neighbour is not None:
+            columns.append(ng)
+        return np.stack(columns, axis=1)
 
     def chi2(p):
         m, _, _ = model(p)
@@ -369,11 +393,7 @@ def fit_gaussian(
     current = chi2(params)
     for _ in range(100):
         m, g, r2 = model(params)
-        s2 = params[3] ** 2
-        columns = [g, params[0] * g * (xs - params[1]) / s2, params[0] * g * (ys - params[2]) / s2]
-        if fit_sigma:
-            columns.append(params[0] * g * r2 / params[3] ** 3)
-        jac = np.stack(columns, axis=1)
+        jac = derivatives(params, g, r2)
         hess = jac.T @ (w[:, None] * jac)
         grad = jac.T @ (w * (d - m))
         try:
@@ -381,7 +401,8 @@ def fit_gaussian(
         except np.linalg.LinAlgError:
             return None
         trial = params.copy()
-        trial[:n_params] += step
+        trial[free] += step
+        trial[4] = max(0.0, trial[4])
         trial[3] = min(max(trial[3], lo_s), hi_s)
         value = chi2(trial)
         if value < current:
@@ -396,11 +417,7 @@ def fit_gaussian(
     if params[0] <= 0 or abs(params[1] - (cx + 0.5)) > half or abs(params[2] - (cy + 0.5)) > half:
         return None
     m, g, r2 = model(params)
-    s2 = params[3] ** 2
-    columns = [g, params[0] * g * (xs - params[1]) / s2, params[0] * g * (ys - params[2]) / s2]
-    if fit_sigma:
-        columns.append(params[0] * g * r2 / params[3] ** 3)
-    jac = np.stack(columns, axis=1)
+    jac = derivatives(params, g, r2)
     dof = max(1, d.size - n_params)
     chi2_red = current / dof
     try:
@@ -428,6 +445,7 @@ def measure_visit(
     scale_arcsec: float,
     draws: int = BOOTSTRAP_DRAWS,
     seed: int = BOOTSTRAP_SEED,
+    neighbours: list[tuple[float, float]] | None = None,
 ) -> tuple[Measured | None, float | None, bool]:
     """Where the object is in one visit. Returns (measured, snr, core flagged).
 
@@ -456,6 +474,8 @@ def measure_visit(
     level = stats[0]
     start = peak_pixel(stack, centre, centre)
     options = {"fit_sigma": True}
+    if neighbours is not None:
+        options["neighbour"] = tuple(np.mean(neighbours, axis=0))
     if flagged or start is None:
         # A flagged core can be several pixels wide (6 by 6 for Barnard's Star at 1.1
         # micrometres): fit a wider window and allow a broad profile, so that the centre
@@ -475,7 +495,10 @@ def measure_visit(
         drawn_level = background_stats(drawn, centre, centre)
         if drawn_level is None:
             continue
-        again = fit_gaussian(drawn, drawn_weight, start, drawn_level[0], **options)
+        drawn_options = dict(options)
+        if neighbours is not None:
+            drawn_options["neighbour"] = tuple(np.mean([neighbours[i] for i in pick], axis=0))
+        again = fit_gaussian(drawn, drawn_weight, start, drawn_level[0], **drawn_options)
         if again is not None:
             xs.append(again.x)
             ys.append(again.y)
@@ -617,6 +640,9 @@ def build(inputs: list[StackInput], n: int, scale_arcsec: float, has_motion: boo
             n,
             scale_arcsec,
             seed=BOOTSTRAP_SEED + index,
+            neighbours=[inputs[k].neighbour for k in members]
+            if all(inputs[k].neighbour is not None for k in members)
+            else None,
         )
         stack.measured = measured
         stack.extra["measure_snr"] = snr

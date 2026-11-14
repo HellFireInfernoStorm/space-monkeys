@@ -190,6 +190,44 @@ def test_gaussian_fit_finds_a_sub_pixel_position():
     assert wings.x == pytest.approx(11.83, abs=1e-2) and wings.y == pytest.approx(13.27, abs=1e-2)
 
 
+def test_fixed_neighbour_fit_removes_blended_centroid_bias():
+    target = (12.3, 12.6)
+    neighbour = (13.4, 12.2)
+    image = _gaussian(*target, 10) + _gaussian(*neighbour, 3.8)
+    single = stacking.fit_gaussian(image, None, (12, 12), 0, fit_sigma=True)
+    double = stacking.fit_gaussian(image, None, (12, 12), 0, fit_sigma=True, neighbour=neighbour)
+    assert double is not None and single is not None
+    assert abs(single.x - target[0]) > 0.05
+    assert double.x == pytest.approx(target[0], abs=0.001)
+    assert double.y == pytest.approx(target[1], abs=0.001)
+
+
+def test_visit_bootstrap_follows_fixed_field_star_while_target_moves():
+    rng = np.random.default_rng(91)
+    measured = []
+    for east in (-2.0, 2.0):
+        # The fixed field star moves in the opposite direction in target-centred grids.
+        neighbours = [(13.5 + east / SCALE, 12.1)] * 24
+        images = [
+            _gaussian(12.5, 12.5, 15) + _gaussian(*neighbours[k], 5.7) + rng.normal(0, 0.05, (N_PX, N_PX))
+            for k in range(24)
+        ]
+        point, _snr, _flagged = stacking.measure_visit(
+            images,
+            [0.05] * 24,
+            [east] * 24,
+            [0.0] * 24,
+            N_PX,
+            SCALE,
+            draws=30,
+            neighbours=neighbours,
+        )
+        assert point is not None and point.method == "bootstrap" and point.draws >= 20
+        measured.append(point)
+    assert measured[1].east - measured[0].east == pytest.approx(4.0, abs=0.1)
+    assert measured[1].north - measured[0].north == pytest.approx(0.0, abs=0.1)
+
+
 def test_bootstrap_error_matches_the_real_scatter():
     """Repeat a visit with fresh noise: the spread of the measured positions should be
     about the bootstrap error of one of them (within a factor of two)."""

@@ -7,6 +7,47 @@ from app.targets import find_target
 StackRequest = stack_service.StackRequest
 
 
+def test_live_wise_fit_gets_a_fixed_sky_neighbour(monkeypatch):
+    import numpy as np
+
+    from app.resample import sky_to_tangent
+    from app.targets import position_at_mjd
+
+    target = find_target("wise-0855")
+    req = StackRequest.normalised(
+        target.ra,
+        target.dec,
+        120,
+        4.4,
+        5.0,
+        target.pmra,
+        target.pmdec,
+        target.epoch,
+        target.parallax,
+    )
+    positions = [
+        position_at_mjd(target.ra, target.dec, target.pmra, target.pmdec, target.epoch, mjd)
+        for mjd in (60990, 61160)
+    ]
+    exposures = [
+        stack_service._Exposure(str(k), mjd, 4.7, np.ones((21, 21)), *position)
+        for k, (mjd, position) in enumerate(zip((60990, 61160), positions, strict=True))
+    ]
+    monkeypatch.setattr(stack_service, "_live_inputs", lambda *_: (exposures, 2, [], False))
+    captured = []
+
+    def capture(inputs, *_):
+        captured.extend(inputs)
+        return {"single": None, "tracked": None, "static": None, "epochs": []}
+
+    monkeypatch.setattr(stack_service.stacking, "build", capture)
+    stack_service._compute(Settings(mode="live", _env_file=None), req)
+    for item, (ra, dec) in zip(captured, positions, strict=True):
+        east, north = sky_to_tangent(ra, dec, np.array([133.7582]), np.array([-7.2412]))
+        assert np.allclose(item.neighbour, (10.5 - east[0] / 6.15, 10.5 - north[0] / 6.15))
+    assert captured[0].neighbour != captured[1].neighbour
+
+
 def _site_trim(value: float, decimals: int) -> float:
     """What frontend/src/urlState.ts writes into the address: fixed decimals, no trailing zeros."""
     return float(f"{value:.{decimals}f}")

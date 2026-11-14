@@ -32,7 +32,7 @@ from .sampling import sample_evenly
 from .targets import TARGETS, parallax_offset, position_at_mjd
 
 # Bump when the stacking changes, so old cached stacks are not reused.
-STACK_VERSION = 9
+STACK_VERSION = 10
 
 _lock = threading.Lock()
 
@@ -186,9 +186,24 @@ def _compute(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np.
     else:
         ref_ra, ref_dec = req.ra, req.dec
     inputs = []
+    wise = next(t for t in TARGETS if t.id == "wise-0855")
+    deblend = (
+        settings.mode == "live"
+        and req.ra == wise.ra
+        and req.dec == wise.dec
+        and req.pmra == wise.pmra
+        and req.pmdec == wise.pmdec
+        and req.epoch == wise.epoch
+    )
     for e in exposures:
         east, north = sky_to_tangent(ref_ra, ref_dec, np.array([e.ra]), np.array([e.dec]))
         plx_east, plx_north = parallax_offset(e.ra, e.dec, req.parallax, e.mjd)
+        neighbour = None
+        if deblend:
+            # Catalogue neighbour supplied in issue #4; fixed sky position, no motion.
+            # Project into each exposure's object-centred grid, never the display grid.
+            ne, nn = sky_to_tangent(e.ra, e.dec, np.array([133.7582]), np.array([-7.2412]))
+            neighbour = (n / 2 - float(ne[0]) / PIXEL_SCALE_ARCSEC, n / 2 - float(nn[0]) / PIXEL_SCALE_ARCSEC)
         inputs.append(
             stacking.StackInput(
                 e.exposure_id,
@@ -200,6 +215,7 @@ def _compute(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np.
                 e.raw,
                 parallax_east=plx_east,
                 parallax_north=plx_north,
+                neighbour=neighbour,
             )
         )
     built = stacking.build(inputs, n, PIXEL_SCALE_ARCSEC, req.has_motion)
