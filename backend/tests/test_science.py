@@ -35,6 +35,16 @@ def test_wise_0855_position_in_2026():
     assert _separation_arcsec(ra, dec, 133.795129, -7.245147) > 100
 
 
+def test_patch_grid_always_has_a_central_pixel():
+    from app.resample import grid_offsets
+
+    for size in (1, 49, 120, 300, 600, 2000):
+        n = mock.patch_pixels(size)
+        assert n % 2 == 1
+        east, north = grid_offsets(n, 6.15)
+        assert east[n // 2, n // 2] == north[n // 2, n // 2] == 0
+
+
 def test_barnards_star_moves_about_ten_arcsec_a_year():
     t = find_target("Barnard's Star")
     a = propagate(t.ra, t.dec, t.pmra, t.pmdec, t.epoch, 2025.0)
@@ -125,9 +135,9 @@ def test_mock_patch_is_repeatable_and_sized():
     e = mock.all_exposures()[0]
     a = mock.patch(e, 10.0, 20.0, 120.0)
     b = mock.patch(e, 10.0, 20.0, 120.0)
-    assert a.shape == (20, 20)
+    assert a.shape == (21, 21)
     assert np.array_equal(a, b)
-    assert mock.patch(e, 10.0, 20.0, 5000.0).shape == (96, 96)
+    assert mock.patch(e, 10.0, 20.0, 5000.0).shape == (95, 95)
 
 
 def test_mock_barnards_star_is_the_brightest_thing_and_moves():
@@ -154,5 +164,5 @@ def test_mock_wise_0855_is_hidden_in_one_frame_but_there_in_a_stack():
         stack.append(image - np.median(image))
     mean = np.mean(stack, axis=0)
     n = mean.shape[0]
-    core = mean[n // 2 - 1 : n // 2 + 1, n // 2 - 1 : n // 2 + 1].mean()
+    core = mean[n // 2, n // 2]  # the target now falls on one pixel centre
     assert core > 3 * mock.NOISE_SIGMA / math.sqrt(len(stack))

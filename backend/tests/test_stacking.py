@@ -40,7 +40,7 @@ def _inputs(count=48, peak=2.0, total_motion_px=2.0, visits=4, seed=1, star_peak
 
 
 def test_tracked_stack_beats_one_exposure_by_about_root_n():
-    items = _inputs()
+    items = _inputs(star_peak=0.0)
     built = stacking.build(items, N_PX, SCALE, has_motion=True)
     n = len(items)
     expected = 2.0 * math.sqrt(n)  # about 13.9
@@ -57,6 +57,37 @@ def test_empty_position_reads_low():
     assert built["tracked"].snr < 4.0
 
 
+def test_psf_snr_is_unchanged_by_field_size():
+    rng = np.random.default_rng(52)
+    image = rng.normal(0, 1, (49, 49)) + _gaussian(24.5, 24.5, 15, n=49)
+    assert stacking.snr_at(image, 24.5, 24.5) == pytest.approx(
+        stacking.snr_at(image[14:35, 14:35], 10.5, 10.5), abs=1e-12
+    )
+
+
+def test_stack_weights_and_snr_are_unchanged_by_field_size():
+    rng = np.random.default_rng(142)
+    large = []
+    small = []
+    for k in range(12):
+        image = rng.normal(0, 1 + k / 12, (49, 49)) + _gaussian(24.5, 24.5, 4, n=49)
+        # Bright objects in the extra area must not change the target's weights.
+        image[0:5, 0:5] += 1000
+        large.append(StackInput(str(k), 60800 + k * 40, 4.7, image, 0, 0))
+        small.append(StackInput(str(k), 60800 + k * 40, 4.7, image[14:35, 14:35], 0, 0))
+    a = stacking.build(large, 49, SCALE, False)
+    b = stacking.build(small, 21, SCALE, False)
+    assert a["sigmas"] == b["sigmas"]
+    assert a["tracked"].snr == pytest.approx(b["tracked"].snr, abs=1e-12)
+
+
+def test_psf_snr_empty_sky_has_zero_mean_and_unit_scatter():
+    rng = np.random.default_rng(23)
+    snrs = [stacking.snr_at(rng.normal(0, 1, (21, 21)), 10.5, 10.5) for _ in range(200)]
+    assert abs(np.mean(snrs)) < 0.2
+    assert 0.8 < np.std(snrs) < 1.2
+
+
 def test_epoch_grouping():
     mjds = [10.0, 11.0, 12.0, 13.0, 14.0, 100.0, 101.0, 200.0, 201.0, 202.0, 203.0, 204.0, 205.0]
     groups = stacking.group_epochs(mjds)
@@ -66,7 +97,7 @@ def test_epoch_grouping():
 
 
 def test_epoch_stacks_share_one_grid_and_show_the_step():
-    items = _inputs(peak=6.0)
+    items = _inputs(peak=10.0)  # stay above the conservative local-confusion S/N threshold
     built = stacking.build(items, N_PX, SCALE, has_motion=True)
     epochs = built["epochs"]
     assert len(epochs) == 4 and all(len(e.members) == 12 for e in epochs)
@@ -221,11 +252,11 @@ def test_measured_step_has_no_resampling_bias():
 
 
 def test_parallax_enters_the_prediction_not_the_image_centre():
-    items = _inputs(peak=6.0)
+    items = _inputs(peak=10.0)
     for item in items:
         item.parallax_east, item.parallax_north = 0.4, -0.2
     built = stacking.build(items, N_PX, SCALE, has_motion=True)
-    plain = stacking.build(_inputs(peak=6.0), N_PX, SCALE, has_motion=True)
+    plain = stacking.build(_inputs(peak=10.0), N_PX, SCALE, has_motion=True)
     for e, p in zip(built["epochs"], plain["epochs"], strict=True):
         assert e.extra["east"] == pytest.approx(p.extra["east"] + 0.4)
         assert e.extra["north"] == pytest.approx(p.extra["north"] - 0.2)

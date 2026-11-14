@@ -229,10 +229,11 @@ def _box(image: np.ndarray, x: float, y: float, half: int = 1):
 
 
 def background_stats(image: np.ndarray, x: float, y: float, exclude_px: float = NOISE_EXCLUDE_PX):
-    """(median, robust noise) of the pixels farther than `exclude_px` from (x, y)."""
+    """Median and robust noise in a fixed local annulus, independent of field size."""
     n_y, n_x = image.shape
     yy, xx = np.mgrid[0:n_y, 0:n_x] + 0.5
-    far = np.hypot(xx - x, yy - y) > exclude_px
+    radius = np.hypot(xx - x, yy - y)
+    far = (radius > exclude_px) & (radius <= 8.0)
     values = image[far & np.isfinite(image)]
     if values.size < 10:
         return None
@@ -241,22 +242,42 @@ def background_stats(image: np.ndarray, x: float, y: float, exclude_px: float = 
 
 
 def snr_at(image: np.ndarray, x: float, y: float) -> float | None:
-    """Peak of the 3 by 3 pixel box at (x, y), above the background, divided by the
-    stack's robust noise away from that position. Note: the peak of nine pixels is
-    biased upward, so an empty position typically reads about 1 to 2, not 0.
-    None when any pixel of the box is empty (flagged in too many exposures)."""
-    box = _box(image, x, y)
-    stats = background_stats(image, x, y)
-    if box is None or stats is None or stats[1] <= 0:
+    """Fixed PSF amplitude divided by its scatter in local empty apertures.
+
+    Fit a fixed Gaussian plus a constant sky in identical 5x5 apertures, including
+    pixel phase, at the target and integer offsets 4--7 pixels away. The local
+    control-aperture scatter includes correlated noise and unresolved field sources.
+    The footprint and noise sample do not grow with the requested field size.
+    """
+
+    def flux(cx, cy):
+        ix, iy = int(math.floor(cx)), int(math.floor(cy))
+        if ix < 2 or iy < 2 or ix + 2 >= image.shape[1] or iy + 2 >= image.shape[0]:
+            return None
+        patch = image[iy - 2 : iy + 3, ix - 2 : ix + 3]
+        if not np.isfinite(patch).all():
+            return None
+        yy, xx = np.mgrid[iy - 2 : iy + 3, ix - 2 : ix + 3] + 0.5
+        psf = np.exp(-((xx - cx) ** 2 + (yy - cy) ** 2) / (2 * DEFAULT_FIT_SIGMA_PX**2))
+        # Project out the constant sky term before solving for the PSF amplitude.
+        psf -= np.mean(psf)
+        return float(np.sum(patch * psf) / np.sum(psf**2))
+
+    signal = flux(x, y)
+    if signal is None:
         return None
-    y0, y1, x0, x1 = box
-    patch = image[y0:y1, x0:x1]
-    if not np.isfinite(patch).all():
-        # Part of the box is empty: the core of a saturated star, flagged in most
-        # exposures. The peak of what is left would be meaningless.
+    empty = []
+    for dy in range(-7, 8):
+        for dx in range(-7, 8):
+            if 4 <= math.hypot(dx, dy) <= 7:
+                value = flux(x + dx, y + dy)
+                if value is not None:
+                    empty.append(value)
+    if len(empty) < 20:
         return None
-    level, noise = stats
-    return float((np.nanmax(patch) - level) / noise)
+    level = float(np.median(empty))
+    scatter = float(np.std(empty, ddof=1))
+    return (signal - level) / scatter if scatter > 0 else None
 
 
 def core_flagged(image: np.ndarray, x: float, y: float) -> bool:
@@ -501,15 +522,17 @@ def build(inputs: list[StackInput], n: int, scale_arcsec: float, has_motion: boo
         return {"single": None, "tracked": None, "static": None, "epochs": [], "sigmas": []}
     centre = n / 2.0
     levels = []
+    local_sigmas = []
     for i in inputs:
-        finite = i.image[np.isfinite(i.image)]
-        levels.append(float(np.median(finite)) if finite.size else 0.0)
+        stats = background_stats(i.image, centre, centre)
+        levels.append(stats[0] if stats is not None else 0.0)
+        local_sigmas.append(stats[1] if stats is not None else 0.0)
     own = [i.image.astype(np.float64) - lv for i, lv in zip(inputs, levels, strict=True)]
     own_raw = [
         (i.raw if i.raw is not None else i.image).astype(np.float64) - lv
         for i, lv in zip(inputs, levels, strict=True)
     ]
-    sigmas = [robust_sigma(i) for i in own]
+    sigmas = local_sigmas
     mjds = [i.mjd for i in inputs]
 
     singles = [snr_at(im, centre, centre) if s > 0 else None for im, s in zip(own, sigmas, strict=True)]
@@ -551,7 +574,10 @@ def build(inputs: list[StackInput], n: int, scale_arcsec: float, has_motion: boo
 
         fixed = [to_fixed(im, i) for im, i in zip(own, inputs, strict=True)]
         fixed_raw = [to_fixed(im, i) for im, i in zip(own_raw, inputs, strict=True)]
-        fixed_sigmas = [robust_sigma(i) for i in fixed]
+        fixed_sigmas = [
+            stats[1] if (stats := background_stats(i, centre, centre)) is not None else 0.0
+            for i in fixed
+        ]
     else:
         fixed, fixed_raw, fixed_sigmas = own, own_raw, sigmas
 

@@ -14,6 +14,7 @@ Rules that apply to everything listed here:
 | 2026-11-14 | Dinura | Claude Code (Anthropic) | Wrote the repository scaffold: instructions, documents, templates, back end with mock data, front end shell, tests, `.github` (issue templates, pull request template, CI workflow, labels), `scripts/`, the `.do/app.yaml` draft, the docs | Everything in the first commit | Not yet |
 
 | 2026-11-14 | Issue #4 assignee | OpenAI Codex | Corrected bilinear masking to reject incomplete footprints, added regression coverage and invalidated affected caches | `backend/app/resample.py`, cache versions and `backend/tests/test_live_frames.py` | Not yet |
+| 2026-11-14 | Issue #4 assignee | OpenAI Codex | Replaced peak-pixel S/N with a PSF measurement and local empty-aperture scatter; centred targets on odd grids; added regression tests | `backend/app/stacking.py`, `backend/app/mock.py` and backend tests | Not yet |
 
 ## Draft statement for the project page
 

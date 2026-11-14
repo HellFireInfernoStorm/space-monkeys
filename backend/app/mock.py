@@ -123,8 +123,9 @@ def get_exposure(exposure_id: str) -> MockExposure | None:
 
 
 def patch_pixels(size_arcsec: float) -> int:
-    """Width of a patch in original pixels."""
-    return int(min(MAX_PIXELS, max(MIN_PIXELS, round(size_arcsec / PIXEL_SCALE_ARCSEC))))
+    """Odd width in native pixels, with the target on a pixel centre."""
+    width = int(min(MAX_PIXELS, max(MIN_PIXELS, round(size_arcsec / PIXEL_SCALE_ARCSEC))))
+    return min(MAX_PIXELS - (MAX_PIXELS % 2 == 0), width | 1)
 
 
 # --- the mock sky -------------------------------------------------------------------
