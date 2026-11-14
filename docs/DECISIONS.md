@@ -21,13 +21,14 @@ Format: number, date, the decision in one or two sentences, the reason, and who 
 | D-013 | 2026-11-14 | Layer 3 is a fast "quick look" aperture measurement, cross-checked against IRSA's Spectrophotometry Tool, with the same column names as that tool. The pitch leads with time and motion (layers 1, 2 and 5). | IRSA already offers precise spectra, but slowly and for at most 20 sources per run; our distinct value is speed and change over time. | Repository owner, from the resources review |
 | D-014 | 2026-11-14 | Layer 4 starts as a link that opens WiseView at the same coordinates; an embedded comparison comes only if time allows. | WiseView already does WISE-era blinking well and takes coordinates in its URL. | Repository owner, from the resources review |
 | D-015 | 2026-11-14 | One canonical instruction file for AI tools, `AGENTS.md`, with `CLAUDE.md` as a pointer. | Codex, Cursor and Antigravity read `AGENTS.md` from the repository root; one file cannot drift out of step with itself. | Repository owner |
+| D-016 | 2026-11-14 | The repository is public from the start, under the repository owner's personal GitHub account for now. | Gets the prototype where the team can reach it quickly; a move to an organisation can still happen later. | Repository owner |
+| D-017 | 2026-11-14 | Our own code and documents are licensed under Apache 2.0 (`LICENSE`). | The Space Apps terms require an open-source licence and apply Apache 2.0 when none is named; it works with every library we use. | Repository owner |
 
 ## Open
 
 | Topic | Waiting on |
 | --- | --- |
 | Exact final submission time | Organisers (deferred on 2026-11-14) |
-| GitHub organisation or personal account; public or private until submission | Repository owner |
+| Whether to move the repository to a GitHub organisation | Repository owner |
 | The six GitHub usernames | Team |
-| Licence for our own code | Repository owner |
 | Product name | Team |

@@ -76,4 +76,8 @@ This project is not affiliated with or endorsed by NASA.
 
 ## Licence
 
-Not chosen yet. Until a licence file is added, all rights are reserved by the team.
+Copyright 2026 the space-monkeys team.
+
+Our own code and documents are licensed under the Apache License, Version 2.0. The full text is in [LICENSE](LICENSE). The NASA Space Apps terms ask for an open-source licence and name this one as the default.
+
+This licence covers only what the team wrote. Data, libraries and other material we reuse keep their own licences, listed in [docs/RESOURCES.md](docs/RESOURCES.md).
