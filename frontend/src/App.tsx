@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   ApiError,
@@ -20,7 +20,7 @@ import BlinkPlayer from "./components/BlinkPlayer";
 import StackView from "./components/StackView";
 import TargetPicker from "./components/TargetPicker";
 import ViewForm from "./components/ViewForm";
-import { parseView, serializeView, type ViewState } from "./urlState";
+import { isNewView, parseView, serializeView, type ViewState } from "./urlState";
 import { WISE_EPOCH, wiseViewUrl } from "./wiseview";
 
 const ACKNOWLEDGEMENT =
@@ -51,12 +51,17 @@ export default function App() {
   }, []);
 
   // Keep the address bar in step with the view, so the link can always be copied.
+  // A new target, position, range or mode is a new history entry, so Back returns to the
+  // previous view; speed and the background survey only update the current entry.
+  const shown = useRef(view);
   useEffect(() => {
     const query = serializeView(view);
     const address = window.location.pathname + (query ? "?" + query : "");
     if (address !== window.location.pathname + window.location.search) {
-      window.history.replaceState(null, "", address);
+      if (isNewView(shown.current, view)) window.history.pushState(null, "", address);
+      else window.history.replaceState(null, "", address);
     }
+    shown.current = view;
   }, [view]);
 
   useEffect(() => {

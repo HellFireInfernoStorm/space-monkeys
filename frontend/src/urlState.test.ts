@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_VIEW, parseView, serializeView, type ViewState } from "./urlState";
+import { DEFAULT_VIEW, isNewView, parseView, serializeView, type ViewState } from "./urlState";
 
 describe("urlState", () => {
   it("gives the defaults for an empty URL, and an empty URL for the defaults", () => {
@@ -59,5 +59,17 @@ describe("urlState", () => {
   it("needs both coordinates before it accepts a position", () => {
     expect(parseView("?ra=10").ra).toBeNull();
     expect(parseView("?dec=10").dec).toBeNull();
+  });
+});
+
+describe("isNewView", () => {
+  it("is true for a new target, position, range or mode", () => {
+    expect(isNewView(DEFAULT_VIEW, { ...DEFAULT_VIEW, ra: 1, dec: 2 })).toBe(true);
+    expect(isNewView(DEFAULT_VIEW, { ...DEFAULT_VIEW, wlmin: 1, wlmax: 2 })).toBe(true);
+    expect(isNewView(DEFAULT_VIEW, { ...DEFAULT_VIEW, mode: "diff" })).toBe(true);
+  });
+
+  it("is false for speed and the background survey", () => {
+    expect(isNewView(DEFAULT_VIEW, { ...DEFAULT_VIEW, speed: 5, sky: "spherex" })).toBe(false);
   });
 });

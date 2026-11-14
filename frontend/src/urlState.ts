@@ -118,3 +118,17 @@ export function serializeView(view: ViewState): string {
   if (view.name) p.set("name", view.name);
   return p.toString();
 }
+
+/** Settings that change continuously while watching; every other change is a new view. */
+const CONTINUOUS: ReadonlyArray<keyof ViewState> = ["speed", "sky"];
+
+/**
+ * Whether going from one view to the next deserves its own entry in the browser history
+ * (a new target, position, range, size or mode), or only an update of the current entry
+ * (speed, background survey).
+ */
+export function isNewView(before: ViewState, after: ViewState): boolean {
+  return (Object.keys(after) as Array<keyof ViewState>).some(
+    (key) => !CONTINUOUS.includes(key) && before[key] !== after[key],
+  );
+}
