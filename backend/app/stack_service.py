@@ -32,7 +32,7 @@ from .sampling import sample_evenly
 from .targets import TARGETS, parallax_offset, position_at_mjd
 
 # Bump when the stacking changes, so old cached stacks are not reused.
-STACK_VERSION = 10
+STACK_VERSION = 11
 
 _lock = threading.Lock()
 
@@ -158,10 +158,11 @@ def _live_inputs(settings: Settings, req: StackRequest, n: int):
 
 
 def _mock_inputs(req: StackRequest, n: int):
+    """Synthetic inputs have no catalogue-neighbour model, unlike live mode."""
     out = []
     for e in mock.stack_exposures(req.wl_min, req.wl_max):
         t_ra, t_dec = position_at_mjd(req.ra, req.dec, req.pmra, req.pmdec, req.epoch, e.mjd)
-        image = mock.patch(e, t_ra, t_dec, req.size)
+        image = mock.patch(e, t_ra, t_dec, n * PIXEL_SCALE_ARCSEC)
         out.append(_Exposure(e.exposure_id, e.mjd, e.wavelength_um, image, t_ra, t_dec))
     return out, len(out), [], False
 
@@ -174,7 +175,10 @@ def _image_url(req: StackRequest, kind: str, index: int = 0) -> str:
 
 
 def _compute(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np.ndarray]]:
-    n = mock.patch_pixels(req.size)
+    display_n = mock.patch_pixels(req.size)
+    # Keep the full noise-control ring for measurements; crop only the display products.
+    n = max(21, display_n)
+    crop = (n - display_n) // 2
     if settings.mode == "mock":
         exposures, total, notes, capped = _mock_inputs(req, n)
     else:
@@ -186,24 +190,30 @@ def _compute(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np.
     else:
         ref_ra, ref_dec = req.ra, req.dec
     inputs = []
-    wise = next(t for t in TARGETS if t.id == "wise-0855")
-    deblend = (
-        settings.mode == "live"
-        and req.ra == wise.ra
-        and req.dec == wise.dec
-        and req.pmra == wise.pmra
-        and req.pmdec == wise.pmdec
-        and req.epoch == wise.epoch
-    )
+    fitted_neighbours = set()
     for e in exposures:
         east, north = sky_to_tangent(ref_ra, ref_dec, np.array([e.ra]), np.array([e.dec]))
         plx_east, plx_north = parallax_offset(e.ra, e.dec, req.parallax, e.mjd)
         neighbour = None
-        if deblend:
-            # Catalogue neighbour supplied in issue #4; fixed sky position, no motion.
-            # Project into each exposure's object-centred grid, never the display grid.
-            ne, nn = sky_to_tangent(e.ra, e.dec, np.array([133.7582]), np.array([-7.2412]))
-            neighbour = (n / 2 - float(ne[0]) / PIXEL_SCALE_ARCSEC, n / 2 - float(nn[0]) / PIXEL_SCALE_ARCSEC)
+        if settings.mode == "live":
+            for target in TARGETS:
+                if not target.neighbours:
+                    continue
+                tra, tdec = position_at_mjd(
+                    target.ra, target.dec, target.pmra, target.pmdec, target.epoch, e.mjd
+                )
+                te, tn = sky_to_tangent(e.ra, e.dec, np.array([tra]), np.array([tdec]))
+                if math.hypot(float(te[0]), float(tn[0])) > 3.0:
+                    continue
+                for known in target.neighbours:
+                    ne, nn = sky_to_tangent(e.ra, e.dec, np.array([known.ra]), np.array([known.dec]))
+                    dx, dy = float(ne[0]) / PIXEL_SCALE_ARCSEC, float(nn[0]) / PIXEL_SCALE_ARCSEC
+                    if max(abs(dx), abs(dy)) <= stacking.FIT_BOX / 2:
+                        neighbour = (n / 2 - dx, n / 2 - dy)
+                        fitted_neighbours.add(known.source)
+                        break
+                if neighbour is not None:
+                    break
         inputs.append(
             stacking.StackInput(
                 e.exposure_id,
@@ -219,6 +229,11 @@ def _compute(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np.
             )
         )
     built = stacking.build(inputs, n, PIXEL_SCALE_ARCSEC, req.has_motion)
+    if fitted_neighbours:
+        notes.append(
+            "A known field star is included in the target's two-source motion-fit model; "
+            "its catalogue position uncertainty is not included in the bootstrap errors."
+        )
 
     def describe(stack: stacking.Stack | None) -> m.StackImage | None:
         if stack is None:
@@ -242,15 +257,17 @@ def _compute(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np.
             wl_max_um=round(max(wavelengths), 4),
             center_ra=c_ra,
             center_dec=c_dec,
-            target_x=round(stack.target_x, 3),
-            target_y=round(stack.target_y, 3),
+            target_x=round(stack.target_x - crop, 3),
+            target_y=round(stack.target_y - crop, 3),
             snr=None if stack.snr is None else round(stack.snr, 2),
             saturated=stack.saturated,
             image_url=_image_url(req, stack.kind, stack.index),
         )
 
     epochs = built["epochs"]
-    first = next((s for s in epochs if s.measured is not None), epochs[0] if epochs else None)
+    first = next(
+        (s for s in epochs if s.measured is not None and not s.saturated), epochs[0] if epochs else None
+    )
     motion = []
     for s in epochs:
         e0, n0 = first.extra["east"], first.extra["north"]
@@ -272,7 +289,7 @@ def _compute(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np.
             saturated=s.saturated,
         )
         here, there = s.measured, first.measured
-        if here is not None and there is not None:
+        if here is not None and there is not None and not (s.saturated or first.saturated):
             point.measured_east_arcsec = round(here.east - there.east, 2)
             point.measured_north_arcsec = round(here.north - there.north, 2)
             if s is not first:
@@ -288,7 +305,22 @@ def _compute(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np.
         notes.append(
             "The pixels at the target are flagged in most exposures (usually the saturated core of a "
             "bright star), so no signal-to-noise ratio is given: it is marked saturated. The pictures "
-            "show their unflagged values, and positions are fitted to the star's wings."
+            "show their unflagged values. Motion is not measured for saturated cores."
+        )
+
+    all_stacks = [s for s in [built["single"], built["tracked"], built["static"], *epochs] if s is not None]
+    for s in all_stacks:
+        if s.snr is None:
+            notes.append(
+                f"S/N is unavailable for {s.kind} image {s.index}: the target aperture or "
+                "local control apertures contain too few usable pixels (masking or detector edge)."
+            )
+    if not inputs:
+        notes.append("No usable exposures were available, so S/N and motion could not be measured.")
+    if any(s.measured is None or s.saturated for s in epochs):
+        notes.append(
+            "Motion is unavailable for one or more visits: the core is saturated, "
+            "the signal is below the measurement threshold, or the position fit failed."
         )
 
     result = m.StackResult(
@@ -301,7 +333,7 @@ def _compute(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np.
         dec=req.dec,
         size=req.size,
         pixel_scale=PIXEL_SCALE_ARCSEC,
-        pixels=n,
+        pixels=display_n,
         has_motion=req.has_motion,
         parallax=req.parallax,
         reference_ra=ref_ra,
@@ -316,7 +348,9 @@ def _compute(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np.
     arrays: dict[str, np.ndarray] = {}
     for stack in [built["single"], built["tracked"], built["static"], *epochs]:
         if stack is not None:
-            arrays[f"{stack.kind}_{stack.index}"] = stack.display.astype(np.float32)
+            arrays[f"{stack.kind}_{stack.index}"] = stack.display[
+                crop : crop + display_n, crop : crop + display_n
+            ].astype(np.float32)
     main = [s.image for s in (built["tracked"], built["static"]) if s is not None]
     stretches = {
         "main": common_stretch(main) if main else None,
@@ -362,6 +396,11 @@ def get_stack(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np
         if found is not None:
             return found
         meta, arrays = _compute(settings, req)
+        # A partial search is also transient: never freeze an incomplete result for hours.
+        if not meta["result"]["returned"] or any(
+            "Search of " in warning and " failed:" in warning for warning in meta["result"]["warnings"]
+        ):
+            return meta, arrays
         cache.put_arrays("stackimg", key, arrays)
         cache.put_json("stack", key, meta)
         return meta, arrays

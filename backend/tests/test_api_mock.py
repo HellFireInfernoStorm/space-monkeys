@@ -169,4 +169,8 @@ def test_saturated_star_says_so_instead_of_an_empty_snr(monkeypatch):
     assert result["tracked"]["saturated"] is True and result["tracked"]["snr"] is None
     assert all(e["saturated"] for e in result["epochs"])
     assert all(p["saturated"] for p in result["motion"])
+    assert all(
+        p["measured_east_arcsec"] is None and p["measured_north_arcsec"] is None and p["error_arcsec"] is None
+        for p in result["motion"]
+    )
     assert any("saturated" in w for w in result["warnings"])

@@ -310,7 +310,7 @@ def test_parallax_enters_the_prediction_not_the_image_centre():
         assert e.measured.east == pytest.approx(p.measured.east)  # same pixels, same measurement
 
 
-def test_saturated_star_is_measured_from_its_wings():
+def test_saturated_star_does_not_report_confident_motion_from_its_wings():
     items = _inputs(peak=50.0)
     for item in items:
         item.raw = item.image.copy()
@@ -319,8 +319,7 @@ def test_saturated_star_is_measured_from_its_wings():
     built = stacking.build(items, N_PX, SCALE, has_motion=True)
     assert built["tracked"].saturated and built["tracked"].snr is None
     for e in built["epochs"]:
-        assert e.saturated and e.measured is not None
-        assert e.measured.east == pytest.approx(e.extra["east"], abs=1.0)
+        assert e.saturated and e.measured is None
 
 
 def test_single_is_a_typical_exposure():

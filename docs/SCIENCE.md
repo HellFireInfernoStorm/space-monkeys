@@ -104,7 +104,7 @@ R Draconis lies in one of the survey's deep fields near the north ecliptic pole.
 ### WISE 0855: what we measured
 
 - A typical single exposure at 4.4 to 5.0 micrometres has PSF S/N 4.66: below our detection threshold of 5, and not a reliable visual detection. The earlier approximate 2-sigma statement used a different statistic and is superseded.
-- Stacking 46 exposures at 4.4 to 5.0 micrometres gives PSF S/N 14.18 tracked and 11.44 static. Both detect it; tracking sharpens it. These numbers are identical for 120 and 300 arcsecond requests (21 and 49 pixels).
+- Stacking 46 exposures at 4.4 to 5.0 micrometres gives PSF S/N 14.18 tracked and 11.44 static. Both detect it; tracking sharpens it. These numbers are identical for 60, 80, 120 and 300 arcsecond image requests. Measurements use an internal grid at least 21 pixels wide; only the returned pictures and their marker coordinates are cropped.
 - It is not detectable at shorter wavelengths. An unrelated faint source about 7 arcseconds away is visible at short wavelengths; do not mistake it for the target.
 
 ## 4. Pixel flags
@@ -163,7 +163,7 @@ Collection names live in `backend/app/config.py` and nowhere else.
 
 **Why the noise falls with the square root.** The average of N independent noisy values scatters by the noise of one value divided by the square root of N. So 4 exposures halve the noise, 100 exposures cut it to a tenth. An object at 2 sigma in one exposure (signal twice the noise) should reach about 2 times the square root of 46, roughly 13.5 sigma, in a stack of 46. That is ideal; in practice the gain is smaller, because the exposures are at different wavelengths, some noise is shared between neighbouring pixels after resampling, and faint stars add a little "noise" of their own.
 
-"Sigma" here means signal-to-noise ratio (S/N): the PSF amplitude above the local sky divided by the scatter of the same measurement at control positions. We fit a fixed Gaussian of width 0.8 pixel plus a constant sky in a 5 by 5 aperture. The noise is the sample standard deviation of identical apertures at integer offsets 4 to 7 pixels from the target, minus their median level. This includes correlated resampling noise and field-source confusion; it is conservative where control apertures overlap faint stars. At least 20 complete control apertures are required. A missing pixel in the target aperture means no S/N. This signed statistic has no brightest-pixel selection bias; blank Gaussian-noise fields are centred near zero with unit scatter in tests. Exposure backgrounds and weights use the same fixed local annulus (3 to 8 pixels) for every field size. Targets sit on pixel centres in odd grids. We require S/N of at least 5 to measure a faint source's motion.
+"Sigma" here means signal-to-noise ratio (S/N): the PSF amplitude above the local sky divided by the scatter of the same measurement at control positions. We fit a fixed Gaussian of width 0.8 pixel plus a constant sky in a 5 by 5 aperture. The noise is the sample standard deviation of identical apertures at integer offsets 4 to 7 pixels from the target, minus their median level. This includes correlated resampling noise and field-source confusion; it is conservative where control apertures overlap faint stars. At least 20 complete control apertures are required. A missing pixel in the target aperture means no S/N. This signed statistic has no brightest-pixel selection bias; blank Gaussian-noise fields are centred near zero with unit scatter in tests. Exposure backgrounds and weights use the same fixed local annulus (3 to 8 pixels) for every field size. Targets sit on pixel centres in odd grids. The internal measurement grid is at least 21 pixels wide, even when the requested image is smaller, so the complete control ring is always available. If masking or a detector edge still prevents S/N, the response includes an explanatory warning. We require S/N of at least 5 to measure a faint source's motion.
 
 **Three kinds of stack** (code: `backend/app/stacking.py`; details in `docs/ARCHITECTURE.md`):
 
@@ -178,8 +178,8 @@ Collection names live in `backend/app/config.py` and nowhere else.
 | Image | S/N at the predicted position |
 | --- | --- |
 | A typical single exposure (median among usable PSF measurements) | 4.66 |
-| Tracked stack, 46 exposures | 14.18 at both 120 and 300 arcseconds |
-| Static stack, 46 exposures | 11.44 at both sizes |
+| Tracked stack, 46 exposures | 14.18 at 60, 80, 120 and 300 arcseconds |
+| Static stack, 46 exposures | 11.44 at all four sizes |
 | Visit 1 fixed-grid stack, 22 exposures, 2025-11-07 to 2025-12-13 | 11.2 |
 | Visit 2 fixed-grid stack, 21 exposures, 2026-04-21 to 2026-05-11 | 11.46 |
 
@@ -201,7 +201,7 @@ Collection names live in `backend/app/config.py` and nowhere else.
 | Measured (± 1 sigma, bootstrap) | 3.90 ± 0.57 W | 0.99 ± 0.56 N |
 | Measured minus predicted | 0.54 E (0.95 sigma) | 0.45 N (0.80 sigma) |
 
-The measurement agrees with the prediction within its statistical errors. Holding the new grid, masking and weighting fixed, the single-source fit gives 3.57 ± 0.45 W and 0.93 ± 0.39 N. Including the field star reduces the east-west residual from 0.87 to 0.54 arcseconds. The original even-grid, single-source result (3.88 ± 0.44 W, 1.01 ± 0.41 N) is superseded. All new values above were reproduced at both field sizes with 46 real exposures; predicted coordinates, times, wavelengths and motion were unchanged.
+The quoted 0.57 and 0.56 arcsecond uncertainties are statistical bootstrap errors, not full errors: uncertainty in the fixed neighbour position and PSF systematics are excluded. The measurement agrees with the prediction within its statistical errors. Holding the new grid, masking and weighting fixed, the single-source fit gives 3.57 ± 0.45 W and 0.93 ± 0.39 N. Including the field star reduces the east-west residual from 0.87 to 0.54 arcseconds. The original even-grid, single-source result (3.88 ± 0.44 W, 1.01 ± 0.41 N) is superseded. All new values above were reproduced at all four field sizes with 46 real exposures; predicted coordinates, times, wavelengths and motion were unchanged.
 
 **Limits:**
 
@@ -209,7 +209,19 @@ The measurement agrees with the prediction within its statistical errors. Holdin
 - The stack is broadband: it adds exposures from 4.4 to 5.0 micrometres, each at a different wavelength. It shows that something is there, not its spectrum.
 - The pictures and markers are on the 6.15 arcsecond pixel grid. The fitted positions are finer than that, with the errors stated; what limits them is the object's per-visit S/N and the different pixel phase of each exposure's resampling, not the grid.
 - Parallax enters only through the `parallax` parameter (the site sends the built-in targets' values). Without it the prediction is proper motion alone and, for WISE 0855, off by 0.8 arcseconds.
-- Bright stars: their cores are flagged in most exposures, so no S/N is given ("saturated"). The position is fitted to the unflagged wings around the hole (an 11 by 11 pixel window and a wider profile), with a bootstrap error. That error is statistical only: the wings are not Gaussian and the star's image is not symmetric. Barnard's Star at 1.0 to 1.2 micrometres (three visits, 9 or 10 exposures each, parallax 547 mas): visit 3 measured 0.4 ± 0.5 W, 10.2 ± 0.4 N against 0.8 W, 10.3 N predicted (agrees); visit 2 measured 2.8 ± 0.5 E, 4.6 ± 0.5 N against 0.6 E, 5.6 N (off by 2.2 E and 1.0 S, 4 and 2 sigma). Positions of saturated stars are therefore good to about 2 arcseconds, not to their stated error.
+- Bright stars: flagged cores still have display images and predicted positions, but their measured motion and errors are omitted. A Gaussian fitted to saturated wings can give a precise-looking, systematically biased result. The review measured Barnard's Star's middle-visit step as 3.35 arcseconds east against 0.60 predicted, despite its small formal error; we therefore skip saturated-core motion rather than quote a misleading confidence interval. A live rerun at 1.0 to 1.2 micrometres confirmed all three visits are marked saturated and have no measured motion or reported error. Warnings explain the omission.
+
+### Isolated-source check: Epsilon Indi B
+
+Rechecked 2026-11-15 at 4.4 to 5.0 micrometres, size 120 arcseconds, 96 exposures in four visits (three offsets from the first). The main-branch baseline is `fd01f735`; the review revision uses the same exposures and predictions. No known neighbour is selected for this target. Signed offsets are east and north in arcseconds; errors are bootstrap errors.
+
+| Later visit MJD | Predicted E, N | Main measured E, N | Revised measured E, N |
+| --- | --- | --- | --- |
+| 60954.59 | 1.25, -1.31 | 1.15 ± 0.17, -1.58 ± 0.17 | 1.27 ± 0.09, -1.43 ± 0.10 |
+| 61159.97 | 3.90, -2.39 | 4.01 ± 0.28, -2.62 ± 0.22 | 4.08 ± 0.11, -2.53 ± 0.10 |
+| 61308.86 | 5.14, -3.72 | 5.00 ± 0.18, -3.85 ± 0.14 | 5.06 ± 0.10, -3.93 ± 0.08 |
+
+The revised positions differ from main by at most 0.15 arcsecond in either component, and remain within 0.21 arcsecond of the predictions. This checks an isolated source alongside the blended WISE case; it does not establish that bootstrap errors include PSF systematics.
 
 ## 7. What we must not claim
 

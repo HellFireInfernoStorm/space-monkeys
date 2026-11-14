@@ -14,6 +14,13 @@ MAS_PER_DEG = 3_600_000.0
 
 
 @dataclass(frozen=True)
+class KnownNeighbour:
+    ra: float
+    dec: float
+    source: str
+
+
+@dataclass(frozen=True)
 class Target:
     id: str
     name: str
@@ -27,6 +34,7 @@ class Target:
     kind: str
     note: str
     reference: str
+    neighbours: tuple[KnownNeighbour, ...] = ()
 
 
 TARGETS: tuple[Target, ...] = (
@@ -80,6 +88,13 @@ TARGETS: tuple[Target, ...] = (
         "stack of many exposures at 4.4 to 5.0 micrometres. A static stack also shows it; "
         "motion tracking sharpens it slightly.",
         reference="Kirkpatrick et al. 2021 (2021ApJS..253....7K), through SIMBAD",
+        neighbours=(
+            KnownNeighbour(
+                133.7582,
+                -7.2412,
+                "https://github.com/HellFireInfernoStorm/space-monkeys/issues/4",
+            ),
+        ),
     ),
     Target(
         id="rw-aur",

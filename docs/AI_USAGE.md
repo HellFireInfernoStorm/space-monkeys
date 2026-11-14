@@ -18,6 +18,7 @@ Rules that apply to everything listed here:
 | 2026-11-14 | Issue #4 assignee | OpenAI Codex | Reproduced real-data stack and saturation checks; corrected science and architecture notes and WISE target description; added a repeatable live-check script and static-detection regression | `docs/SCIENCE.md`, `docs/ARCHITECTURE.md`, `backend/app/targets.py`, `backend/scripts/check_accuracy.py` and tests | Not yet |
 | 2026-11-14 | Issue #4 assignee | OpenAI Codex | Corrected detector-band endpoints using the issue's supplied ranges; tested overlap and full wavelength coverage | `backend/app/bands.py`, backend tests and `docs/SCIENCE.md` | Not yet |
 | 2026-11-14 | Issue #4 assignee | OpenAI Codex | Reproduced the supplied comparison star on 19 real exposures, added a strict diagnostic aperture and regression tests, and documented measured flux ranges | `backend/scripts/check_accuracy.py`, `backend/tests/test_accuracy_check.py`, `docs/SCIENCE.md` and PR #5 | Not yet |
+| 2026-11-15 | Issue #4 assignee | OpenAI Codex | Addressed PR #5 review: measured on an internal grid before cropping, selected known neighbours by sky proximity, prevented failed-search stack caching, suppressed saturated-core motion, added regressions and reran live checks | Backend stack service, target data, tests, check script and science/acceptance notes | Not yet |
 
 ## Draft statement for the project page
 

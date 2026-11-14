@@ -47,9 +47,6 @@ NOISE_EXCLUDE_PX = 3.0
 FIT_BOX = 5
 DEFAULT_FIT_SIGMA_PX = 0.8
 FIT_SIGMA_BOUNDS = (0.45, 1.6)
-# Saturated stars (flagged core): a wider window and a broader profile, fitted to the wings.
-FLAGGED_FIT_BOX = 11
-FLAGGED_SIGMA_BOUNDS = (0.45, 4.0)
 # Position uncertainty: re-stack each visit from its exposures drawn with replacement.
 BOOTSTRAP_DRAWS = 200
 BOOTSTRAP_SEED = 20261114
@@ -462,12 +459,15 @@ def measure_visit(
     and re-fitted `draws` times, and the spread of the fitted centres is the error. That
     includes noise that the fit does not know about (pixels correlated by resampling,
     exposure-to-exposure position errors). Measured only at S/N of at least
-    MIN_MEASURE_SNR, or when the core is flagged (a saturated star, fitted on its wings).
+    MIN_MEASURE_SNR. Flagged cores have no motion measurement: a symmetric Gaussian
+    fitted to their wings can have a small statistical error and a large systematic bias.
     """
     centre = n / 2.0
     stack, _count, weight = combine_weighted(images, sigmas)
     snr = snr_at(stack, centre, centre)
     flagged = snr is None and core_flagged(stack, centre, centre)
+    if flagged:
+        return None, snr, True
     stats = background_stats(stack, centre, centre)
     if stats is None or (not flagged and (snr is None or snr < MIN_MEASURE_SNR)):
         return None, snr, flagged
@@ -476,12 +476,8 @@ def measure_visit(
     options = {"fit_sigma": True}
     if neighbours is not None:
         options["neighbour"] = tuple(np.mean(neighbours, axis=0))
-    if flagged or start is None:
-        # A flagged core can be several pixels wide (6 by 6 for Barnard's Star at 1.1
-        # micrometres): fit a wider window and allow a broad profile, so that the centre
-        # comes from the symmetry of the wings around the hole.
-        start = (int(math.floor(centre)), int(math.floor(centre)))
-        options = {"fit_sigma": True, "box": FLAGGED_FIT_BOX, "sigma_bounds": FLAGGED_SIGMA_BOUNDS}
+    if start is None:
+        return None, snr, flagged
     fit = fit_gaussian(stack, weight, start, level, **options)
     if fit is None:
         return None, snr, flagged

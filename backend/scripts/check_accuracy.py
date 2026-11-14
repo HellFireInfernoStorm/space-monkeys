@@ -2,6 +2,7 @@
 
 Run from backend: .venv/Scripts/python.exe scripts/check_accuracy.py
 Use --only wise-0855 for stacks, --only rw-aur r-dra for saturation checks.
+Use --only eps-ind-b for the isolated-source stack check.
 Use --flux-star RA DEC for the H-band comparison star in the RW Aurigae field.
 """
 
@@ -81,9 +82,9 @@ def comparison_star(settings: Settings, ra: float, dec: float) -> dict:
 
 def run(target_id: str, settings: Settings) -> dict:
     target = find_target(target_id)
-    if target_id == "wise-0855":
+    if target_id in ("wise-0855", "eps-ind-b"):
         results = {}
-        for size in (120, 300):
+        for size in (60, 80, 120, 300) if target_id == "wise-0855" else (120,):
             req = stack_service.StackRequest.normalised(
                 target.ra,
                 target.dec,
