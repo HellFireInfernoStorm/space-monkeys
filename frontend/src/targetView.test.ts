@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Target } from "./api";
-import { viewForTarget } from "./targetView";
+import { viewForTarget, viewForTypedPosition } from "./targetView";
 import { DEFAULT_VIEW, parseView, serializeView } from "./urlState";
 
 function target(id: string, name: string): Target {
@@ -50,5 +50,24 @@ describe("viewForTarget", () => {
     expect("wlmin" in change).toBe(false);
     expect("wlmax" in change).toBe(false);
     expect(change.name).toBe("Other");
+  });
+});
+
+describe("viewForTypedPosition", () => {
+  const picked = { ...DEFAULT_VIEW, ...viewForTarget(target("wise-0855", "WISE 0855")), track: true };
+
+  it("drops the picked target's motion, parallax, epoch, name and following when the position changes", () => {
+    const change = viewForTypedPosition(picked, 10, 20);
+    expect(change).toMatchObject({ ra: 10, dec: 20, pmra: 0, pmdec: 0, plx: 0, epoch: 2000, name: "", track: false });
+  });
+
+  it("keeps motion fields the user typed", () => {
+    expect(viewForTypedPosition(picked, 10, 20, { pmra: 5 })).toMatchObject({ pmra: 5, pmdec: 0 });
+  });
+
+  it("changes nothing else when the position is the same", () => {
+    const change = viewForTypedPosition(picked, picked.ra!, picked.dec!);
+    expect("name" in change).toBe(false);
+    expect("pmra" in change).toBe(false);
   });
 });

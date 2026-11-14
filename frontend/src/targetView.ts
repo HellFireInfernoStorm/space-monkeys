@@ -1,5 +1,5 @@
 import type { Target } from "./api";
-import type { ViewState } from "./urlState";
+import { DEFAULT_VIEW, type ViewState } from "./urlState";
 
 /**
  * Default wavelength range (micrometres) that picking a target also selects, so the frames
@@ -32,4 +32,28 @@ export function viewForTarget(target: Target): Partial<ViewState> {
     change.wlmax = range[1];
   }
   return change;
+}
+
+/**
+ * The view change for a position typed by hand. If it is not the current position, the motion,
+ * parallax, epoch, name and "follow the object" setting of the picked target no longer apply,
+ * so they go back to their defaults. `typed` holds motion fields the user edited by hand.
+ */
+export function viewForTypedPosition(
+  view: ViewState,
+  ra: number,
+  dec: number,
+  typed: Partial<Pick<ViewState, "pmra" | "pmdec" | "plx" | "epoch">> = {},
+): Partial<ViewState> {
+  if (ra === view.ra && dec === view.dec) return { ra, dec, ...typed };
+  return {
+    ra,
+    dec,
+    pmra: typed.pmra ?? DEFAULT_VIEW.pmra,
+    pmdec: typed.pmdec ?? DEFAULT_VIEW.pmdec,
+    plx: typed.plx ?? DEFAULT_VIEW.plx,
+    epoch: typed.epoch ?? DEFAULT_VIEW.epoch,
+    name: "",
+    track: false,
+  };
 }

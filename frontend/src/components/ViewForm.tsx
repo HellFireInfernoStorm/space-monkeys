@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 
 import type { Band } from "../api";
+import { viewForTypedPosition } from "../targetView";
 import { LIMITS, type ViewState } from "../urlState";
 
 interface Props {
@@ -72,19 +73,19 @@ export default function ViewForm({ view, bands, onApply }: Props) {
       return;
     }
     setProblem(null);
-    const changed = nRa !== view.ra || nDec !== view.dec;
+    // Motion fields the user did not touch still hold the picked target's values.
+    const typed: Partial<Pick<ViewState, "pmra" | "pmdec" | "plx" | "epoch">> = {};
+    if (pmra !== text(view.pmra)) typed.pmra = numberOrNull(pmra) ?? 0;
+    if (pmdec !== text(view.pmdec)) typed.pmdec = numberOrNull(pmdec) ?? 0;
+    if (plx !== text(view.plx)) typed.plx = nPlx;
+    if (epoch !== text(view.epoch)) typed.epoch = nEpoch;
+    // A hand-typed position is no longer the picked target: its motion, parallax, epoch, name
+    // and "follow the object" setting are dropped.
     onApply({
-      ra: nRa,
-      dec: nDec,
+      ...viewForTypedPosition(view, nRa, nDec, typed),
       size: nSize,
       wlmin: nMin,
       wlmax: nMax,
-      pmra: numberOrNull(pmra) ?? 0,
-      pmdec: numberOrNull(pmdec) ?? 0,
-      epoch: nEpoch,
-      plx: nPlx,
-      // A hand-typed position is no longer the named target.
-      name: changed ? "" : view.name,
     });
   }
 
