@@ -1,4 +1,5 @@
 import type { Target } from "../api";
+import { viewForTarget } from "../targetView";
 import type { ViewState } from "../urlState";
 
 interface Props {
@@ -7,7 +8,10 @@ interface Props {
   onPick: (change: Partial<ViewState>) => void;
 }
 
-/** The built-in test targets. Picking one fills in its position, motion and epoch. */
+/**
+ * The built-in test targets. Picking one fills in its position, motion and epoch, and for
+ * WISE 0855 also the only wavelength range where it can be seen.
+ */
 export default function TargetPicker({ targets, view, onPick }: Props) {
   const active = targets.find((target) => target.name === view.name);
   return (
@@ -18,16 +22,7 @@ export default function TargetPicker({ targets, view, onPick }: Props) {
             key={target.id}
             type="button"
             className={target === active ? "chip active" : "chip"}
-            onClick={() =>
-              onPick({
-                ra: target.ra,
-                dec: target.dec,
-                pmra: target.pmra,
-                pmdec: target.pmdec,
-                epoch: target.epoch,
-                name: target.name,
-              })
-            }
+            onClick={() => onPick(viewForTarget(target))}
           >
             {target.name}
           </button>
