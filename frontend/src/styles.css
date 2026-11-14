@@ -869,8 +869,6 @@ h3 {
   .viewer-panel { padding-block: 16px 24px; }
   .viewer-heading-row { margin-bottom: 10px; }
   .viewer-panel .player .stage, .viewer-panel .status-stage { max-width: min(100%, 560px, clamp(240px, calc(100vh - 405px), 560px)); }
-  .browse-frames[open] > summary { position: absolute; width: 1px; height: 1px; min-height: 0; padding: 0; overflow: hidden; clip-path: inset(50%); }
-  .browse-frames[open] > summary:focus-visible { position: static; width: auto; height: auto; min-height: 44px; clip-path: none; }
 }
 @media (max-width: 1060px) {
   .layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: "target" "viewer" "settings" "map"; }
@@ -891,3 +889,11 @@ h3 {
   .phone-target select { width: 100%; min-height: 44px; padding: 6px 10px; font: inherit; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; }
 }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
+.player:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.playback-shortcuts { font-size: .8rem; }
+.playback-shortcuts kbd { padding: 1px 4px; border: 1px solid var(--line); border-radius: 3px; }
+@media (hover: none) { .playback-shortcuts:not(:focus-within) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); } }
+
+/* Disclosures can grow their grid tracks without stretching adjacent panels. */
+.viewer-panel, .desktop-compare { align-self: start; }

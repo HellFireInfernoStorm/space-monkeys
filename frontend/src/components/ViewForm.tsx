@@ -39,9 +39,15 @@ export default function ViewForm({ view, bands, onApply }: Props) {
   const advanced = useRef<HTMLDetailsElement>(null);
 
   const band = bands.find((b) => String(b.wl_min_um) === wlmin && String(b.wl_max_um) === wlmax);
-  const bandValue = band ? String(band.band) : wlmin === "" && wlmax === "" ? "all" : "custom";
+  const [customBand, setCustomBand] = useState(false);
+  const bandValue = customBand ? "custom" : band ? String(band.band) : wlmin === "" && wlmax === "" ? "all" : "custom";
 
   function chooseBand(value: string) {
+    setCustomBand(value === "custom");
+    if (value === "custom") {
+      advanced.current?.querySelector<HTMLInputElement>("#field-wlmin")?.focus();
+      return;
+    }
     const chosen = bands.find((b) => String(b.band) === value);
     setWlmin(chosen ? String(chosen.wl_min_um) : "");
     setWlmax(chosen ? String(chosen.wl_max_um) : "");
@@ -140,7 +146,7 @@ export default function ViewForm({ view, bands, onApply }: Props) {
               Band {b.band} ({b.wl_min_um} to {b.wl_max_um} µm)
             </option>
           ))}
-          {bandValue === "custom" && <option value="custom">Custom range</option>}
+          <option value="custom">Custom range</option>
         </select>
       </label>
       <label>

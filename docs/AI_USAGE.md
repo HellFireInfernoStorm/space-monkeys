@@ -16,10 +16,16 @@ Rules that apply to everything listed here:
 
 - 2026-11-15: Codex refined the responsive Pick, Watch, Compare workflow for issue #2, including keyboard controls, dated thumbnails, and design documentation.
 
+- 2026-11-15: Codex added and verified keyboard shortcuts for exposure playback.
+
+- 2026-11-15: Codex and two audit agents reviewed responsive layout and keyboard behavior and fixed viewer, form, and map UI issues.
+
+- 2026-11-15: ChatGPT Image Generation produced the two-exposure favicon concept selected by the user. Codex prepared the 64 px PNG for the browser tab.
+
 ## Draft statement for the project page
 
 Keep this current; copy it to the project page at submission.
 
-> We used AI coding assistants (Claude Code, and others listed in our repository's AI usage log) to help write code, tests and documentation, and to run early data tests. Team members directed the work and are responsible for the result. No AI-generated images, video or audio appear in the project. No NASA branding was used in or added to any AI-generated material.
+> We used AI coding assistants (Claude Code, and others listed in our repository's AI usage log) to help write code, tests and documentation, and to run early data tests. Team members directed the work and are responsible for the result. The browser favicon is AI-generated. The viewer labels synthetic mock observations and identifies live SPHEREx data. No NASA branding was used in or added to any AI-generated material.
 
 Change the second and third sentences if they stop being true.

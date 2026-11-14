@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import {
   ApiError,
@@ -47,6 +47,8 @@ export default function App() {
   const [frames, setFrames] = useState<FramesState>({ status: "idle" });
   const [stack, setStack] = useState<StackResult | null>(null);
   const [shownFrame, setShownFrame] = useState<Frame | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
+  const restoreCompareFocus = useRef(false);
   const [frameAttempt, setFrameAttempt] = useState(0);
 
   const update = useCallback((change: Partial<ViewState>) => {
@@ -134,10 +136,23 @@ export default function App() {
   const mapRa = stackMode && stack ? stack.reference_ra : frame ? frame.target_ra : frames.status === "ready" ? frames.data.ra : ra;
   const mapDec = stackMode && stack ? stack.reference_dec : frame ? frame.target_dec : frames.status === "ready" ? frames.data.dec : dec;
 
+  const showInlineCompare = stackMode || frames.status !== "ready" || !frames.data.frames.length;
+  useLayoutEffect(() => {
+    if (!restoreCompareFocus.current) return;
+    const focused = document.activeElement;
+    if (focused !== document.body && !focused?.closest(".phone-compare")) return;
+    document.querySelector<HTMLButtonElement>('.phone-compare button[aria-pressed="true"]')?.focus();
+  }, [showInlineCompare, view.mode]);
+
+  function changeMode(change: Partial<ViewState>) {
+    restoreCompareFocus.current = Boolean(document.activeElement?.closest(".phone-compare"));
+    update(change);
+  }
+
   const compare = (
     <section className="panel compare-panel" aria-label="Compare">
       <h2><span className="step">3</span> Compare</h2>
-      <ModeToggle mode={view.mode} onChange={update} />
+      <ModeToggle mode={view.mode} onChange={changeMode} />
     </section>
   );
 
@@ -159,7 +174,9 @@ export default function App() {
 
       {startError && <p className="notice error">{startError}</p>}
 
-      <main className="layout">
+      <main className="layout" onBlur={(event) => {
+        if (event.relatedTarget instanceof Element && !event.relatedTarget.closest(".phone-compare")) restoreCompareFocus.current = false;
+      }}>
         <section className="panel target-panel" aria-labelledby="target-heading">
           <h2 id="target-heading"><span className="step">1</span> Pick a target</h2>
           <TargetPicker targets={targets} view={view} onPick={update} />
@@ -185,15 +202,15 @@ export default function App() {
               )}
             </div>
           </div>
-          {(stackMode || frames.status !== "ready" || !frames.data.frames.length) && <div className="phone-compare">{compare}</div>}
+          {showInlineCompare && <div className="phone-compare">{compare}</div>}
           {stackMode && ra !== null && dec !== null && (
             <StackView view={view} onChange={update} onResult={setStack} />
           )}
           {frames.status === "idle" && (ra === null || dec === null) && (
             <p className="hint">Pick a target or enter a position to see its exposures.</p>
           )}
-          {frames.status === "loading" && <LoadingStage started={frames.started} live={mode === "live"} />}
-          {frames.status === "error" && (
+          {!stackMode && frames.status === "loading" && <LoadingStage started={frames.started} live={mode === "live"} />}
+          {!stackMode && frames.status === "error" && (
             <div className="status-stage error-stage" role="alert">
               <div>
                 <h3>Could not load these images</h3>
@@ -202,7 +219,7 @@ export default function App() {
               </div>
             </div>
           )}
-          {frames.status === "not-built" && (
+          {!stackMode && frames.status === "not-built" && (
             <div className="notice">
               <p>Image cut-outs from live data are not built yet ({frames.message}).</p>
               {frames.exposures && (
@@ -213,7 +230,7 @@ export default function App() {
               )}
             </div>
           )}
-          {frames.status === "ready" && (
+          {!stackMode && frames.status === "ready" && (
             <BlinkPlayer
               key={frames.data.frames.map((frame) => frame.exposure_id).join("|")}
               list={frames.data}
@@ -245,11 +262,11 @@ export default function App() {
         </section>
 
         <section className="panel map-panel" aria-labelledby="map-heading">
-          <details className="secondary-details">
+          <details className="secondary-details" onToggle={(event) => setMapOpen(event.currentTarget.open)}>
           <summary id="map-heading">Wider sky view</summary>
           {mapRa !== null && mapDec !== null ? (
             <>
-              <AladinPanel ra={mapRa} dec={mapDec} sky={view.sky} onSky={(sky) => update({ sky })} />
+              {mapOpen && <AladinPanel ra={mapRa} dec={mapDec} sky={view.sky} onSky={(sky) => update({ sky })} />}
               <p className="links">
                 <a
                   href={wiseViewUrl(

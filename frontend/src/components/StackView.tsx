@@ -50,7 +50,7 @@ function Panel({
 function EpochBlink({ data, speed }: { data: StackResult; speed: number }) {
   const epochs = data.epochs;
   const [index, setIndex] = useState(0);
-  const [playing, setPlaying] = useState(true);
+  const [playing, setPlaying] = useState(false);
 
   useEffect(() => {
     if (!playing || epochs.length < 2) return;
@@ -112,7 +112,7 @@ function EpochBlink({ data, speed }: { data: StackResult; speed: number }) {
         </div>
       </dl>
       <div className="transport">
-        <button type="button" className="primary" onClick={() => setPlaying((p) => !p)}>
+        <button type="button" className="primary" disabled={epochs.length < 2} onClick={() => setPlaying((p) => !p)}>
           {playing ? "Pause" : "Play"}
         </button>
         <input
@@ -120,7 +120,9 @@ function EpochBlink({ data, speed }: { data: StackResult; speed: number }) {
           min={0}
           max={epochs.length - 1}
           value={index}
+          disabled={epochs.length < 2}
           aria-label="Visit"
+          aria-valuetext={`Visit ${index + 1} of ${epochs.length}, ${dayOf(current.mjd_mid)} UTC`}
           onChange={(e) => {
             setPlaying(false);
             setIndex(Number(e.target.value));
@@ -229,12 +231,12 @@ export default function StackView({ view, onChange, onResult }: Props) {
           <input
             type="range"
             min={LIMITS.speed[0]}
-            max={LIMITS.speed[1]}
+            max={4}
             step={0.5}
-            value={view.speed}
+            value={Math.min(view.speed, 4)}
             onChange={(e) => onChange({ speed: Number(e.target.value) })}
           />
-          <span className="value">{view.speed} per second</span>
+          <span className="value">{Math.min(view.speed, 4)} per second</span>
         </label>
       </div>
     </div>

@@ -77,7 +77,38 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, comp
   const spotVisible = spot.left > 0 && spot.left < 1 && spot.top > 0 && spot.top < 1;
 
   return (
-    <div className="player">
+    <div
+      className="player"
+      role="group"
+      aria-label="Exposure playback"
+      aria-describedby="playback-shortcuts"
+      aria-keyshortcuts="Space ArrowLeft ArrowRight Home End"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+        switch (event.key) {
+          case " ":
+            if (!event.repeat && frames.length > 1) setPlaying((value) => !value);
+            break;
+          case "ArrowLeft":
+            setPlaying(false);
+            setIndex((value) => Math.max(0, value - 1));
+            break;
+          case "ArrowRight":
+            setPlaying(false);
+            setIndex((value) => Math.min(frames.length - 1, value + 1));
+            break;
+          case "Home":
+          case "End":
+            setPlaying(false);
+            setIndex(event.key === "Home" ? 0 : frames.length - 1);
+            break;
+          default:
+            return;
+        }
+        event.preventDefault();
+      }}
+    >
       {list.capped && (
         <p className="hint">
           Showing {list.returned} of {list.total} exposures, spread evenly over time.
@@ -121,7 +152,7 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, comp
       </div>
 
       <div className="transport frame-transport">
-        <button type="button" className="primary" onClick={() => setPlaying((p) => !p)}>
+        <button type="button" className="primary" disabled={frames.length < 2} onClick={() => setPlaying((p) => !p)}>
           {playing ? "Pause" : "Play"}
         </button>
         <input
@@ -129,6 +160,7 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, comp
           min={0}
           max={frames.length - 1}
           value={index}
+          disabled={frames.length < 2}
           aria-label="Frame"
           aria-valuetext={`Frame ${index + 1} of ${frames.length}, ${dateOf(current.mjd)} UTC`}
           onChange={(e) => {
@@ -140,6 +172,11 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, comp
       </div>
 
       {compare}
+
+      <p className="hint playback-shortcuts" id="playback-shortcuts">
+        Focus the viewer: <kbd>Space</kbd> play or pause, <kbd>←</kbd> <kbd>→</kbd> step,
+        <kbd>Home</kbd> <kbd>End</kbd> first or last frame.
+      </p>
 
       <details className="browse-frames" open={browseOpen} onToggle={(event) => setBrowseOpen(event.currentTarget.open)}>
         <summary>Browse frames ({frames.length})</summary>

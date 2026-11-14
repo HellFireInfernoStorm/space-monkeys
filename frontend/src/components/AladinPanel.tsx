@@ -145,6 +145,7 @@ export default function AladinPanel({ ra, dec, sky, onSky }: Props) {
         <button
           type="button"
           className={sky === "wise" ? "chip active" : "chip"}
+          aria-pressed={sky === "wise"}
           onClick={() => onSky("wise")}
         >
           WISE (2010)
@@ -152,6 +153,7 @@ export default function AladinPanel({ ra, dec, sky, onSky }: Props) {
         <button
           type="button"
           className={sky === "spherex" ? "chip active" : "chip"}
+          aria-pressed={sky === "spherex"}
           onClick={() => onSky("spherex")}
           title="One frame (band 1) of the SPHEREx all-sky map from IRSA. Experimental."
         >
