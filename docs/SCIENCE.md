@@ -175,7 +175,7 @@ Collection names live in `backend/app/config.py` and nowhere else.
 | Tracked stack, 46 exposures | 18.6 (the data spike measured 18.7 with 47) |
 | Static stack, 46 exposures | 17.0 |
 | Visit 1 stack, 22 exposures, 2025-11-07 to 2025-12-13 | 12.0 |
-| Visit 2 stack, 21 exposures, 2026-04-22 to 2026-05-11 | 14.0 |
+| Visit 2 stack, 21 exposures, 2026-04-21 to 2026-05-11 | 14.0 |
 | Eight empty positions 5 pixels from the object, tracked stack | -0.4 to 2.6 |
 
 Between the two visits the object should move 3.6 arcseconds west and 0.3 north (catalogue motion). We measured 4.3 west and 2.2 north, with a rough uncertainty of 0.5 to 0.6 arcseconds per visit. The east-west motion agrees; the north-south difference (about 2 arcseconds, a third of a pixel) is larger than the rough uncertainty suggests, which probably underestimates the real error.
