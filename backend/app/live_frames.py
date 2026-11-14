@@ -95,18 +95,18 @@ def search(settings: Settings, ra: float, dec: float, radius: float) -> tuple[li
     if fresh is not None:
         return [LiveExposure(**e) for e in fresh], []
 
-    found, warnings = live.search_exposures(settings, ra, dec, radius)
-    if not found and len(warnings) >= len(settings.collections):
+    found, problems = live.search_exposures(settings, ra, dec, radius)
+    if not found and len(problems) >= len(settings.collections):
         stale = cache.get_json("search", key)
         if stale is not None:
             note = "The archive search failed; showing the last saved search result."
-            return [LiveExposure(**e) for e in stale], [note, *warnings]
-        raise SearchFailed("The SPHEREx archive search failed. " + " ".join(warnings)[:400])
-    if not warnings:
+            return [LiveExposure(**e) for e in stale], [note, *problems]
+        raise SearchFailed("The SPHEREx archive search failed. " + " ".join(problems)[:400])
+    if not problems:
         cache.put_json("search", key, [asdict(e) for e in found])
     for exposure in found:
         remember_exposure(settings, exposure)
-    return found, warnings
+    return found, problems
 
 
 # --- wavelength at the target, and patches -------------------------------------------
@@ -215,7 +215,7 @@ def common_stretch(images: list[np.ndarray]) -> dict[str, float]:
 
 def render(image: np.ndarray, stretch: dict[str, float], reference: np.ndarray | None = None) -> bytes:
     """PNG of a background-subtracted patch (or of patch minus reference) with a given
-    stretch. Masked pixels show as background (or as "no change" in a difference)."""
+    stretch. Pixels with no value show as background (or as "no change" in a difference)."""
     soft = stretch["soft"]
     if reference is None:
         low = math.asinh(stretch["low"] / soft)
@@ -245,19 +245,19 @@ def frame_list(
 ) -> m.FrameList:
     cap = min(max_items, settings.max_frames) if max_items is not None else settings.max_frames
     n = patch_pixels(size)
-    warnings: list[str] = []
+    notes: list[str] = []
 
     search_ra, search_dec = ra, dec
     if pmra or pmdec:
         search_ra, search_dec = propagate(ra, dec, pmra, pmdec, epoch, settings.search_epoch_year)
     found, search_warnings = search(settings, search_ra, search_dec, settings.search_radius_deg)
-    warnings.extend(search_warnings)
+    notes.extend(search_warnings)
 
     candidates = [e for e in found if _overlaps(e, wl_min, wl_max) and e.cloud_url]
     no_address = sum(1 for e in found if _overlaps(e, wl_min, wl_max) and not e.cloud_url)
     probed = sample_evenly(candidates, settings.max_probes)
     if len(probed) < len(candidates):
-        warnings.append(
+        notes.append(
             f"Checked the wavelength of {len(probed)} of {len(candidates)} candidate exposures, "
             "spread evenly over time."
         )
@@ -335,14 +335,14 @@ def frame_list(
         for key in keys:
             cache.put_json("stretch", key, stretch)
     if failed:
-        warnings.append(f"{failed} exposure(s) could not be read and were skipped.")
+        notes.append(f"{failed} exposure(s) could not be read and were skipped.")
 
     return m.FrameList(
         mode="live",
         total=len(matching),
         returned=len(items),
         capped=len(picked) < len(matching) or len(probed) < len(candidates),
-        warnings=warnings,
+        warnings=notes,
         ra=ra,
         dec=dec,
         size=size,

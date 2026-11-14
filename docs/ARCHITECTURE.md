@@ -74,7 +74,7 @@ Code: `backend/app/live.py` (search), `live_frames.py` (the two endpoints), `pix
 
 **Bright stars are flagged.** The core of a bright star carries bad-pixel bits (Barnard's Star at 1.1 micrometres: OVERFLOW, SUR_ERROR, TRANSIENT and BLOOM over a 6 by 6 pixel block, measured 2026-11-14). The mask is applied to everything quantitative (background, stretch, difference images), but the blink picture shows those pixels' own values, so a bright star is not drawn as a hole.
 
-Measured on a home connection in Sri Lanka, 2026-11-14 (cold cache, 16 readers): Barnard's Star at 1.0 to 1.2 micrometres, about 120 wavelength checks and 30 patches, 34 seconds; WISE 0855 at 4.4 to 5.0 micrometres, tracked, 40 of 46 frames, 32 seconds. From the cache: about 0.1 seconds for the list and 0.1 to 0.5 seconds for all its images.
+Measured on a home connection in Sri Lanka, 2026-11-14 (cold cache, 16 readers): Barnard's Star at 1.0 to 1.2 micrometres: 362 exposures found, 121 wavelength checks, 30 frames, 34 seconds. WISE 0855 at 4.4 to 5.0 micrometres, tracked: 258 found, 93 checks, 40 of 46 matching frames, 32 seconds. From the cache: about 0.1 seconds for the list and 0.1 to 0.5 seconds for all its images.
 
 ### Cache
 
