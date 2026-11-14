@@ -10,7 +10,7 @@ interface Props {
 
 /**
  * The built-in test targets. Picking one fills in its position, motion and epoch, and for
- * WISE 0855 also the only wavelength range where it can be seen.
+ * its default wavelength range.
  */
 export default function TargetPicker({ targets, view, onPick }: Props) {
   const active = targets.find((target) => target.name === view.name);
