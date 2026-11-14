@@ -108,3 +108,31 @@ def test_photometry_shape(client):
         "flux_err",
         "flags",
     }
+
+
+def test_stack_shape_and_images(client):
+    params = {**WISE, "wl_min": 4.4, "wl_max": 5.0}
+    body = client.get("/api/stack", params=params).json()
+    assert body["mode"] == "mock" and body["has_motion"] is True
+    assert body["returned"] == body["tracked"]["n_exposures"] > 1
+    assert body["single"]["n_exposures"] == 1
+    assert body["static"]["n_exposures"] == body["tracked"]["n_exposures"]
+    assert len(body["epochs"]) >= 2 and len(body["motion"]) == len(body["epochs"])
+    assert body["tracked"]["snr"] > body["single"]["snr"]
+    for image in [body["single"], body["tracked"], body["static"], *body["epochs"]]:
+        png = client.get(image["image_url"])
+        assert png.status_code == 200 and png.content.startswith(PNG_SIGNATURE)
+    # Epoch markers step with the motion (WISE 0855 moves west, to the right in the image).
+    xs = [e["target_x"] for e in body["epochs"]]
+    assert xs == sorted(xs)
+
+
+def test_stack_without_motion_has_no_static(client):
+    body = client.get("/api/stack", params={"ra": 10, "dec": 20, "wl_min": 1.0, "wl_max": 1.2}).json()
+    assert body["has_motion"] is False and body["static"] is None
+    assert body["tracked"] is not None
+
+
+def test_stack_png_unknown_image(client):
+    params = {"ra": 10, "dec": 20, "kind": "epoch", "index": 99}
+    assert client.get("/api/stack.png", params=params).status_code == 404

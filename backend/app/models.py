@@ -111,6 +111,69 @@ class FrameList(ListMeta):
     frames: list[Frame]
 
 
+StackKind = Literal["single", "tracked", "static", "epoch"]
+
+
+class StackImage(BaseModel):
+    """One stacked image (or, for kind `single`, one exposure on its own)."""
+
+    kind: StackKind = Field(
+        description="`single`: one typical exposure; `tracked`: all exposures centred on the moving "
+        "object; `static`: all exposures on one fixed sky grid; `epoch`: one visit on that fixed grid"
+    )
+    index: int = Field(description="Epoch number, from 0; 0 for the other kinds")
+    n_exposures: int
+    exposure_ids: list[str] = Field(description="The exposures added together")
+    mjd_start: float
+    mjd_end: float
+    mjd_mid: float = Field(description="Mean time of the exposures used")
+    wl_min_um: float = Field(description="Shortest wavelength at the target among the exposures used")
+    wl_max_um: float = Field(description="Longest wavelength at the target among the exposures used")
+    center_ra: float = Field(description="Sky position of the image centre (for `tracked`, at `mjd_mid`)")
+    center_dec: float
+    target_x: float = Field(description="Predicted object position, pixels from the left (east) edge")
+    target_y: float = Field(description="Predicted object position, pixels from the top (north) edge")
+    snr: float | None = Field(
+        description="Signal-to-noise ratio at the predicted position: peak of a 3 by 3 pixel box "
+        "divided by the robust noise of the image away from it. Empty positions read about 1 to 2."
+    )
+    image_url: str = Field(description="Address of the PNG, relative to the API root")
+
+
+class MotionPoint(BaseModel):
+    """Measured and predicted position of the object in one epoch stack, as offsets from
+    the first epoch where it was measured. Offsets in arcseconds; east is positive."""
+
+    index: int = Field(description="Epoch number, as in `epochs`")
+    mjd_mid: float
+    predicted_east_arcsec: float
+    predicted_north_arcsec: float
+    measured_east_arcsec: float | None = Field(description="Null when the source is too faint to measure")
+    measured_north_arcsec: float | None
+    error_arcsec: float | None = Field(description="Rough uncertainty: star image width / signal-to-noise")
+    snr: float | None
+
+
+class StackResult(ListMeta):
+    """`total` is the number of exposures in the wavelength range, `returned` the number stacked."""
+
+    ra: float
+    dec: float
+    size: float = Field(description="Width of each image on the sky, arcseconds")
+    pixel_scale: float = Field(description="Arcseconds per stack pixel")
+    pixels: int = Field(description="Width of each stack image in pixels")
+    has_motion: bool = Field(
+        description="False without proper motion: then `tracked` is also the static stack"
+    )
+    reference_ra: float = Field(description="Centre of the fixed grid used by `static` and `epochs`")
+    reference_dec: float
+    single: StackImage | None
+    tracked: StackImage | None
+    static: StackImage | None
+    epochs: list[StackImage]
+    motion: list[MotionPoint]
+
+
 class PhotometryPoint(BaseModel):
     """Column names follow IRSA's Spectrophotometry Tool where they overlap."""
 

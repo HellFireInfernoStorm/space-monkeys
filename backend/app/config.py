@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     max_exposures: int = 300
     # Most frames in one /api/frames answer (live mode). More matches are sampled evenly in time.
     max_frames: int = 40
+    # Most exposures added together in one /api/stack answer (live mode). Stacks use every
+    # matching exposure up to this cap, not the display cap above.
+    max_stack_frames: int = 150
     # Most exposures whose wavelength at the target is checked for one /api/frames request.
     # Each check reads a little of the file; more candidates than this are sampled evenly in time.
     max_probes: int = 400

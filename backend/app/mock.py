@@ -218,6 +218,45 @@ def patch(exposure: MockExposure, ra_c: float, dec_c: float, size_arcsec: float)
     return image + background + rng.normal(0.0, NOISE_SIGMA, (n, n))
 
 
+# Mock exposures for stacks: four visits about six months apart, twelve exposures each,
+# so that stacks and epoch blinks have something to work with. Made up, like the rest.
+STACK_VISIT_DAYS = (0.0, 182.0, 365.0, 547.0)
+STACK_PER_VISIT = 12
+
+
+@lru_cache(maxsize=32)
+def stack_exposures(wl_min: float | None, wl_max: float | None) -> tuple[MockExposure, ...]:
+    """Synthetic exposures for /api/stack, with wavelengths spread over the requested range."""
+    lo = max(BANDS[1][0], wl_min if wl_min is not None else BANDS[1][0])
+    hi = min(BANDS[6][1], wl_max if wl_max is not None else BANDS[6][1])
+    if lo > hi:
+        return ()
+    out = []
+    for visit, start in enumerate(STACK_VISIT_DAYS):
+        for k in range(STACK_PER_VISIT):
+            wl = lo + (hi - lo) * _unit("stack-wl", visit, k)
+            detector = min(
+                BANDS,
+                key=lambda d: (
+                    0.0
+                    if BANDS[d][0] <= wl <= BANDS[d][1]
+                    else min(abs(wl - BANDS[d][0]), abs(wl - BANDS[d][1]))
+                ),
+            )
+            mjd = FIRST_MJD + start + 0.5 * k + 0.1 * _unit("stack-mjd", visit, k)
+            out.append(
+                MockExposure(
+                    exposure_id=f"mockstack_{visit:02d}_{k:02d}-D{detector}",
+                    obs_id=f"mockstack_{visit:02d}_{k:02d}",
+                    detector=detector,
+                    mjd=round(mjd, 5),
+                    wavelength_um=round(wl, 4),
+                    exptime_s=113.6,
+                )
+            )
+    return tuple(out)
+
+
 def render_png(image: np.ndarray, reference: np.ndarray | None = None) -> bytes:
     """Greyscale PNG of a patch, or of (patch minus reference) when a reference is given."""
     image = image - np.median(image)

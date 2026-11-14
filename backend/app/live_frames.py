@@ -230,23 +230,23 @@ def render(image: np.ndarray, stretch: dict[str, float], reference: np.ndarray |
 # --- the two endpoints ----------------------------------------------------------------
 
 
-def frame_list(
+def matching_exposures(
     settings: Settings,
     ra: float,
     dec: float,
-    size: float,
     wl_min: float | None,
     wl_max: float | None,
     pmra: float,
     pmdec: float,
     epoch: float,
-    track: bool,
-    max_items: int | None,
-) -> m.FrameList:
-    cap = min(max_items, settings.max_frames) if max_items is not None else settings.max_frames
-    n = patch_pixels(size)
-    notes: list[str] = []
+) -> tuple[list[tuple[LiveExposure, float]], list[str], int, bool]:
+    """Steps 1 to 3: every exposure whose wavelength at the (moving) target is in range,
+    oldest first, with that wavelength.
 
+    Returns (matching, notes, failed, probes_capped): `failed` counts exposures that could
+    not be read; `probes_capped` says some candidates were not checked (`max_probes`).
+    """
+    notes: list[str] = []
     search_ra, search_dec = ra, dec
     if pmra or pmdec:
         search_ra, search_dec = propagate(ra, dec, pmra, pmdec, epoch, settings.search_epoch_year)
@@ -279,6 +279,30 @@ def frame_list(
         elif wavelength is not None and _in_range(wavelength, wl_min, wl_max):
             matching.append((e, wavelength))
     matching.sort(key=lambda item: item[0].mjd)
+    return matching, notes, failed, len(probed) < len(candidates)
+
+
+def frame_list(
+    settings: Settings,
+    ra: float,
+    dec: float,
+    size: float,
+    wl_min: float | None,
+    wl_max: float | None,
+    pmra: float,
+    pmdec: float,
+    epoch: float,
+    track: bool,
+    max_items: int | None,
+) -> m.FrameList:
+    cap = min(max_items, settings.max_frames) if max_items is not None else settings.max_frames
+    n = patch_pixels(size)
+    matching, notes, failed, probes_capped = matching_exposures(
+        settings, ra, dec, wl_min, wl_max, pmra, pmdec, epoch
+    )
+
+    def where(e: LiveExposure) -> tuple[float, float]:
+        return position_at_mjd(ra, dec, pmra, pmdec, epoch, e.mjd)
 
     picked = sample_evenly(matching, cap)
     positions = [where(e) for e, _ in picked]
@@ -341,7 +365,7 @@ def frame_list(
         mode="live",
         total=len(matching),
         returned=len(items),
-        capped=len(picked) < len(matching) or len(probed) < len(candidates),
+        capped=len(picked) < len(matching) or probes_capped,
         warnings=notes,
         ra=ra,
         dec=dec,

@@ -148,6 +148,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/stack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stack
+         * @description Many exposures added together, so that faint objects appear.
+         *
+         *     Uses every exposure in the wavelength range (up to the server's stack cap, not the
+         *     blink player's cap). Returns one typical single exposure, the `tracked` stack (each
+         *     exposure centred on the object's predicted position), the `static` stack (one fixed
+         *     sky grid; null without proper motion), one stack per visit (`epochs`, same fixed
+         *     grid), and the object's measured and predicted motion between visits. A first
+         *     request for a position can take about a minute in live mode; then it is cached.
+         */
+        get: operations["stack_api_stack_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/stack.png": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stack Png
+         * @description One image of a stack set as a PNG. Use the addresses given by `/api/stack`.
+         */
+        get: operations["stack_png_api_stack_png_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/targets": {
         parameters: {
             query?: never;
@@ -384,6 +431,38 @@ export interface components {
             version: string;
         };
         /**
+         * MotionPoint
+         * @description Measured and predicted position of the object in one epoch stack, as offsets from
+         *     the first epoch where it was measured. Offsets in arcseconds; east is positive.
+         */
+        MotionPoint: {
+            /**
+             * Error Arcsec
+             * @description Rough uncertainty: star image width / signal-to-noise
+             */
+            error_arcsec: number | null;
+            /**
+             * Index
+             * @description Epoch number, as in `epochs`
+             */
+            index: number;
+            /**
+             * Measured East Arcsec
+             * @description Null when the source is too faint to measure
+             */
+            measured_east_arcsec: number | null;
+            /** Measured North Arcsec */
+            measured_north_arcsec: number | null;
+            /** Mjd Mid */
+            mjd_mid: number;
+            /** Predicted East Arcsec */
+            predicted_east_arcsec: number;
+            /** Predicted North Arcsec */
+            predicted_north_arcsec: number;
+            /** Snr */
+            snr: number | null;
+        };
+        /**
          * PhotometryPoint
          * @description Column names follow IRSA's Spectrophotometry Tool where they overlap.
          */
@@ -467,6 +546,142 @@ export interface components {
              */
             source: string;
             target: components["schemas"]["Target"];
+        };
+        /**
+         * StackImage
+         * @description One stacked image (or, for kind `single`, one exposure on its own).
+         */
+        StackImage: {
+            /** Center Dec */
+            center_dec: number;
+            /**
+             * Center Ra
+             * @description Sky position of the image centre (for `tracked`, at `mjd_mid`)
+             */
+            center_ra: number;
+            /**
+             * Exposure Ids
+             * @description The exposures added together
+             */
+            exposure_ids: string[];
+            /**
+             * Image Url
+             * @description Address of the PNG, relative to the API root
+             */
+            image_url: string;
+            /**
+             * Index
+             * @description Epoch number, from 0; 0 for the other kinds
+             */
+            index: number;
+            /**
+             * Kind
+             * @description `single`: one typical exposure; `tracked`: all exposures centred on the moving object; `static`: all exposures on one fixed sky grid; `epoch`: one visit on that fixed grid
+             * @enum {string}
+             */
+            kind: "single" | "tracked" | "static" | "epoch";
+            /** Mjd End */
+            mjd_end: number;
+            /**
+             * Mjd Mid
+             * @description Mean time of the exposures used
+             */
+            mjd_mid: number;
+            /** Mjd Start */
+            mjd_start: number;
+            /** N Exposures */
+            n_exposures: number;
+            /**
+             * Snr
+             * @description Signal-to-noise ratio at the predicted position: peak of a 3 by 3 pixel box divided by the robust noise of the image away from it. Empty positions read about 1 to 2.
+             */
+            snr: number | null;
+            /**
+             * Target X
+             * @description Predicted object position, pixels from the left (east) edge
+             */
+            target_x: number;
+            /**
+             * Target Y
+             * @description Predicted object position, pixels from the top (north) edge
+             */
+            target_y: number;
+            /**
+             * Wl Max Um
+             * @description Longest wavelength at the target among the exposures used
+             */
+            wl_max_um: number;
+            /**
+             * Wl Min Um
+             * @description Shortest wavelength at the target among the exposures used
+             */
+            wl_min_um: number;
+        };
+        /**
+         * StackResult
+         * @description `total` is the number of exposures in the wavelength range, `returned` the number stacked.
+         */
+        StackResult: {
+            /**
+             * Capped
+             * @description True if the list was cut down to the cap
+             */
+            capped: boolean;
+            /** Dec */
+            dec: number;
+            /** Epochs */
+            epochs: components["schemas"]["StackImage"][];
+            /**
+             * Has Motion
+             * @description False without proper motion: then `tracked` is also the static stack
+             */
+            has_motion: boolean;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "mock" | "live";
+            /** Motion */
+            motion: components["schemas"]["MotionPoint"][];
+            /**
+             * Pixel Scale
+             * @description Arcseconds per stack pixel
+             */
+            pixel_scale: number;
+            /**
+             * Pixels
+             * @description Width of each stack image in pixels
+             */
+            pixels: number;
+            /** Ra */
+            ra: number;
+            /** Reference Dec */
+            reference_dec: number;
+            /**
+             * Reference Ra
+             * @description Centre of the fixed grid used by `static` and `epochs`
+             */
+            reference_ra: number;
+            /**
+             * Returned
+             * @description How many are in this response
+             */
+            returned: number;
+            single: components["schemas"]["StackImage"] | null;
+            /**
+             * Size
+             * @description Width of each image on the sky, arcseconds
+             */
+            size: number;
+            static: components["schemas"]["StackImage"] | null;
+            /**
+             * Total
+             * @description How many matched
+             */
+            total: number;
+            tracked: components["schemas"]["StackImage"] | null;
+            /** Warnings */
+            warnings?: string[];
         };
         /** Target */
         Target: {
@@ -782,6 +997,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ResolveResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stack_api_stack_get: {
+        parameters: {
+            query: {
+                /** @description Right Ascension, degrees, ICRS, at `epoch` */
+                ra: number;
+                /** @description Declination, degrees, ICRS, at `epoch` */
+                dec: number;
+                /** @description Width of the image on the sky, arcseconds */
+                size?: number;
+                /** @description Shortest wavelength to include, micrometres */
+                wl_min?: number | null;
+                /** @description Longest wavelength to include, micrometres */
+                wl_max?: number | null;
+                /** @description Proper motion in RA, mas/yr, including cos(dec) */
+                pmra?: number;
+                /** @description Proper motion in Dec, mas/yr */
+                pmdec?: number;
+                /** @description Decimal year of the given position */
+                epoch?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StackResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stack_png_api_stack_png_get: {
+        parameters: {
+            query: {
+                /** @description Right Ascension, degrees, ICRS, at `epoch` */
+                ra: number;
+                /** @description Declination, degrees, ICRS, at `epoch` */
+                dec: number;
+                /** @description Width of the image on the sky, arcseconds */
+                size?: number;
+                /** @description Shortest wavelength to include, micrometres */
+                wl_min?: number | null;
+                /** @description Longest wavelength to include, micrometres */
+                wl_max?: number | null;
+                /** @description Proper motion in RA, mas/yr, including cos(dec) */
+                pmra?: number;
+                /** @description Proper motion in Dec, mas/yr */
+                pmdec?: number;
+                /** @description Decimal year of the given position */
+                epoch?: number;
+                /** @description Which image of the stack set */
+                kind?: "single" | "tracked" | "static" | "epoch";
+                /** @description Epoch number, for kind `epoch` */
+                index?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Greyscale PNG, north up, east left */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
                 };
             };
             /** @description Validation Error */

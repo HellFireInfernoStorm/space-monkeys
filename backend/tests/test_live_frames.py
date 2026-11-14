@@ -361,3 +361,36 @@ def test_unknown_exposure_in_live_mode(offline_live):
     live_client, *_ = offline_live
     params = {"exposure_id": "nope", "ra": 10, "dec": 20}
     assert live_client.get("/api/frame.png", params=params).status_code == 404
+
+
+# --- layer 2: stacks in live mode ---------------------------------------------------------
+
+
+def test_live_stack_reuses_the_frame_cache(offline_live):
+    live_client, settings, _searches, reads = offline_live
+    params = {"ra": STAR_RA, "dec": STAR_DEC, "wl_min": 4.0, "wl_max": 5.0, "pmra": 100.0, "pmdec": 50.0}
+    frames = live_client.get("/api/frames", params={**params, "track": "true"}).json()
+    assert frames["returned"] == 3 and len(reads) == 3
+
+    body = live_client.get("/api/stack", params=params).json()
+    assert body["mode"] == "live"
+    assert set(body) == set(m.StackResult.model_fields)
+    assert body["returned"] == 3 and body["tracked"]["n_exposures"] == 3
+    assert body["epochs"] == []  # three exposures are too few for a visit
+    assert len(reads) == 3  # every patch came from the layer 1 cache
+    for image in [body["single"], body["tracked"], body["static"]]:
+        png = live_client.get(image["image_url"])
+        assert png.status_code == 200 and png.content.startswith(PNG_SIGNATURE)
+
+    # A second request, even after the memory cache is gone, is served from the disk cache.
+    live_frames._cache(settings).clear_memory()
+    assert live_client.get("/api/stack", params=params).json() == body
+    assert len(reads) == 3
+
+
+def test_live_stack_cap(offline_live, monkeypatch):
+    live_client, settings, *_ = offline_live
+    monkeypatch.setattr(settings, "max_stack_frames", 2)
+    body = live_client.get("/api/stack", params={"ra": STAR_RA, "dec": STAR_DEC}).json()
+    assert body["returned"] == 2 and body["total"] == 3 and body["capped"] is True
+    assert body["static"] is None  # no proper motion: one stack only

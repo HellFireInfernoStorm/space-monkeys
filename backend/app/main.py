@@ -11,7 +11,7 @@ from urllib.parse import urlencode
 from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import __version__, live, live_frames, mock
+from . import __version__, live, live_frames, mock, stack_service
 from . import models as m
 from .bands import BANDS
 from .config import PIXEL_SCALE_ARCSEC, Settings, get_settings
@@ -298,6 +298,71 @@ def frame_png(
         if reference is None:
             raise HTTPException(status_code=404, detail=f"Unknown diff_ref '{diff_ref}'")
     png = mock.frame_png(exposure, ra, dec, size, reference)
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": "public, max-age=300"})
+
+
+def _stack_request(ra, dec, size, wl_min, wl_max, pmra, pmdec, epoch) -> stack_service.StackRequest:
+    return stack_service.StackRequest(ra, dec, size, wl_min, wl_max, pmra, pmdec, epoch)
+
+
+def _live_stack_call(function, *args):
+    try:
+        return function(*args)
+    except (live.LiveDependencyMissing, ImportError) as error:
+        raise HTTPException(status_code=503, detail=_missing_extra(error)) from error
+    except live_frames.SearchFailed as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+
+
+@app.get("/api/stack", response_model=m.StackResult, tags=["data"])
+def stack(
+    settings: SettingsDep,
+    ra: Ra,
+    dec: Dec,
+    size: Size = 120.0,
+    wl_min: WlMin = None,
+    wl_max: WlMax = None,
+    pmra: PmRa = 0.0,
+    pmdec: PmDec = 0.0,
+    epoch: Epoch = 2000.0,
+) -> m.StackResult:
+    """Many exposures added together, so that faint objects appear.
+
+    Uses every exposure in the wavelength range (up to the server's stack cap, not the
+    blink player's cap). Returns one typical single exposure, the `tracked` stack (each
+    exposure centred on the object's predicted position), the `static` stack (one fixed
+    sky grid; null without proper motion), one stack per visit (`epochs`, same fixed
+    grid), and the object's measured and predicted motion between visits. A first
+    request for a position can take about a minute in live mode; then it is cached.
+    """
+    req = _stack_request(ra, dec, size, wl_min, wl_max, pmra, pmdec, epoch)
+    return _live_stack_call(stack_service.stack_result, settings, req)
+
+
+@app.get(
+    "/api/stack.png",
+    tags=["data"],
+    response_class=Response,
+    responses={200: {"content": {"image/png": {}}, "description": "Greyscale PNG, north up, east left"}},
+)
+def stack_png(
+    settings: SettingsDep,
+    ra: Ra,
+    dec: Dec,
+    size: Size = 120.0,
+    wl_min: WlMin = None,
+    wl_max: WlMax = None,
+    pmra: PmRa = 0.0,
+    pmdec: PmDec = 0.0,
+    epoch: Epoch = 2000.0,
+    kind: Annotated[m.StackKind, Query(description="Which image of the stack set")] = "tracked",
+    index: Annotated[int, Query(ge=0, le=100, description="Epoch number, for kind `epoch`")] = 0,
+) -> Response:
+    """One image of a stack set as a PNG. Use the addresses given by `/api/stack`."""
+    req = _stack_request(ra, dec, size, wl_min, wl_max, pmra, pmdec, epoch)
+    png = _live_stack_call(stack_service.stack_png, settings, req, kind, index)
+    if png is None:
+        raise HTTPException(status_code=404, detail=f"This stack set has no '{kind}' image number {index}.")
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "public, max-age=300"})
 
 
