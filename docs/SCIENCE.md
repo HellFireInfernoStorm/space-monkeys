@@ -142,6 +142,8 @@ The `FLAGS` image has one bit per condition. The names and meanings below come f
 
 ## 5. Where the data comes from
 
+**Issue #4 comparison-star check (2026-11-14).** At the supplied J2000 position RA 76.97773, Dec +30.37557 in the RW Aurigae field, the 19 exposures at 1.6 to 1.8 micrometres give unmasked aperture fluxes of 0.1296 to 0.1743 Jy. A radius of 3 pixels and median background from an annulus of 5 to 7.5 pixels were used, converting MJy/sr with the square of the 6.15 arcsecond pixel scale in radians. Strict masking gives 9 complete-aperture measurements of 0.1296 to 0.1462 Jy and 10 empty apertures. None returns the previously reported 0.030 to 0.085 Jy fraction. Relative to the supplied 2MASS reference of 0.143 Jy, unmasked ratios are 0.906 to 1.219 and surviving masked ratios are 0.906 to 1.022. Small background differences arise from excluding flagged annulus pixels. The reference flux was supplied with the comparison position; the catalogue was not queried again. Reproduce from `backend/` with `python scripts/check_accuracy.py --flux-star 76.97773 30.37557`. This is a diagnostic, not the deferred photometry endpoint.
+
 | Collection | What it is |
 | --- | --- |
 | `spherex_dr1` | Data Release 1: the first year of the all-sky survey |
