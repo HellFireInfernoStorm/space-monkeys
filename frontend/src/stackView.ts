@@ -24,7 +24,9 @@ export function sigmaText(snr: number | null | undefined): string {
 export function stackLabel(image: StackImage): string {
   const sigma = sigmaText(image.snr);
   const count = `${image.n_exposures} exposure${image.n_exposures === 1 ? "" : "s"}`;
-  if (image.kind === "single") return sigma ? `1 exposure, ${sigma}` : "1 exposure";
+  // A single exposure is just "1 exposure": its number is in the API, but a peak-of-nine
+  // reading on one noisy image is easy to misread as a detection.
+  if (image.kind === "single") return "1 exposure";
   return `${count} stacked${sigma ? `, ${sigma}` : ""}`;
 }
 

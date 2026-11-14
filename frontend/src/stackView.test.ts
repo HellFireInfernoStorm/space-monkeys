@@ -27,7 +27,8 @@ function image(change: Partial<StackImage>): StackImage {
 describe("stackView", () => {
   it("labels stacks and single exposures", () => {
     expect(stackLabel(image({}))).toBe("46 exposures stacked, about 19 sigma");
-    expect(stackLabel(image({ kind: "single", n_exposures: 1, snr: 4.49 }))).toBe("1 exposure, about 4.5 sigma");
+    expect(stackLabel(image({ kind: "single", n_exposures: 1, snr: 4.49 }))).toBe("1 exposure");
+    expect(sigmaText(4.49)).toBe("about 4.5 sigma");
     expect(stackLabel(image({ snr: null }))).toBe("46 exposures stacked");
     expect(sigmaText(undefined)).toBe("");
   });

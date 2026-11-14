@@ -31,7 +31,7 @@ from .sampling import sample_evenly
 from .targets import position_at_mjd
 
 # Bump when the stacking changes, so old cached stacks are not reused.
-STACK_VERSION = 4
+STACK_VERSION = 5
 
 _lock = threading.Lock()
 

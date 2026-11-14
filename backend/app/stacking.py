@@ -198,14 +198,17 @@ def background_stats(image: np.ndarray, x: float, y: float, exclude_px: float = 
 def snr_at(image: np.ndarray, x: float, y: float) -> float | None:
     """Peak of the 3 by 3 pixel box at (x, y), above the background, divided by the
     stack's robust noise away from that position. Note: the peak of nine pixels is
-    biased upward, so an empty position typically reads about 1 to 2, not 0."""
+    biased upward, so an empty position typically reads about 1 to 2, not 0.
+    None when any pixel of the box is empty (flagged in too many exposures)."""
     box = _box(image, x, y)
     stats = background_stats(image, x, y)
     if box is None or stats is None or stats[1] <= 0:
         return None
     y0, y1, x0, x1 = box
     patch = image[y0:y1, x0:x1]
-    if not np.isfinite(patch).any():
+    if not np.isfinite(patch).all():
+        # Part of the box is empty: the core of a saturated star, flagged in most
+        # exposures. The peak of what is left would be meaningless.
         return None
     level, noise = stats
     return float((np.nanmax(patch) - level) / noise)
