@@ -298,6 +298,7 @@ export const PIXEL_SCALE_ARCSEC = 6.15;
 export const APERTURE_RADIUS_PIXELS = 3;
 export const BACKGROUND_RADII_PIXELS = [5, 7.5] as const;
 
+// Visit grouping is a display convention; rationale and WISE dates: docs/SCIENCE.md section 7.
 export function groupVisits(mjds: number[], gapDays = 60): Array<{ start: number; end: number; count: number }> {
   const visits: Array<{ start: number; end: number; count: number }> = [];
   for (const mjd of [...mjds].sort((a, b) => a - b)) {
@@ -309,8 +310,9 @@ export function groupVisits(mjds: number[], gapDays = 60): Array<{ start: number
 }
 
 export function summarise(points: PlotPoint[]) {
-  const measured = points.filter((p): p is PlotPoint & { y: number; err: number } => p.y !== null && p.err !== null && p.err > 0);
-  const snrs = measured.map((p) => p.y / p.err).sort((a, b) => a - b);
+  const measured = points.filter((p) => p.y !== null);
+  const withError = measured.filter((p): p is PlotPoint & { y: number; err: number } => p.err !== null && p.err > 0);
+  const snrs = withError.map((p) => p.y / p.err).sort((a, b) => a - b);
   const middle = Math.floor(snrs.length / 2);
   const meanPoint = binPoints(points, 1)[0];
   const mean = meanPoint ? { y: meanPoint.y!, err: meanPoint.err! } : undefined;
@@ -320,7 +322,7 @@ export function summarise(points: PlotPoint[]) {
   const wavelengths = points.map((p) => p.wavelength ?? p.x);
   const mjds = points.flatMap((p) => p.mjd === undefined ? [] : [p.mjd]);
   return {
-    measured: measured.length, total: points.length,
+    measured: measured.length, snrMeasured: withError.length, total: points.length, bins,
     wlMin: wavelengths.length ? Math.min(...wavelengths) : undefined,
     wlMax: wavelengths.length ? Math.max(...wavelengths) : undefined,
     firstMjd: mjds.length ? Math.min(...mjds) : undefined,
@@ -339,6 +341,9 @@ export function verdict(summary: ReturnType<typeof summarise>, { mock, warned }:
   if (!summary.measured) {
     tone = "empty";
     text = "No measurement: every aperture holds flagged or missing pixels.";
+  } else if (summary.combinedSnr === undefined) {
+    tone = "none";
+    text = "S/N unavailable: measured aperture fluxes have no positive background-noise errors.";
   } else if (summary.medianSnr! >= SIGNAL_THRESHOLD) {
     tone = "clear";
     text = `Clear signal in single exposures (typical S/N ${summary.medianSnr!.toFixed(1)}).`;

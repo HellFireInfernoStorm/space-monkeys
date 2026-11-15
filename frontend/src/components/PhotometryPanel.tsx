@@ -9,8 +9,6 @@ import {
   selectChartPoint,
   type ChartSelections,
   type SelectionKind,
-  binCount,
-  binPoints,
   bandStrips,
   linkLabel,
   mjdToDay,
@@ -127,7 +125,7 @@ function Body({
   const summary = useMemo(() => summarise(spectrum), [spectrum]);
   const signal = verdict(summary, { mock: data.mode === "mock", warned: !!data.warnings?.length });
   const measured = summary.measured;
-  const bins = useMemo(() => binPoints(spectrum, binCount(measured)), [spectrum, measured]);
+  const bins = summary.bins;
   const ab = unit === "ab";
   const displayedSpectrum = useMemo(() => ab ? magnitudePoints(spectrum) : spectrum, [spectrum, ab]);
   const displayedBins = useMemo(() => (ab ? magnitudePoints(bins) : bins).filter((p) => p.y !== null), [bins, ab]);
@@ -183,7 +181,7 @@ function Body({
         <div className="phot-tile"><span>Wavelengths</span><strong>{wlLo.toFixed(2)}–{wlHi.toFixed(2)} µm</strong><small className="ramp-legend">{wlLo.toFixed(2)} µm <span className="ramp" style={{ background: WAVELENGTH_GRADIENT }} /> {wlHi.toFixed(2)} µm</small></div>
         <div className="phot-tile"><span>Dates</span><strong className="phot-dates">{summary.firstMjd === undefined ? "—" : mjdToDay(summary.firstMjd)} – {summary.lastMjd === undefined ? "—" : mjdToDay(summary.lastMjd)}</strong><small>{summary.visits.length} {summary.visits.length === 1 ? "visit" : "visits"}</small></div>
         {summary.mean && <div className="phot-tile"><span>Mean flux</span><strong>{meanText}</strong><small>weighted, whole range</small></div>}
-        <div className="phot-tile"><span>Brightest at</span><strong>{summary.brightest === undefined ? "—" : `${summary.brightest.toFixed(2)} µm`}</strong><small>{summary.brightest === undefined ? "signal too weak" : "binned"}</small></div>
+        <div className="phot-tile"><span>Brightest at</span><strong>{summary.brightest === undefined ? "—" : `${summary.brightest.toFixed(2)} µm`}</strong><small>{summary.brightest === undefined ? "signal too weak" : "weighted bin"}</small></div>
       </div>
       <p className={`phot-verdict ${signal.tone}`}><span aria-hidden="true" />{signal.text}</p>
       <div className="plots">
@@ -193,7 +191,7 @@ function Body({
             <label className="check inline"><input type="checkbox" checked={binned} onChange={(e) => onChange({ bin: e.target.checked })} />Binned line</label>
           </div>
           <Chart {...chartSelection("spectrum")} points={displayedSpectrum} pointOpacity={binned ? 0.45 : 1} invertY={ab} laneLabel={laneLabel} xLabel="Wavelength (µm)" yLabel={yLabel} xFormat={(x) => x.toFixed(2)}
-            title="Spectrum: flux against wavelength" colour={byWavelength}
+            title={ab ? "Spectrum: AB magnitude against wavelength" : "Spectrum: flux against wavelength"} colour={byWavelength}
             tooltip={pointTooltip}
             underlay={({ sx, x0, x1, plot }) => <>
               {bandStrips(bands, x0, x1).map((band) => {
@@ -223,7 +221,7 @@ function Body({
         <figure>
           <div className="chart-heading"><h3>Light curve</h3><span>Brightness against time</span></div>
           <Chart {...chartSelection("lightCurve")} points={lightCurve} invertY={ab} laneLabel={laneLabel} xLabel="Date (UTC)" yLabel={yLabel} xFormat={mjdToDay}
-            title="Light curve: flux against time" colour={byWavelength} tooltip={pointTooltip} />
+            title={ab ? "Light curve: AB magnitude against time" : "Light curve: flux against time"} colour={byWavelength} tooltip={pointTooltip} />
         </figure>
       </div>
       <p className="hint">
@@ -275,13 +273,13 @@ function ApertureDiagram() {
   const extentPixels = 2 * BACKGROUND_RADII_PIXELS[1] + 1;
   const extentArcsec = extentPixels * PIXEL_SCALE_ARCSEC;
   const scale = 120 / extentArcsec;
-  const caption = "Diagram: aperture 3 pixels (18.5″), background ring 5 to 7.5 pixels.";
+  const caption = `Diagram: aperture ${APERTURE_RADIUS_PIXELS} pixels (${(APERTURE_RADIUS_PIXELS * PIXEL_SCALE_ARCSEC).toFixed(1)}″), background ring ${BACKGROUND_RADII_PIXELS[0]} to ${BACKGROUND_RADII_PIXELS[1]} pixels.`;
   return <figure className="aperture-diagram">
     <svg width="120" height="120" viewBox="0 0 120 120" role="img" aria-label={caption}>
       <rect width="120" height="120" fill="var(--panel)" />
-      {Array.from({ length: 10 }, (_, i) => <g key={i} stroke="var(--line)">
-        <line x1={i * 120 / 9} x2={i * 120 / 9} y1="0" y2="120" />
-        <line y1={i * 120 / 9} y2={i * 120 / 9} x1="0" x2="120" />
+      {Array.from({ length: extentPixels + 1 }, (_, i) => <g key={i} stroke="var(--line)">
+        <line x1={i * 120 / extentPixels} x2={i * 120 / extentPixels} y1="0" y2="120" />
+        <line y1={i * 120 / extentPixels} y2={i * 120 / extentPixels} x1="0" x2="120" />
       </g>)}
       <circle cx="60" cy="60" r={APERTURE_RADIUS_PIXELS * PIXEL_SCALE_ARCSEC * scale} fill="none" stroke="var(--accent)" />
       {BACKGROUND_RADII_PIXELS.map((radius) => <circle key={radius} cx="60" cy="60" r={radius * PIXEL_SCALE_ARCSEC * scale} fill="none" stroke="var(--muted)" strokeDasharray="3 3" />)}

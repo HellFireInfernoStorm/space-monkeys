@@ -275,12 +275,33 @@ describe("phase 2 summaries and units", () => {
       { x: 4.4, wavelength: 4.4, mjd: 61171, y: null, err: null },
       { x: 5, wavelength: 5, mjd: 61151, y: 1000, err: 0 },
     ]);
-    expect(summary).toMatchObject({ measured: 2, total: 4, wlMin: 4.4, wlMax: 5, firstMjd: 60801, lastMjd: 61171, medianSnr: 10, mean: { y: 12 }, brightest: 4.9 });
+    expect(summary).toMatchObject({ measured: 3, snrMeasured: 2, total: 4, wlMin: 4.4, wlMax: 5, firstMjd: 60801, lastMjd: 61171, medianSnr: 10, mean: { y: 12 }, brightest: 4.9 });
     expect(summary.mean!.err).toBeCloseTo(1 / Math.sqrt(1.25));
     expect(summary.combinedSnr).toBeCloseTo(12 * Math.sqrt(1.25));
     expect(summary.visits).toHaveLength(3);
     expect(summarise([])).toMatchObject({ measured: 0, total: 0, visits: [], mean: undefined, brightest: undefined });
     expect(summarise([{ x: 4.6, y: 1, err: 1 }]).brightest).toBeUndefined();
+  });
+  it("counts flux measurements without errors while excluding them from weighted statistics", () => {
+    const plotted = toPlotPoints([
+      point({ flux_err: null }), point({ flux_err: 0 }),
+      point({ usable: false, flux: null, flux_err: null }),
+    ], "Jy", (p) => p.wavelength);
+    const summary = summarise(plotted);
+    expect(summary).toMatchObject({ measured: 2, snrMeasured: 0, total: 3, bins: [],
+      mean: undefined, combinedSnr: undefined, medianSnr: undefined, brightest: undefined });
+    expect(plotted.filter((p) => p.y !== null)).toHaveLength(summary.measured);
+    expect(verdict(summary, { mock: true, warned: false })).toEqual({ tone: "none",
+      text: "S/N unavailable: measured aperture fluxes have no positive background-noise errors. (Synthetic data.)" });
+    const mixed = summarise([...plotted, { x: 4.6, y: 10, err: 2 }]);
+    expect(mixed).toMatchObject({ measured: 3, snrMeasured: 1, mean: { y: 10, err: 2 }, combinedSnr: 5, medianSnr: 5 });
+  });
+  it("returns the same bins used for the brightest wavelength, independent of the display toggle", () => {
+    const points = Array.from({ length: 20 }, (_, i) => ({ x: 4.4 + i * 0.03, y: i + 10, err: 1 }));
+    const summary = summarise(points);
+    expect(summary.bins).toEqual(binPoints(points, binCount(summary.measured)));
+    expect(summary.brightest).toBe(summary.bins.reduce((best, p) => p.y! > best.y! ? p : best).x);
+    expect(summarise([{ x: 4.6, y: null, err: null }]).bins).toEqual([]);
   });
   it("takes the middle S/N, averaging the middle pair for an even count", () => {
     expect(summarise([1, 8, 3].map((y) => ({ x: 1, y, err: 1 }))).medianSnr).toBe(3);
