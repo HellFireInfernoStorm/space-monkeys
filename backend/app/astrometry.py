@@ -206,6 +206,8 @@ def native_stars(settings, exposure, ra, dec):
 
     try:
         return _native_stars(settings, exposure, ra, dec)
+    except TimeoutError:
+        raise  # aiohttp's connection/socket timeouts are also ClientErrors
     except aiohttp.ClientError as error:
         raise OSError("Could not read the detector patch from the mirror") from error
 

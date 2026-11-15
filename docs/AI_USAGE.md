@@ -39,6 +39,7 @@ Rules that apply to everything listed here:
 | 2026-11-15 | Thisal | OpenAI Codex | Addressed PR #31 re-review: based bin counts on positive-error exposures, replaced circular test expectations and added a 20-flux/4-error regression, disclosed weighted-summary sample counts and derived the method paragraph numbers from diagram constants | Photometry helper/tests and panel; frontend checks and CI recorded in the PR | Not yet |
 | 2026-11-15 | Thisal | OpenAI Codex | Fixed PR #31 method-text spacing and clarified all uses of the positive-error subset; added rendered-panel tests for line/unit toggles, summary stability, subset notes and method text | Photometry panel and existing photometry tests; validation recorded in PR | Not yet |
 | 2026-11-15 | Repository owner (PR #28 re-review) | OpenAI Codex | Merged current main; protected reference-table keys from playback shortcuts; fixed cache-busy and HTTP-error paths, narrowed the catalogue cone, clarified match distances and mock rejection, removed the unrelated layout override and added regressions | Alignment backend/models, frontend, contract/types, decision/validation notes and PR #28 | Not yet |
+| 2026-11-15 | Repository owner (PR #28 timeout review) | OpenAI Codex | Preserved aiohttp connection/socket timeouts through the reader wrapper and added API regressions reproducing both failures before the fix | `backend/app/astrometry.py`, `backend/tests/test_astrometry.py`, validation note and PR #28 | Not yet |
 
 ## Draft statement for the project page
 

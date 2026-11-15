@@ -262,6 +262,36 @@ def test_mirror_http_errors_return_structured_failure(live_client, monkeypatch, 
     assert not r["quality_passed"]
 
 
+@pytest.mark.parametrize("exception_name", ["ConnectionTimeoutError", "SocketTimeoutError"])
+def test_mirror_timeouts_survive_client_error_wrapper(live_client, monkeypatch, exception_name):
+    aiohttp = pytest.importorskip("aiohttp")
+    timeout_type = getattr(aiohttp, exception_name, None)
+    if timeout_type is None:
+        pytest.skip("This aiohttp version predates the specific timeout subclasses")
+    # These inherit from BOTH bases: catch order must preserve the timeout meaning.
+    assert issubclass(timeout_type, aiohttp.ClientError)
+    assert issubclass(timeout_type, TimeoutError)
+
+    from app.live import LiveExposure
+    e = LiveExposure("x", "x", "test", 1, "test", 61000, 1, 1, 2, None, "fixture")
+    monkeypatch.setattr(live_frames, "find_exposure", lambda *args: e)
+
+    def fail(*args):
+        raise timeout_type("Mirror read timed out")
+
+    # Patch the inner reader, so this exercises native_stars' exception wrapper too.
+    monkeypatch.setattr(a, "_native_stars", fail)
+    response = live_client.get("/api/alignment", params={
+        "exposure_id": "x", "ra": 150, "dec": 20, "target_ra": 150, "target_dec": 20,
+    })
+    assert response.status_code == 200
+    result = response.json()
+    assert result["state"] == "timeout"
+    assert result["provenance"] == "archive"
+    assert result["rms_arcsec"] is None
+    assert not result["quality_passed"]
+
+
 def test_catalogue_parser_and_epoch_propagation(tmp_path, monkeypatch):
     pytest.importorskip("astropy")
     payload = b"source_id,ra,dec,pmra,pmdec,ref_epoch\n123,150,20,1000,0,2016\n"

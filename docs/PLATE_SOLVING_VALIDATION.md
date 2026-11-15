@@ -18,7 +18,7 @@ Backend coverage: known east/north offsets and units; RA wrap and both high-decl
 
 Frontend coverage: exact gnomonic projection and handedness, wrap/high declination, behind-plane rejection, provenance/failure wording, URL preference round-trip/history, SVG output and rejecting stale exposure/centre overlays. Actual browser checks supplement the unit tests.
 
-From `backend/`: `python -m pytest -q` (**160 passed, 2 pre-existing skips**), `python -m ruff check .` (passed), `python scripts/export_openapi.py`. From `frontend/`: `npm run gen:api`, `npm run typecheck`, `npm test` (**117 passed** after integrating current main and re-review regressions) and `npm run build` (all passed). The 42 astrometry-specific backend tests pass; the timeout test uses an event barrier rather than relying on a short sleep.
+From `backend/`: `python -m pytest -q` (**162 passed, 2 pre-existing skips**), `python -m ruff check .` (passed), `python scripts/export_openapi.py`. From `frontend/`: `npm run gen:api`, `npm run typecheck`, `npm test` (**117 passed** after integrating current main and re-review regressions) and `npm run build` (all passed). The 44 astrometry-specific backend cases are covered by the full suite; the timeout test uses an event barrier rather than relying on a short sleep. The timeout-only follow-up changed no frontend code or API schema.
 
 Sandboxed Windows TestClient initialization hung in asyncio's loopback socket-pair setup. Running with ordinary local socket permissions resolved it without application changes. Existing warnings remain: Starlette/httpx deprecation, Astropy's no-distance proper-motion warning and Vite's large Aladin chunk warning.
 
@@ -53,6 +53,10 @@ Backend regressions cover cached results while all reader slots are occupied, st
 Browser check on the merged implementation at 1280×900: after running a synthetic check and opening details, ArrowRight, ArrowLeft and Space inside the focused reference table left the slider at frame 0, kept the table visible and retained the Play button. Both “Total offset” and “From median” headers were visible. Evidence: [table keyboard isolation](screenshots/issue-22/review-table-keys.jpg). Temporary viewport overrides and preview servers were cleaned up. Installing main's new DOM-test dependencies required incremental `npm install` because an existing dev server held the native bundler binding; no dependency/lockfile change beyond main was introduced.
 
 Owner approval to implement #22 is recorded in DECISIONS D-019 using the existing human approval comment. Formal decision-issue closure remains a human action. #27 remains open: the correct ESA licence/credits pages returned HTTP 451; AIP supplies a DR3 attribution reference but not confirmation of the full ESA licence. No merge, deployment or undraft is claimed.
+
+## Timeout classification follow-up
+
+The next review found that aiohttp connection/socket timeouts inherit from both `TimeoutError` and `ClientError`. The mirror wrapper now re-raises timeouts before converting other client errors into `OSError`, preserving the API's `state=timeout` classification. Two new tests inject the actual aiohttp `ConnectionTimeoutError` and `SocketTimeoutError` into the inner detector reader, then call `/api/alignment`, exercising the wrapper and endpoint together. Both reproduced `failed` before the fix; afterward both return `timeout`, unverified archive provenance, no RMS and no accepted quality gate. Older aiohttp releases without these specific subclasses skip only those version-specific cases.
 
 ## Real-data attempts (original validation, before review changes)
 
