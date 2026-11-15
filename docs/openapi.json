@@ -1151,6 +1151,135 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "WiseImage": {
+        "description": "Layer 4: a WISE-era image of the same field as the SPHEREx view, north up, east left.",
+        "properties": {
+          "band": {
+            "enum": [
+              "W1",
+              "W2"
+            ],
+            "title": "Band",
+            "type": "string"
+          },
+          "coverage": {
+            "description": "Fraction of the field with data (below 1 at a tile edge)",
+            "title": "Coverage",
+            "type": "number"
+          },
+          "date_end": {
+            "description": "UTC date and time of the latest frame",
+            "title": "Date End",
+            "type": "string"
+          },
+          "date_mid": {
+            "description": "UTC date and time of the middle frame",
+            "title": "Date Mid",
+            "type": "string"
+          },
+          "date_start": {
+            "description": "UTC date and time of the earliest frame in this part of the sky",
+            "title": "Date Start",
+            "type": "string"
+          },
+          "dec": {
+            "title": "Dec",
+            "type": "number"
+          },
+          "image_url": {
+            "description": "Address of the PNG, relative to the API root",
+            "title": "Image Url",
+            "type": "string"
+          },
+          "mjd_mid": {
+            "description": "`date_mid` as MJD, for moving a position to the WISE date",
+            "title": "Mjd Mid",
+            "type": "number"
+          },
+          "mode": {
+            "enum": [
+              "mock",
+              "live"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "pixel_scale": {
+            "description": "Arcseconds per pixel of the returned image",
+            "title": "Pixel Scale",
+            "type": "number"
+          },
+          "pixels": {
+            "description": "Width of the image in pixels",
+            "title": "Pixels",
+            "type": "integer"
+          },
+          "ra": {
+            "description": "Centre, degrees, ICRS",
+            "title": "Ra",
+            "type": "number"
+          },
+          "size": {
+            "description": "Width on the sky, arcseconds (as requested)",
+            "title": "Size",
+            "type": "number"
+          },
+          "source": {
+            "description": "Address of the file the image was read from",
+            "title": "Source",
+            "type": "string"
+          },
+          "survey": {
+            "description": "Image set, e.g. 'AllWISE Atlas'",
+            "title": "Survey",
+            "type": "string"
+          },
+          "tile": {
+            "description": "Atlas tile the image was cut from",
+            "title": "Tile",
+            "type": "string"
+          },
+          "unit": {
+            "description": "Pixel unit of the image",
+            "title": "Unit",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          },
+          "wavelength_um": {
+            "description": "Effective wavelength of the band, micrometres",
+            "title": "Wavelength Um",
+            "type": "number"
+          }
+        },
+        "required": [
+          "mode",
+          "survey",
+          "band",
+          "wavelength_um",
+          "ra",
+          "dec",
+          "size",
+          "pixel_scale",
+          "pixels",
+          "date_start",
+          "date_end",
+          "date_mid",
+          "mjd_mid",
+          "unit",
+          "tile",
+          "source",
+          "coverage",
+          "image_url"
+        ],
+        "title": "WiseImage",
+        "type": "object"
       }
     }
   },
@@ -2215,6 +2344,182 @@
         "summary": "Targets",
         "tags": [
           "targets"
+        ]
+      }
+    },
+    "/api/wise": {
+      "get": {
+        "description": "Layer 4: an AllWISE image (2010) of the same field as the SPHEREx view, with its dates.\n\nSame centre and width as the SPHEREx image, north up and east left, at the WISE pixel\nscale (1.375 arcseconds), so field stars line up and anything that moved since 2010 is\nin a different place. A first request for a field reads the image from the archive's\nAWS mirror (a few seconds); then it is cached.",
+        "operationId": "wise_meta_api_wise_get",
+        "parameters": [
+          {
+            "description": "Right Ascension, degrees, ICRS, at `epoch`",
+            "in": "query",
+            "name": "ra",
+            "required": true,
+            "schema": {
+              "description": "Right Ascension, degrees, ICRS, at `epoch`",
+              "maximum": 360,
+              "minimum": 0,
+              "title": "Ra",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Declination, degrees, ICRS, at `epoch`",
+            "in": "query",
+            "name": "dec",
+            "required": true,
+            "schema": {
+              "description": "Declination, degrees, ICRS, at `epoch`",
+              "maximum": 90,
+              "minimum": -90,
+              "title": "Dec",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Width of the image on the sky, arcseconds",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 120.0,
+              "description": "Width of the image on the sky, arcseconds",
+              "maximum": 600,
+              "minimum": 30,
+              "title": "Size",
+              "type": "number"
+            }
+          },
+          {
+            "description": "WISE band: W1 (3.4 micrometres) or W2 (4.6)",
+            "in": "query",
+            "name": "band",
+            "required": false,
+            "schema": {
+              "default": "W2",
+              "description": "WISE band: W1 (3.4 micrometres) or W2 (4.6)",
+              "enum": [
+                "W1",
+                "W2"
+              ],
+              "title": "Band",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WiseImage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Wise Meta",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/api/wise.png": {
+      "get": {
+        "description": "The image of `/api/wise` as a PNG.",
+        "operationId": "wise_png_api_wise_png_get",
+        "parameters": [
+          {
+            "description": "Right Ascension, degrees, ICRS, at `epoch`",
+            "in": "query",
+            "name": "ra",
+            "required": true,
+            "schema": {
+              "description": "Right Ascension, degrees, ICRS, at `epoch`",
+              "maximum": 360,
+              "minimum": 0,
+              "title": "Ra",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Declination, degrees, ICRS, at `epoch`",
+            "in": "query",
+            "name": "dec",
+            "required": true,
+            "schema": {
+              "description": "Declination, degrees, ICRS, at `epoch`",
+              "maximum": 90,
+              "minimum": -90,
+              "title": "Dec",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Width of the image on the sky, arcseconds",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": 120.0,
+              "description": "Width of the image on the sky, arcseconds",
+              "maximum": 600,
+              "minimum": 30,
+              "title": "Size",
+              "type": "number"
+            }
+          },
+          {
+            "description": "WISE band: W1 (3.4 micrometres) or W2 (4.6)",
+            "in": "query",
+            "name": "band",
+            "required": false,
+            "schema": {
+              "default": "W2",
+              "description": "WISE band: W1 (3.4 micrometres) or W2 (4.6)",
+              "enum": [
+                "W1",
+                "W2"
+              ],
+              "title": "Band",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/png": {}
+            },
+            "description": "Greyscale PNG"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Wise Png",
+        "tags": [
+          "data"
         ]
       }
     }

@@ -230,3 +230,27 @@ class PhotometryResult(ListMeta):
     flux_unit: str
     method: str = Field(description="How the numbers were made; quick-look values are not precise")
     points: list[PhotometryPoint]
+
+
+class WiseImage(BaseModel):
+    """Layer 4: a WISE-era image of the same field as the SPHEREx view, north up, east left."""
+
+    mode: Mode
+    survey: str = Field(description="Image set, e.g. 'AllWISE Atlas'")
+    band: Literal["W1", "W2"]
+    wavelength_um: float = Field(description="Effective wavelength of the band, micrometres")
+    ra: float = Field(description="Centre, degrees, ICRS")
+    dec: float
+    size: float = Field(description="Width on the sky, arcseconds (as requested)")
+    pixel_scale: float = Field(description="Arcseconds per pixel of the returned image")
+    pixels: int = Field(description="Width of the image in pixels")
+    date_start: str = Field(description="UTC date and time of the earliest frame in this part of the sky")
+    date_end: str = Field(description="UTC date and time of the latest frame")
+    date_mid: str = Field(description="UTC date and time of the middle frame")
+    mjd_mid: float = Field(description="`date_mid` as MJD, for moving a position to the WISE date")
+    unit: str = Field(description="Pixel unit of the image")
+    tile: str = Field(description="Atlas tile the image was cut from")
+    source: str = Field(description="Address of the file the image was read from")
+    coverage: float = Field(description="Fraction of the field with data (below 1 at a tile edge)")
+    image_url: str = Field(description="Address of the PNG, relative to the API root")
+    warnings: list[str] = Field(default_factory=list)
