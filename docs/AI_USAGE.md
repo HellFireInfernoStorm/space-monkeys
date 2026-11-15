@@ -30,6 +30,9 @@ Rules that apply to everything listed here:
 | 2026-11-15 | Repository owner (requested proposal) | OpenAI Codex | Reviewed existing WCS/image alignment and drafted the plate-solving decision proposal with visible matches, quality states and acceptance criteria | GitHub issue #22 | Not yet |
 | 2026-11-15 | Repository owner (issue #22) | OpenAI Codex | Implemented independent catalogue alignment verification, visible matches and failure states, URL preference, adversarial tests and validation notes | Plate-solving implementation PR and `docs/PLATE_SOLVING_VALIDATION.md` | Not yet |
 | 2026-11-15 | Repository owner (PR #28 review) | OpenAI Codex | Fixed cancelled checks leaving retry disabled after returning to a frame; added asynchronous cancellation/race regression tests and checked the delayed A-to-B-to-A sequence in the browser | `frontend/src/alignmentRequest.ts`, tests, `AlignmentPanel.tsx` and PR #28 | Not yet |
+| 2026-11-15 | Thisal | OpenAI Codex | Implemented issue #19 Phase 1 chart layout, responsive SVG, linked hover and keyboard tooltips, missing-value lanes, API band strips and helper tests | Frontend chart components, photometry helpers/tests, stylesheet and architecture notes | Not yet |
+| 2026-11-15 | Thisal | OpenAI Codex | Verified Phase 1 in mock and live browser previews, adjusted chart height to fit the desktop tab, and recorded screenshots and remaining manual-check limits | `docs/SPECTRUM_PHASE1_VALIDATION.md`, `docs/screenshots/spectrum-phase1/`, chart layout | Not yet |
+| 2026-11-15 | Thisal | OpenAI Codex | Addressed PR #21 review: touch selection, synchronized highlights, visible uncertainty caveat, brighter point outlines, accessible announcements, unique date ticks and chart cleanup | Chart, photometry helpers/tests, CSS, validation and AI log | Not yet |
 
 ## Draft statement for the project page
 

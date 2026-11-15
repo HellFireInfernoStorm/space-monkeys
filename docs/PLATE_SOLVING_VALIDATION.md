@@ -18,7 +18,7 @@ Backend coverage: known east/north offsets and units; RA wrap and both high-decl
 
 Frontend coverage: exact gnomonic projection and handedness, wrap/high declination, behind-plane rejection, provenance/failure wording, URL preference round-trip/history, SVG output and rejecting stale exposure/centre overlays. Actual browser checks supplement the unit tests.
 
-From `backend/`: `python -m pytest -q` (**154 passed, 2 pre-existing skips**), `python -m ruff check .` (passed), `python scripts/export_openapi.py`. From `frontend/`: `npm run gen:api`, `npm run typecheck`, `npm test` (**85 passed**, including five review regressions) and `npm run build` (all passed). The 36 astrometry-specific backend tests were rerun after cleanup; the timeout test uses an event barrier rather than relying on a short sleep.
+From `backend/`: `python -m pytest -q` (**154 passed, 2 pre-existing skips**), `python -m ruff check .` (passed), `python scripts/export_openapi.py`. From `frontend/`: `npm run gen:api`, `npm run typecheck`, `npm test` (**94 passed** after integrating current main, including five review regressions) and `npm run build` (all passed). The 36 astrometry-specific backend tests were rerun after cleanup; the timeout test uses an event barrier rather than relying on a short sleep.
 
 Sandboxed Windows TestClient initialization hung in asyncio's loopback socket-pair setup. Running with ordinary local socket permissions resolved it without application changes. Existing warnings remain: Starlette/httpx deprecation, Astropy's no-distance proper-motion warning and Vite's large Aladin chunk warning.
 
@@ -41,6 +41,8 @@ Screenshots: [desktop mock](screenshots/issue-22/desktop-mock.jpg), [mobile deta
 The reviewer reproduced a pending check on frame A becoming permanently disabled after A → B → A. The component now uses a request lifecycle that aborts and resets result/loading/error state when the frame context changes. A response may publish only while its controller and frame context are still current. Cleanup aborts the request on unmount.
 
 Five asynchronous regression tests cover A → B → A with a successful retry, late completion after retry starts, late abort rejection, A completing after B, unmount, failed-request retry and changed centre/target contexts. Browser validation used an isolated mock API with an eight-second alignment-response delay: the initial A button was disabled while pending, returning from B re-enabled it before completion, and retry completed successfully. Evidence: [retry after returning to A](screenshots/issue-22/review-retry.jpg). No new dependency or backend change was needed.
+
+Newer main commits introduced merge conflicts in the stylesheet and AI log. Both sets of additions were preserved, including the Phase 1 chart styles and all AI log entries. The chart/photometry components and helpers match main; the merged frontend passed typecheck, 94 tests and production build.
 
 ## Real-data attempts (original validation)
 
