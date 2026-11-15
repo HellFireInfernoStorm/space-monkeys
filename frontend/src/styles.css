@@ -483,6 +483,16 @@ h3 {
 .phot .aperture-diagram { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
 .aperture-diagram svg { flex-shrink: 0; }
 .phot-method summary { cursor: pointer; }
+.phot-units button:disabled { opacity: 0.45; cursor: not-allowed; }
+.phot-tile.change-tile.change strong { color: #f0b75e; }
+.noise-band rect { fill: var(--accent); opacity: 0.1; }
+.noise-band line { stroke: var(--muted); stroke-width: 1; }
+.noise-band text { fill: var(--muted); font-size: 11px; }
+.visit-overlay { color: var(--text); }
+.visit-overlay circle { fill: currentColor; stroke: var(--bg); stroke-width: 1.5; }
+.visit-overlay .few circle { fill: var(--bg); stroke: currentColor; stroke-width: 2; }
+.visit-error { stroke: currentColor; stroke-width: 2; }
+.visit-cap { stroke: currentColor; stroke-width: 1.25; }
 .chart-placeholder { height: calc(var(--chart-height) + 22px); border-radius: 8px; background: linear-gradient(100deg, var(--bg) 25%, var(--line) 50%, var(--bg) 75%); background-size: 200% 100%; animation: chart-shimmer 3s linear infinite; }
 @keyframes chart-shimmer { to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .chart-placeholder { animation: none; } }

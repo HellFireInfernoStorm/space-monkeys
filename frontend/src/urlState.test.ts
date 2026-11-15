@@ -34,6 +34,7 @@ describe("urlState", () => {
       pdec: -7.245112,
       bin: false,
       unit: "ab",
+      lc: "raw",
       wise: "W2",
       cmp: "blink",
     };
@@ -66,6 +67,8 @@ describe("urlState", () => {
       { bin: true },
       { bin: false },
       { unit: "ab" },
+      { lc: "raw" },
+      { lc: "rel" },
       { wise: "W1" },
       { wise: "W2" },
       { cmp: "blink" },
@@ -172,4 +175,14 @@ it("defaults to a binned line, restores old links and writes only nondefault pho
   expect(parseView("?unit=unknown").unit).toBe("mjy");
   expect(serializeView({ ...DEFAULT_VIEW, bin: false, unit: "ab" })).toBe("bin=0&unit=ab");
   expect(isNewView(DEFAULT_VIEW, { ...DEFAULT_VIEW, bin: false, unit: "ab" })).toBe(false);
+});
+
+it("defaults to the corrected light curve and writes only lc=raw", () => {
+  expect(DEFAULT_VIEW.lc).toBe("rel");
+  expect(parseView("?lc=raw").lc).toBe("raw");
+  expect(parseView("?lc=rel").lc).toBe("rel");
+  expect(parseView("?lc=unknown").lc).toBe("rel");
+  expect(serializeView({ ...DEFAULT_VIEW, lc: "raw" })).toBe("lc=raw");
+  expect(serializeView({ ...DEFAULT_VIEW, lc: "rel" })).toBe("");
+  expect(isNewView(DEFAULT_VIEW, { ...DEFAULT_VIEW, lc: "raw" })).toBe(false);
 });
