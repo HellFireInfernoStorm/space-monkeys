@@ -37,7 +37,7 @@ export const SKY_MAPS = [
     value: "2mass",
     url: IRSA + "CDS/2MASS/Color",
     label: "2MASS colour (1997–2001)",
-    help: "A near-infrared map of the whole sky from ground telescopes, 1997 to 2001, at 1.2 to 2.2 µm: the same light as SPHEREx's short-wavelength end.",
+    help: "A near-infrared map of the whole sky from ground telescopes, 1997 to 2001, at 1.2 to 2.2 µm: the same light as SPHEREx's short-wavelength end. Some square patches look green; that is in the source images, not a loading fault.",
   },
   {
     value: "sdss",
