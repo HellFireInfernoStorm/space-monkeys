@@ -14,6 +14,8 @@ export type FrameList = Schemas["FrameList"];
 export type StackResult = Schemas["StackResult"];
 export type StackImage = Schemas["StackImage"];
 export type MotionPoint = Schemas["MotionPoint"];
+export type PhotometryResult = Schemas["PhotometryResult"];
+export type PhotometryPoint = Schemas["PhotometryPoint"];
 
 const BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
@@ -104,6 +106,16 @@ export interface StackQuery extends PositionQuery {
 
 export const getStack = (query: StackQuery, signal?: AbortSignal) =>
   get<StackResult>("/api/stack", { ...query }, signal);
+
+export interface PhotometryQuery extends PositionQuery {
+  wl_min: number | null;
+  wl_max: number | null;
+  /** Milliarcseconds; moves the aperture with the object. */
+  parallax: number;
+}
+
+export const getPhotometry = (query: PhotometryQuery, signal?: AbortSignal) =>
+  get<PhotometryResult>("/api/photometry", { ...query }, signal);
 
 export const getExposures =(query: PositionQuery, signal?: AbortSignal) =>
   get<ExposureList>("/api/exposures", { ...query }, signal);

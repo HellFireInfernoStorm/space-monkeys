@@ -423,3 +423,108 @@ h3 {
 .foot p {
   margin: 0.3rem 0;
 }
+
+/* Layer 3: spectrum and light curve. */
+.stage.pickable {
+  cursor: crosshair;
+}
+
+.phot .plots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.phot figure {
+  margin: 0;
+}
+
+.phot figcaption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+.plot {
+  width: 100%;
+  height: auto;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.plot .grid {
+  stroke: var(--line);
+  stroke-width: 0.5;
+}
+
+.plot .axis {
+  stroke: var(--muted);
+  stroke-width: 1;
+}
+
+.plot .zero {
+  stroke: var(--muted);
+  stroke-dasharray: 3 3;
+  stroke-width: 0.7;
+}
+
+.plot .tick,
+.plot .label {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+.plot .point line {
+  stroke: var(--accent);
+  stroke-width: 1;
+}
+
+.plot .point circle {
+  fill: var(--accent);
+}
+
+.plot .unmeasured {
+  fill: none;
+  stroke: #f0a35e;
+  stroke-width: 1.2;
+}
+
+.legend .key {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin: 0 4px 0 8px;
+  vertical-align: middle;
+}
+
+.legend .key.measured {
+  background: var(--accent);
+}
+
+.legend .key.unmeasured {
+  border: 1.5px solid #f0a35e;
+}
+
+.check.inline {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+button.link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.layout > .full-width {
+  grid-column: 1 / -1;
+}

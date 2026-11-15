@@ -17,6 +17,7 @@ import {
 } from "./api";
 import AladinPanel from "./components/AladinPanel";
 import BlinkPlayer from "./components/BlinkPlayer";
+import PhotometryPanel from "./components/PhotometryPanel";
 import StackView from "./components/StackView";
 import TargetPicker from "./components/TargetPicker";
 import ViewForm from "./components/ViewForm";
@@ -47,8 +48,15 @@ export default function App() {
   const [shownFrame, setShownFrame] = useState<Frame | null>(null);
 
   const update = useCallback((change: Partial<ViewState>) => {
-    setView((previous) => ({ ...previous, ...change }));
+    setView((previous) => {
+      const next = { ...previous, ...change };
+      // A measured point belongs to the position it was picked at; a new position drops it.
+      const moved = next.ra !== previous.ra || next.dec !== previous.dec;
+      if (moved && !("pra" in change)) return { ...next, pra: null, pdec: null };
+      return next;
+    });
   }, []);
+  const pick = useCallback((pra: number, pdec: number) => update({ phot: true, pra, pdec }), [update]);
 
   // Keep the address bar in step with the view, so the link can always be copied.
   // A new target, position, range or mode is a new history entry, so Back returns to the
@@ -191,9 +199,34 @@ export default function App() {
               mode={view.mode}
               onChange={update}
               onFrame={setShownFrame}
+              onPick={pick}
             />
           )}
         </section>
+
+        {ra !== null && dec !== null && (
+          <section className="panel full-width">
+            <h2>Spectrum and light curve</h2>
+            {view.phot ? (
+              <>
+                <PhotometryPanel view={view} onChange={update} />
+                <button type="button" onClick={() => update({ phot: false, pra: null, pdec: null })}>
+                  Close
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="hint">
+                  Measure the brightness in every exposure: against wavelength for a spectrum, against time for a
+                  light curve. Click a point in the frames, or measure the target itself.
+                </p>
+                <button type="button" className="primary" onClick={() => update({ phot: true })}>
+                  Measure {view.name || "this position"}
+                </button>
+              </>
+            )}
+          </section>
+        )}
 
         <section className="panel">
           <h2>Wider view</h2>

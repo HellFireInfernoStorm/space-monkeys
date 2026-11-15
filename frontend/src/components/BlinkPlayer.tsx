@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { type Frame, type FrameList } from "../api";
 import { colourSpread, imageAddress, REFERENCE_LABEL } from "../blink";
+import { clickToSky } from "../photometry";
 import { LIMITS, type ViewMode, type ViewState } from "../urlState";
 import ModeToggle from "./ModeToggle";
 
@@ -12,6 +13,8 @@ interface Props {
   onChange: (change: Partial<ViewState>) => void;
   /** Called with the frame on screen, so the sky map can follow the object. */
   onFrame?: (frame: Frame | null) => void;
+  /** Called with the sky position of a click on the image, for the spectrum panel. */
+  onPick?: (ra: number, dec: number) => void;
 }
 
 const MJD_OF_UNIX_EPOCH = 40587;
@@ -33,7 +36,7 @@ function targetSpot(frame: Frame, extentArcsec: number): { left: number; top: nu
 }
 
 /** Shows the frames one after another (blink), or each one minus the first (difference). */
-export default function BlinkPlayer({ list, speed, mode, onChange, onFrame }: Props) {
+export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPick }: Props) {
   const frames = list.frames;
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -88,7 +91,23 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame }: Pr
         </p>
       )}
 
-      <div className="stage" aria-label={`Frame ${index + 1} of ${frames.length}`}>
+      <div
+        className={onPick ? "stage pickable" : "stage"}
+        aria-label={`Frame ${index + 1} of ${frames.length}`}
+        title={onPick ? "Click to see the spectrum and light curve of this point" : undefined}
+        onClick={(e) => {
+          if (!onPick) return;
+          const box = e.currentTarget.getBoundingClientRect();
+          const { ra, dec } = clickToSky(
+            (e.clientX - box.left) / box.width,
+            (e.clientY - box.top) / box.height,
+            current.center_ra,
+            current.center_dec,
+            pixels * list.pixel_scale,
+          );
+          onPick(ra, dec);
+        }}
+      >
         {frames.map((frame, i) => (
           <img
             key={frame.exposure_id}
