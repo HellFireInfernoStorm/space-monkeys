@@ -1,7 +1,14 @@
 import "../landing.css";
 import SiteBrand from "./SiteBrand";
+import { DEFAULT_VIEW, serializeView } from "../urlState";
 
 const REPOSITORY = "https://github.com/HellFireInfernoStorm/space-monkeys";
+// Published WISE 0855 preset: backend/app/targets.py and docs/SCIENCE.md, section 3.
+const WISE_STACK_URL = "/explore/?" + serializeView({
+  ...DEFAULT_VIEW,
+  name: "WISE 0855", mode: "stack", ra: 133.81890825, dec: -7.247048,
+  pmra: -8123.7, pmdec: 673.2, plx: 439, wlmin: 4.4, wlmax: 5.0,
+});
 
 /** Decorative star trails, drawn locally; these are not survey observations. */
 function SkyArtwork() {
@@ -56,7 +63,7 @@ export default function LandingPage() {
           <span className="home-eyebrow">YOUR NEXT VIEW OF THE UNIVERSE</span>
           <p>Pick a star.<br />Follow its story.</p>
           <a className="home-launch-button" href="/explore/">Explore the sky <span aria-hidden="true">↗</span></a>
-          <small>Public demo · Synthetic data, clearly labelled</small>
+          <small>The workbench labels real and synthetic data.</small>
         </div>
       </main>
       <div className="home-hero-bottom">
@@ -81,7 +88,7 @@ export default function LandingPage() {
       <div className="home-science-copy"><p className="home-eyebrow">02 / LOOK A LITTLE DEEPER</p><h2 id="home-science-title">Faint doesn’t mean<br />out of reach.</h2>
         <p>WISE 0855 is a cold, faint brown dwarf. A single exposure is hard to distinguish from noise. Aligning many exposures along its predicted path makes it easier to see.</p>
         <p>In our local research check, both a tracked stack and a fixed-sky stack detected it. Tracking made the signal clearer.</p>
-        <a className="home-text-link" href="/explore/?mode=stack">Try stacking in the workbench <span aria-hidden="true">↗</span></a>
+        <a className="home-text-link" href={WISE_STACK_URL}>Try stacking in the workbench <span aria-hidden="true">↗</span></a>
       </div>
       <div className="home-research" aria-label="WISE 0855 local research results">
         <div className="home-research-heading"><span>WISE 0855</span><span>LOCAL RESEARCH CHECK</span></div>

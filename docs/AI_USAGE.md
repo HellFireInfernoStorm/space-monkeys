@@ -44,10 +44,9 @@ Rules that apply to everything listed here:
 | 2026-11-15 | Chetha | Claude Code (Anthropic) | Implemented issue #32 Phase 3: colour-corrected light curve, visit averages, Changed? verdict and the cautionary-warning filter; fixed exact bin-centre handling after PR #33 review; ran the live validation and wrote the method section | `frontend/src/photometry.ts`, `PhotometryPanel.tsx`, `Chart.tsx`, `urlState.ts`, tests, `docs/SCIENCE.md` section 7, `docs/screenshots/spectrum-phase3/` | Not yet |
 | 2026-11-15 | Repository owner (PR #28 update) | OpenAI Codex | Integrated current main's SpaceShift capitalization, preserved both AI logs and resolved the decision-number collision by renumbering the plate-solving approval to D-020 | PR #28 branch, decision log and validation note | Not yet |
 | 2026-11-15 | Chetha | Claude Code (Anthropic) | Implemented issue #34 Phase 4: CSV download, click a point to open its frame, current-frame marker and drag to zoom, with tests and a headless-browser check | `frontend/src/export.ts`, `PhotometryPanel.tsx`, `Chart.tsx`, `BlinkPlayer.tsx`, `App.tsx`, `photometry.ts`, `export.test.ts`, `phase4.test.ts` | Not yet |
-
 | 2026-11-15 | Thisal | OpenAI Codex | Built a dark homepage from the user’s visual reference and Canva presentation: original decorative SVG star trails, plain-language feature and science copy, synthetic-data disclosure, static-host-compatible workbench entry, navigation and tests; preserved workbench layout | Homepage components/styles, entry documents, routing tests and PR; presentation reuse question #42 | Not yet |
-
 | 2026-11-15 | Thisal | OpenAI Codex | Matched the workbench to the homepage using shared navy/blue theme values, one reusable wordmark, Arial typography, square controls, readable measurements and consistent focus/selected states; preserved workbench geometry and scientific colour encodings | Workbench and homepage styles, shared `SiteBrand` and browser/check results in PR #43 | Not yet |
+| 2026-11-15 | Thisal | OpenAI Codex | Fixed PR #43 feedback: mode-neutral homepage copy, canonical legacy links with regressions, WISE 0855 stack preset, accessible workbench heading, contiguous AI-use table, presentation-link removal pending publication consent and unused SVG CSS cleanup | PR #43 review follow-up and frontend tests | Not yet |
 
 ## Draft statement for the project page
 
