@@ -44,7 +44,7 @@ interface Props {
 function FrameMarker({ x, plot }: { x: number; plot: { top: number; height: number } }) {
   return <g className="frame-marker">
     <line x1={x} x2={x} y1={plot.top} y2={plot.top + plot.height} />
-    <text x={x + 3} y={plot.top + 11}>Frame</text>
+    <text x={x + 3} y={plot.top + 40}>Frame</text>
   </g>;
 }
 
