@@ -48,6 +48,7 @@ Rules that apply to everything listed here:
 | 2026-11-15 | Thisal | OpenAI Codex | Matched the workbench to the homepage using shared navy/blue theme values, one reusable wordmark, Arial typography, square controls, readable measurements and consistent focus/selected states; preserved workbench geometry and scientific colour encodings | Workbench and homepage styles, shared `SiteBrand` and browser/check results in PR #43 | Not yet |
 | 2026-11-15 | Thisal | OpenAI Codex | Fixed PR #43 feedback: mode-neutral homepage copy, canonical legacy links with regressions, WISE 0855 stack preset, accessible workbench heading, contiguous AI-use table, presentation-link removal pending publication consent and unused SVG CSS cleanup | PR #43 review follow-up and frontend tests | Not yet |
 | 2026-11-15 | Thisal | OpenAI Codex | Recorded the user’s confirmation that the presentation is team-owned and authorised for homepage reuse; updated the resource note and resolved question #42 | Resource log and PR #43 | Not yet |
+| 2026-11-15 | Thisal | OpenAI Codex | Refined the homepage/workbench with rounded panels and controls, removed nested decorative borders, and retained square exposure images, input boundaries, warning accents and keyboard focus; first previewed locally and then prepared a separate PR at the user’s request | `frontend/src/styles.css`; frontend checks and browser preview | Not yet |
 
 ## Draft statement for the project page
 

@@ -12,6 +12,8 @@
   --action-line: #7374ff;
   --accent-ink: #ffffff;
   --ui-font: Arial, Helvetica, sans-serif;
+  --radius-panel: 12px;
+  --radius-control: 8px;
   --warn-bg: #2b2413;
   --warn-line: #7a6222;
   --error-bg: #2d1518;
@@ -782,3 +784,41 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .motion tbody tr:nth-child(even), .alignment-table tbody tr:nth-child(even) { background: var(--surface); }
 .alignment-table td { border-bottom: 1px solid var(--line); }
 .foot { border-top: 1px solid var(--line); padding-top: 16px; }
+
+/* Rounded surfaces and controls; exposure images retain their full square footprint. */
+.panel { border-radius: var(--radius-panel); }
+button:where(:not(.link)), .chip, .primary,
+.form input:not([type="checkbox"]), .form select,
+.map-fov, .wise-link, .map-hint, .map-cube-slider, .map-options,
+.notice { border-radius: var(--radius-control); }
+.badge { border-radius: 6px; }
+.phot-tile, .alignment-panel, .chart-tooltip, .tooltip, .option-help, .map-popup { border-radius: 10px; }
+.plot, .chart-placeholder { border-radius: var(--radius-control); }
+.map-options li { border-radius: 4px; }
+.workbench-tabs button[role="tab"] { border-radius: 0; }
+.workbench-tabs button[role="tab"]:first-child { border-top-left-radius: var(--radius-panel); }
+.workbench-tabs button[role="tab"]:last-child { border-top-right-radius: var(--radius-panel); }
+.sky-map:not(.expanded) { border-radius: 0 0 var(--radius-panel) var(--radius-panel); }
+.phot-units button { border-radius: 0; }
+.phot-units button:first-child { border-radius: var(--radius-control) 0 0 var(--radius-control); }
+.phot-units button:last-child { border-radius: 0 var(--radius-control) var(--radius-control) 0; }
+.home-header-cta { border-radius: var(--radius-control); }
+.home-launch-button { border-radius: 10px; }
+.home-hero-bottom > div > span { border-radius: 4px; }
+
+/* Use surface contrast instead of nested decorative outlines. */
+.panel, .phot-tile, .alignment-panel, .stage,
+.map-fov, .wise-link, .map-hint, .map-cube-slider { border-color: transparent; }
+.plot:not(:focus-visible) { outline: none; }
+.alignment-panel { background: var(--bg); }
+button:where(:not(.primary):not(.link):not([role="tab"])), .chip { border-color: transparent; background: var(--surface); }
+.primary { box-shadow: none; }
+.chip.active, .phot-units button[aria-pressed="true"] { background: var(--action); border-color: transparent; }
+.top, .foot, .workbench-tabs { border-color: transparent; }
+.notice { border-color: transparent; border-left-color: var(--warn-line); }
+.notice.error { border-color: transparent; border-left-color: var(--error-line); }
+.home-header-cta { border-color: transparent; background: var(--surface); }
+.home-launch-button { border-color: transparent; }
+.home-hero, .home-header, .home-hero-bottom { border-color: transparent; }
+/* A single keyboard focus ring is enough; avoid a second button outline inside it. */
+button:where(:not([role="tab"])):is(:hover, :focus-visible) { border-color: transparent; }
