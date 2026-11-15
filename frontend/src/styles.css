@@ -485,6 +485,7 @@ h3 {
 .phot-method summary { cursor: pointer; }
 .phot-units button:disabled { opacity: 0.45; cursor: not-allowed; }
 .phot-tile.change-tile.change strong { color: #f0b75e; }
+.phot-tile.change-tile { grid-column: span 2; }
 .noise-band rect { fill: var(--accent); opacity: 0.1; }
 .noise-band line { stroke: var(--muted); stroke-width: 1; }
 .noise-band text { fill: var(--muted); font-size: 11px; }
