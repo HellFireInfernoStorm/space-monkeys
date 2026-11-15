@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { AladinApi, AladinHiPS, AladinInstance } from "aladin-lite";
 
 import { chooseFrame, cubeFromProperties, cubeFromSurvey, loadProperties, type CubeInfo } from "../hipsCube";
-import { SKY_MAPS, skyMap } from "../skyMaps";
+import { DEFAULT_SKY_CENTRE, MAP_FOV_DEG, SKY_MAPS, skyMap } from "../skyMaps";
 import type { CoordinateFrame, SkyLayer, ViewState } from "../urlState";
 import CubeSlider from "./CubeSlider";
 import MapDropdown, { type MapOption } from "./MapDropdown";
@@ -21,7 +21,6 @@ import MapDropdown, { type MapOption } from "./MapDropdown";
 // (`skyf`), or the one nearest the middle of the wavelength range (`hipsCube.ts`).
 
 const SPEED_OF_LIGHT_M_PER_S = 299792458;
-const FIELD_OF_VIEW_DEG = 0.5;
 
 let loading: Promise<AladinApi> | null = null;
 
@@ -76,19 +75,24 @@ interface Props {
   wlmax: number | null;
   skyf: number | null;
   frame: CoordinateFrame;
-  wiseUrl: string;
+  /** False while no position is chosen: the map shows a starting place, with no marker. */
+  centred: boolean;
+  /** Field width in degrees when the map first opens. */
+  startFov: number;
+  /** Null hides the WiseView link (no position chosen yet). */
+  wiseUrl: string | null;
   onChange: (change: Partial<ViewState>) => void;
   onPosition: (ra: number, dec: number) => void;
 }
 
 /** A wide-field sky map centred on the position, for context around the small frames. */
-export default function AladinPanel({ ra, dec, sky, wlmin, wlmax, skyf, frame, wiseUrl, onChange, onPosition }: Props) {
+export default function AladinPanel({ ra, dec, sky, wlmin, wlmax, skyf, frame, centred, startFov, wiseUrl, onChange, onPosition }: Props) {
   const [clicked, setClicked] = useState<Point | null>(null);
   const clickedRef = useRef<Point | null>(null);
   const [currentPixel, setCurrentPixel] = useState<ScreenPoint>(null);
   const [clickedPixel, setClickedPixel] = useState<ScreenPoint>(null);
   const [coordinates, setCoordinates] = useState("");
-  const [fov, setFov] = useState(FIELD_OF_VIEW_DEG);
+  const [fov, setFov] = useState(startFov);
   const [expanded, setExpanded] = useState(false);
   const expandButton = useRef<HTMLButtonElement>(null);
   const holder = useRef<HTMLDivElement>(null);
@@ -104,6 +108,8 @@ export default function AladinPanel({ ra, dec, sky, wlmin, wlmax, skyf, frame, w
   // so later changes do not rebuild it.
   const latest = useRef({ ra, dec, sky, frame });
   latest.current = { ra, dec, sky, frame };
+  // The width the map opened with; `startFov` changes once a position is chosen.
+  const openingFov = useRef(startFov).current;
 
   useEffect(() => {
     let cancelled = false;
@@ -115,7 +121,7 @@ export default function AladinPanel({ ra, dec, sky, wlmin, wlmax, skyf, frame, w
           // Name a survey here, or Aladin Lite first asks a CDS server for its own default.
           // The effect further down sets it again with the error and frame handling.
           survey: api.HiPS(skyMap(now.sky).url),
-          fov: FIELD_OF_VIEW_DEG,
+          fov: openingFov,
           target: `${now.ra} ${now.dec}`,
           cooFrame: now.frame,
           showZoomControl: false,
@@ -170,7 +176,7 @@ export default function AladinPanel({ ra, dec, sky, wlmin, wlmax, skyf, frame, w
           // Correct it after that zoom update, once only; later user zoom stays intact.
           if (!initialWidthApplied) {
             initialWidthApplied = true;
-            aladin.setFoV(FIELD_OF_VIEW_DEG);
+            aladin.setFoV(openingFov);
           }
           refresh();
         });
@@ -192,6 +198,16 @@ export default function AladinPanel({ ra, dec, sky, wlmin, wlmax, skyf, frame, w
       setCurrentPixel(map.current.aladin.world2pix(ra, dec, "ICRS") ?? null);
     }
   }, [ready, ra, dec]);
+
+  // The first chosen position zooms from the wide starting view to the usual one,
+  // unless the user has zoomed in or out since the map opened.
+  const wasCentred = useRef(centred);
+  useEffect(() => {
+    if (!ready || !map.current || wasCentred.current || !centred) return;
+    wasCentred.current = true;
+    const aladin = map.current.aladin;
+    if (Math.abs(aladin.getFov()[0] - openingFov) < 0.01) aladin.setFoV(MAP_FOV_DEG);
+  }, [ready, centred, openingFov]);
 
   useEffect(() => {
     if (!ready || !map.current) return;
@@ -286,7 +302,13 @@ export default function AladinPanel({ ra, dec, sky, wlmin, wlmax, skyf, frame, w
             aria-describedby="expand-help" aria-pressed={expanded} onClick={() => setExpanded((value) => !value)}>⛶</button>
           <span className="tooltip" role="tooltip" id="expand-help">{EXPAND_HELP}</span>
         </span>
-        {visible(currentPixel) && <span className="map-marker current" role="img" aria-label="Current position" title={`RA ${ra.toFixed(7)}°, Dec ${dec.toFixed(7)}°`}
+        {!centred && (
+          <p className="map-hint" role="status">
+            Showing the {DEFAULT_SKY_CENTRE.name}. Drag to look around; click a spot and press
+            “Show frames here” to see its exposures.
+          </p>
+        )}
+        {centred && visible(currentPixel) && <span className="map-marker current" role="img" aria-label="Current position" title={`RA ${ra.toFixed(7)}°, Dec ${dec.toFixed(7)}°`}
           style={{ left: currentPixel![0], top: currentPixel![1] }} />}
         {clicked && visible(clickedPixel) && <>
           <span className="map-marker clicked" role="img" aria-label="Clicked position"
@@ -310,10 +332,10 @@ export default function AladinPanel({ ra, dec, sky, wlmin, wlmax, skyf, frame, w
             <button type="button" aria-label="Zoom out" onClick={() => map.current?.aladin.setFoV(Math.min(fov * 1.5, 180))}>−</button>
           </div>
           <output className="map-fov">View: {fov < 1 ? `${(fov * 60).toFixed(1)}′` : `${fov.toFixed(2)}°`}</output>
-          <span className="tooltip-anchor wise-link">
+          {wiseUrl && <span className="tooltip-anchor wise-link">
             <a href={wiseUrl} target="_blank" rel="noreferrer" aria-describedby="wise-help">Open in WiseView ↗ ⓘ</a>
             <span className="tooltip" role="tooltip" id="wise-help">{WISE_HELP}</span>
-          </span>
+          </span>}
         </div>
       </>}
     </div>

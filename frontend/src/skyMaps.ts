@@ -99,6 +99,23 @@ export const SKY_MAPS = [
 
 export type SkyLayer = (typeof SKY_MAPS)[number]["value"];
 
+/** Field width of the sky map, in degrees, once a position is chosen. */
+export const MAP_FOV_DEG = 0.5;
+
+/**
+ * Where the sky map opens before any position is chosen: the Orion Nebula (Messier 42),
+ * a bright cloud of gas where stars form, visible in every map above. Position from the
+ * NASA/IPAC Extragalactic Database (NED) name lookup for "M42", read 2026-11-15.
+ * Not stored in the URL: it is only a place to start looking.
+ */
+export const DEFAULT_SKY_CENTRE = {
+  name: "Orion Nebula",
+  ra: 83.81866,
+  dec: -5.38968,
+  /** Field width in degrees: wide enough to show the whole nebula. */
+  fov: 1.5,
+} as const;
+
 export function skyMap(value: SkyLayer): SkyMap {
   return SKY_MAPS.find((map) => map.value === value)!;
 }
