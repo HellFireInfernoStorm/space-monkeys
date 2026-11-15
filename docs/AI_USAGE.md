@@ -45,10 +45,12 @@ Rules that apply to everything listed here:
 | 2026-11-15 | Repository owner (PR #28 update) | OpenAI Codex | Integrated current main's SpaceShift capitalization, preserved both AI logs and resolved the decision-number collision by renumbering the plate-solving approval to D-020 | PR #28 branch, decision log and validation note | Not yet |
 | 2026-11-15 | Chetha | Claude Code (Anthropic) | Implemented issue #34 Phase 4: CSV download, click a point to open its frame, current-frame marker and drag to zoom, with tests and a headless-browser check | `frontend/src/export.ts`, `PhotometryPanel.tsx`, `Chart.tsx`, `BlinkPlayer.tsx`, `App.tsx`, `photometry.ts`, `export.test.ts`, `phase4.test.ts` | Not yet |
 
+| 2026-11-15 | Thisal | OpenAI Codex | Built a dark homepage from the user’s visual reference and Canva presentation: original decorative SVG star trails, plain-language feature and science copy, synthetic-data disclosure, static-host-compatible workbench entry, navigation and tests; preserved workbench layout | Homepage components/styles, entry documents, routing tests and PR; presentation reuse question #42 | Not yet |
+
 ## Draft statement for the project page
 
 Keep this current; copy it to the project page at submission.
 
-> We used AI coding assistants (Claude Code, and others listed in our repository's AI usage log) to help write code, tests and documentation, and to run early data tests. Team members directed the work and are responsible for the result. No AI-generated images, video or audio appear in the project. No NASA branding was used in or added to any AI-generated material.
+> We used AI coding assistants (Claude Code, and others listed in our repository's AI usage log) to help write code, tests and documentation, and to run early data tests. Team members directed the work and are responsible for the result. The homepage includes an AI-assisted decorative SVG sky illustration, labelled as illustration rather than survey data. No AI-generated video or audio appears in the project. No NASA branding was used in or added to any AI-generated material.
 
 Change the second and third sentences if they stop being true.
