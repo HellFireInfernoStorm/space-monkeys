@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState, type KeyboardEvent } from "react";
 
 import { type Frame, type FrameList } from "../api";
-import { colourSpread, imageAddress, REFERENCE_LABEL } from "../blink";
+import { colourSpread, imageAddress, playbackShortcut, REFERENCE_LABEL } from "../blink";
 import { clickToSky } from "../photometry";
 import { framePixels } from "../wiseCompare";
 import { LIMITS, type ViewMode, type ViewState } from "../urlState";
@@ -41,6 +41,32 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPi
   const frames = list.frames;
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const shortcutHintId = useId();
+  const hasShortcuts = frames.length > 1;
+
+  function togglePlayback() {
+    setPlaying((value) => !value);
+  }
+
+  function selectFrame(nextIndex: number) {
+    setPlaying(false);
+    setIndex(nextIndex);
+  }
+
+  function handleViewerKey(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.target !== event.currentTarget || event.defaultPrevented ||
+        event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+    const action = playbackShortcut(event.key, event.repeat);
+    if (action === null) return;
+    event.preventDefault();
+
+    if (action === "toggle") {
+      togglePlayback();
+    } else if (action !== "ignore-repeat") {
+      selectFrame(Math.max(0, Math.min(index + action, frames.length - 1)));
+    }
+  }
 
   useEffect(() => {
     if (!playing || frames.length < 2) return;
@@ -94,7 +120,11 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPi
 
       <div
         className={onPick ? "stage pickable" : "stage"}
-        aria-label={`Frame ${index + 1} of ${frames.length}`}
+        role={hasShortcuts ? "group" : undefined}
+        aria-label={`Frame viewer, frame ${index + 1} of ${frames.length}`}
+        tabIndex={hasShortcuts ? 0 : undefined}
+        aria-describedby={hasShortcuts ? shortcutHintId : undefined}
+        onKeyDown={hasShortcuts ? handleViewerKey : undefined}
         title={onPick ? "Click to see the spectrum and light curve of this point" : undefined}
         onClick={(e) => {
           if (!onPick) return;
@@ -130,6 +160,11 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPi
         )}
         <span className="compass">N up, E left</span>
       </div>
+      {hasShortcuts && (
+        <p id={shortcutHintId} className="hint">
+          With the frame viewer focused, press Space to play or pause and ← or → to step.
+        </p>
+      )}
 
       <dl className="facts">
         <div>
@@ -157,7 +192,7 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPi
       </dl>
 
       <div className="transport">
-        <button type="button" className="primary" onClick={() => setPlaying((p) => !p)}>
+        <button type="button" className="primary" onClick={togglePlayback}>
           {playing ? "Pause" : "Play"}
         </button>
         <input
@@ -166,10 +201,7 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPi
           max={frames.length - 1}
           value={index}
           aria-label="Frame"
-          onChange={(e) => {
-            setPlaying(false);
-            setIndex(Number(e.target.value));
-          }}
+          onChange={(e) => selectFrame(Number(e.target.value))}
         />
       </div>
       <div className="transport">

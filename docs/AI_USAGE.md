@@ -27,6 +27,7 @@ Rules that apply to everything listed here:
 | 2026-11-15 | Thisal | OpenAI Codex | Found and fixed the generic button rule overriding active-tab styles by reducing its selector specificity; checked both selected tabs in the browser and reran frontend checks | `frontend/src/styles.css`, layout-validation notes, screenshots and PR #11 | Not yet |
 | 2026-11-15 | Thisal | OpenAI Codex | Addressed PR #11 review: restored focus after leaving expanded map with Esc; corrected the initial 30-arcminute field after canvas resize and kept drawer scrollbar space stable; checked both desktop sizes, zoom preservation and spectrum-first links, then reran frontend checks | `frontend/src/components/AladinPanel.tsx`, `frontend/src/styles.css`, validation notes and review screenshots | Not yet |
 | 2026-11-15 | Chetha | Claude Code (Anthropic) | Diagnosed the IRSA 502 outage, found that a deep collection answering with no rows stopped the saved-search fallback, wrote the fix and its tests, and opened issue #13 | `backend/app/live_frames.py`, `backend/tests/test_live_frames.py` and issue #13 | Not yet |
+| 2026-11-15 | Issue #20 implementer | OpenAI Codex | Planned and implemented focused keyboard shortcuts for Blink and Difference playback and added regression coverage | Issue #20 and the frontend Blink player | Not yet |
 
 ## Draft statement for the project page
 
