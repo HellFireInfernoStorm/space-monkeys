@@ -279,8 +279,8 @@ Code: `backend/app/photometry.py`. Each exposure covering a point gives one samp
 3. Each exposure's ratio r = f / S has error sqrt(σ_f² + (r σ_S)²) / S. A ratio of 1 means the usual brightness at that wavelength.
 4. Exposures are grouped into visits wherever consecutive exposures are more than 60 days apart. The ratios in each visit are averaged with inverse-variance weights.
 5. Each visit's error is the formal error of that mean combined in quadrature with 3.8 %, the exposure-to-exposure scatter of the steady 2MASS check star above.
-6. **Changed?** compares every pair of visits that each have at least 3 corrected exposures: z = |r_a − r_b| / sqrt(err_a² + err_b²). z ≥ 5 is reported as a change and 3 ≤ z < 5 as unclear. Below 3 it reports "No sign", with the smallest change the data could have shown (5 × the smallest combined error).
-7. It is not judged at all when the API sends a warning other than the count of unmeasured points: a field star in the aperture, a failed archive search, or unreadable exposures. It is also not judged when fewer than 3 exposures can be corrected.
+6. **Changed?** compares every pair of visits that each have at least 3 corrected exposures: z = |r_a − r_b| / sqrt(err_a² + err_b²). z ≥ 5 is reported as a change and 3 ≤ z < 5 as unclear. Below 3 it reports "No sign", with the visit-average difference that could not have been seen (5 × the smallest combined error). Visits with fewer than 3 exposures are drawn but not compared, and "No sign" and "Unclear" say how many were left out.
+7. It is not judged at all when the API sends a warning other than the count of unmeasured points or the note that exposures were sampled evenly over time: a field star in the aperture, a failed archive search, or unreadable exposures. It is also not judged when fewer than 3 exposures can be corrected.
 
 The tab offers the corrected view only when the combined S/N is at least 5 and at least 3 exposures can be corrected.
 
@@ -293,15 +293,15 @@ The tab offers the corrected view only when the combined S/N is at least 5 and a
 **Limits.**
 
 - The result is relative to the object's own average over all visits, not an absolute calibration.
-- Each exposure is part of the spectrum it is divided by, and a changing object blurs its own spectrum. Both pull ratios toward 1, so the method under-reports change.
+- Each exposure is part of the spectrum it is divided by, and a changing object blurs its own spectrum. Both pull ratios toward 1, so the method under-reports change. So the limit in "No sign" applies to the visit averages, not to the object. Measured in the review of pull request #33, by making one visit brighter by a known factor on the real dates, wavelengths and errors: on Epsilon Indi B (59 exposures, 4 visits), a real 40 % change came out as a 28 to 37 % difference ("Yes"). On the check star (9 exposures, 3 visits), 40 % came out as 23 % ("Unclear") and 60 % as 32 % ("Yes"). Real changes come out about a quarter to a half smaller, and more so where a wavelength bin holds exposures from only one visit (on the check star, the top bin, 1.73 to 1.79 µm). Where a visit alone covers some wavelengths, its exposures are divided by themselves, and a change there cannot be seen at all. The thorough fix is to divide each exposure by a spectrum built without its own visit; that is not done yet.
 - A field star in the aperture changes its share as the object moves (WISE 0855, above). That is why any such warning withholds the verdict.
 
 **Validation (2026-11-15, live, local; the same code and cached API results as the interface, seen in headless-Chrome screenshots).**
 
 | Target, range | Measured, corrected | Visit averages (exposures) | Verdict | Expected |
 | --- | --- | --- | --- | --- |
-| 2MASS check star (RA 76.97773, Dec +30.37557), 1.6–1.8 µm | 9 of 19, 9 | 1.017 (3), 0.986 (4), 1.011 (2) | No sign; a change above 27 % would show | No sign (steady star). Raw fluxes span 129.8 to 146.6 mJy, mostly colour |
-| Epsilon Indi B, 4.4–5.0 µm | 59 of 96, 59 | 0.987 (14), 1.026 (15), 0.999 (7), 1.012 (23) | No sign; a change above 27 % would show | Isolated source (section 6). Raw fluxes span 16.8 to 31.3 mJy because of its deep spectral dip near 4.5 µm; the correction removes it |
+| 2MASS check star (RA 76.97773, Dec +30.37557), 1.6–1.8 µm | 9 of 19, 9 | 1.017 (3), 0.986 (4), 1.011 (2) | No sign; a visit-average change under 27 % could not be seen; 1 visit with fewer than 3 exposures not compared | No sign (steady star). Raw fluxes span 129.8 to 146.6 mJy, mostly colour |
+| Epsilon Indi B, 4.4–5.0 µm | 59 of 96, 59 | 0.987 (14), 1.026 (15), 0.999 (7), 1.012 (23) | No sign; a visit-average change under 27 % could not be seen | Isolated source (section 6). Raw fluxes span 16.8 to 31.3 mJy because of its deep spectral dip near 4.5 µm; the correction removes it |
 | WISE 0855, 4.4–5.0 µm | 22 of 46, 12 | 0.941 (4), 0.949 (8) | Not judged (field-star warning) | Not judged: differences between visits are not evidence of change (above) |
 | RW Aurigae, 0.746–1.117 µm | 13 of 56, 13 | 0.775 (9), 1.102 (2), 1.649 (2) | Not judged: the later visits have only 2 exposures each | A young variable star. The visit averages differ by far more than their errors, but the rule of 3 exposures per visit was not relaxed to make it report a change |
 

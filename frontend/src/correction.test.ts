@@ -182,10 +182,19 @@ describe("changeVerdict", () => {
       .toEqual({ tone: "unclear", value: "Unclear", detail: "visits differ by 20%; not significant" });
   });
 
-  it("gives the size of change the data could have seen, from the tightest pair", () => {
+  it("gives the size of change the visit averages could not show, from the tightest pair", () => {
     // Tightest pair: 0.04 and 0.04 → 5 × 0.0566 = 28%.
     expect(changeVerdict([visit(1, 0.04), visit(1.02, 0.04), visit(1.05, 0.5)], options))
-      .toEqual({ tone: "steady", value: "No sign", detail: "a change above 28% would show" });
+      .toEqual({ tone: "steady", value: "No sign", detail: "visits agree; a change under 28% could not be seen" });
+  });
+
+  it("says when a visit too small to compare was left out", () => {
+    // PR #33 review: check star with its 2-exposure visit made 50% brighter.
+    const visits = [visit(0.971, 0.038, 3), visit(0.952, 0.038, 4), visit(1.505, 0.038, 2)];
+    expect(changeVerdict(visits, options)).toEqual({ tone: "steady", value: "No sign",
+      detail: "visits agree; a change under 27% could not be seen; 1 visit with fewer than 3 exposures not compared" });
+    expect(changeVerdict([visit(1, 0.04), visit(1.2, 0.04), visit(2, 0.04, 1), visit(2, 0.04, 2)], options).detail)
+      .toBe("visits differ by 20%; not significant; 2 visits with fewer than 3 exposures not compared");
   });
 
   it("marks mock results as synthetic", () => {
@@ -212,6 +221,10 @@ describe("cautionWarnings", () => {
   it("ignores only the informational count of unmeasured points", () => {
     expect(cautionWarnings([unmeasured])).toEqual([]);
     expect(cautionWarnings([neighbour, unmeasured, failed, unread])).toEqual([neighbour, failed, unread]);
+  });
+
+  it("ignores the sampling note too", () => {
+    expect(cautionWarnings(["Measured 300 of 1226 matching exposures, spread evenly over time."])).toEqual([]);
   });
 
   it("treats unknown warnings as reasons for caution", () => {
