@@ -23,7 +23,7 @@ import WiseCompare, { type SpherexImage } from "./components/WiseCompare";
 import StackView from "./components/StackView";
 import TargetPicker from "./components/TargetPicker";
 import ViewForm from "./components/ViewForm";
-import { isNewView, parseView, serializeView, type ViewState } from "./urlState";
+import { applyChange, isNewView, parseView, serializeView, type ViewState } from "./urlState";
 import { framePixels } from "./wiseCompare";
 import { wiseViewUrl } from "./wiseview";
 import { viewForTypedPosition } from "./targetView";
@@ -56,13 +56,8 @@ export default function App() {
   const [shownFrame, setShownFrame] = useState<Frame | null>(null);
 
   const update = useCallback((change: Partial<ViewState>) => {
-    setView((previous) => {
-      const next = { ...previous, ...change };
-      // A measured point belongs to the position it was picked at; a new position drops it.
-      const moved = next.ra !== previous.ra || next.dec !== previous.dec;
-      if (moved && !("pra" in change)) return { ...next, pra: null, pdec: null };
-      return next;
-    });
+    // A new position drops the measured point; a new sky map or range drops the cube frame.
+    setView((previous) => applyChange(previous, change));
   }, []);
   const pick = useCallback((pra: number, pdec: number) => update({ phot: true, pra, pdec, tab: "spectrum" }), [update]);
 

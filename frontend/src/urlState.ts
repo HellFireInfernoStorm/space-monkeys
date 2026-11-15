@@ -2,8 +2,11 @@
 // A new control means a new field here, a new line in parseView and serializeView,
 // and a new case in urlState.test.ts.
 
+import { isSkyLayer, type SkyLayer } from "./skyMaps";
+
+export type { SkyLayer };
+
 export type ViewMode = "blink" | "diff" | "stack";
-export type SkyLayer = "wise" | "spherex";
 export type WiseBand = "W1" | "W2";
 export type CompareMode = "side" | "blink";
 export type CoordinateFrame = "ICRS" | "ICRSd" | "Galactic";
@@ -34,8 +37,13 @@ export interface ViewState {
   mode: ViewMode;
   /** Re-centre every frame on the moving object. */
   track: boolean;
-  /** Background survey in the wide-field sky map. */
+  /** Background survey in the wide-field sky map (the values are in `skyMaps.ts`). */
   sky: SkyLayer;
+  /**
+   * For a sky map that is a wavelength cube: the frame shown, 1-based as its label shows it.
+   * Null follows the default (the frame nearest the middle of the wavelength range).
+   */
+  skyf: number | null;
   frame: CoordinateFrame;
   tab: WorkbenchTab;
   /** Label of the chosen target, for display only. */
@@ -70,6 +78,7 @@ export const DEFAULT_VIEW: ViewState = {
   mode: "blink",
   track: false,
   sky: "wise",
+  skyf: null,
   frame: "ICRSd",
   tab: "sky",
   name: "",
@@ -92,6 +101,10 @@ function numberIn(value: string | null, min: number, max: number): number | null
   if (value === null || value.trim() === "") return null;
   const n = Number(value);
   return Number.isFinite(n) && n >= min && n <= max ? n : null;
+}
+
+function wholeNumber(n: number | null): number | null {
+  return n !== null && Number.isInteger(n) ? n : null;
 }
 
 /** Fixed number of decimals, without trailing zeros. */
@@ -123,7 +136,8 @@ export function parseView(search: string): ViewState {
     speed: numberIn(p.get("speed"), ...LIMITS.speed) ?? DEFAULT_VIEW.speed,
     mode: mode === "diff" || mode === "stack" ? mode : "blink",
     track: p.get("track") === "1",
-    sky: sky === "spherex" ? "spherex" : "wise",
+    sky: isSkyLayer(sky) ? sky : "wise",
+    skyf: wholeNumber(numberIn(p.get("skyf"), 1, 10000)),
     frame: p.get("frame") === "ICRS" || p.get("frame") === "Galactic"
       ? p.get("frame") as CoordinateFrame : "ICRSd",
     // Old measurement links should still open their spectrum panel.
@@ -157,6 +171,7 @@ export function serializeView(view: ViewState): string {
   if (view.mode !== DEFAULT_VIEW.mode) p.set("mode", view.mode);
   if (view.track) p.set("track", "1");
   if (view.sky !== DEFAULT_VIEW.sky) p.set("sky", view.sky);
+  if (view.skyf !== null) p.set("skyf", String(view.skyf));
   if (view.frame !== DEFAULT_VIEW.frame) p.set("frame", view.frame);
   // Explicit sky preserves a measured target while looking at the map.
   if (view.tab !== DEFAULT_VIEW.tab || view.phot) p.set("tab", view.tab);
@@ -173,15 +188,30 @@ export function serializeView(view: ViewState): string {
 }
 
 /** Settings that change continuously while watching; every other change is a new view. */
-const CONTINUOUS: ReadonlyArray<keyof ViewState> = ["speed", "sky", "bin", "cmp"];
+const CONTINUOUS: ReadonlyArray<keyof ViewState> = ["speed", "sky", "skyf", "bin", "cmp"];
 
 /**
  * Whether going from one view to the next deserves its own entry in the browser history
  * (a new target, position, range, size or mode), or only an update of the current entry
- * (speed, background survey).
+ * (speed, background survey, cube frame).
  */
 export function isNewView(before: ViewState, after: ViewState): boolean {
   return (Object.keys(after) as Array<keyof ViewState>).some(
     (key) => !CONTINUOUS.includes(key) && before[key] !== after[key],
   );
+}
+
+/**
+ * Applies a change from a control to the view, with the rules that tie fields together:
+ * a new position drops the measured point picked at the old one, and a new sky map or
+ * wavelength range drops the chosen cube frame, so the default frame for the range applies.
+ * A change that sets those fields itself keeps its own values.
+ */
+export function applyChange(previous: ViewState, change: Partial<ViewState>): ViewState {
+  const next = { ...previous, ...change };
+  const moved = next.ra !== previous.ra || next.dec !== previous.dec;
+  if (moved && !("pra" in change)) Object.assign(next, { pra: null, pdec: null });
+  const refocused = next.sky !== previous.sky || next.wlmin !== previous.wlmin || next.wlmax !== previous.wlmax;
+  if (refocused && !("skyf" in change)) next.skyf = null;
+  return next;
 }

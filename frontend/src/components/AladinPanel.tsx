@@ -2,24 +2,16 @@ import { useEffect, useRef, useState } from "react";
 
 import type { AladinApi, AladinHiPS, AladinInstance } from "aladin-lite";
 
+import { SKY_MAPS, skyMap } from "../skyMaps";
 import type { CoordinateFrame, SkyLayer, ViewState } from "../urlState";
 import MapDropdown, { type MapOption } from "./MapDropdown";
 
 // Aladin Lite (CDS, Strasbourg) comes from the npm package "aladin-lite", pinned to one
 // version in package.json. It is large, so it is fetched only when this panel first appears.
 
-// Background surveys, both served by IRSA as HiPS tile sets. The addresses are given in full
-// because the short CDS names ("P/allWISE/color") resolve to CDS servers that did not
-// answer when this was written (2026-11-14). The SPHEREx all-sky cube is experimental here.
-const SURVEYS: Record<SkyLayer, string> = {
-  wise: "https://irsa.ipac.caltech.edu/data/hips/CDS/AllWISE/RGB-W4-W2-W1",
-  spherex: "https://irsa.ipac.caltech.edu/data/hips/SPHEREx/spherex_allsky_cube",
-};
-
-const SURVEY_NAMES: Record<SkyLayer, string> = {
-  wise: "WISE",
-  spherex: "SPHEREx all-sky",
-};
+// Background surveys: addresses, labels and explanations are in one table, `skyMaps.ts`.
+// The addresses are given in full because the short CDS names ("P/allWISE/color") resolve
+// to CDS servers that did not answer when this was written (2026-11-14).
 
 // The SPHEREx cube has 102 frames (6 bands of 17 channels, shortest wavelength first).
 // Aladin Lite opens it at frame 50, which is empty, so one frame is chosen here.
@@ -62,10 +54,7 @@ function showCubeFrame(survey: AladinHiPS, frame: number) {
   survey.setFrequency({ value: SPEED_OF_LIGHT_M_PER_S / frequency, unit: "m" });
 }
 
-const SKY_OPTIONS: readonly MapOption<SkyLayer>[] = [
-  { value: "wise", label: "WISE (2010)", help: "An infrared picture of the whole sky, taken by the WISE space telescope around 2010. Compare it with SPHEREx to see what has moved since." },
-  { value: "spherex", label: "SPHEREx all-sky (experimental)", help: "SPHEREx's own map of the whole sky, at one wavelength. Still experimental, so parts may look empty." },
-];
+const SKY_OPTIONS: readonly MapOption<SkyLayer>[] = SKY_MAPS.map(({ value, label, help }) => ({ value, label, help }));
 const FRAME_OPTIONS: readonly MapOption<CoordinateFrame>[] = [
   { value: "ICRS", label: "ICRS", help: "The standard grid for the sky, like longitude and latitude on Earth. Right ascension in hours, minutes, seconds; declination in degrees." },
   { value: "ICRSd", label: "ICRS (decimal)", help: "The same grid in decimal degrees, for example 133.79, −7.24. Easiest to copy into other tools." },
@@ -115,7 +104,7 @@ export default function AladinPanel({ ra, dec, sky, frame, wiseUrl, onChange, on
         const aladin = api.aladin(holder.current, {
           // Name a survey here, or Aladin Lite first asks a CDS server for its own default.
           // The effect further down sets it again with the error and frame handling.
-          survey: api.HiPS(SURVEYS[now.sky]),
+          survey: api.HiPS(skyMap(now.sky).url),
           fov: FIELD_OF_VIEW_DEG,
           target: `${now.ra} ${now.dec}`,
           cooFrame: now.frame,
@@ -199,7 +188,7 @@ export default function AladinPanel({ ra, dec, sky, frame, wiseUrl, onChange, on
     let cancelled = false;
     const { api, aladin } = map.current;
     setProblem(null);
-    const survey = api.HiPS(SURVEYS[sky], {
+    const survey = api.HiPS(skyMap(sky).url, {
       successCallback: (loaded) => {
         if (!cancelled && sky === "spherex") showCubeFrame(loaded, SPHEREX_CUBE_FRAME);
       },
@@ -207,7 +196,7 @@ export default function AladinPanel({ ra, dec, sky, frame, wiseUrl, onChange, on
       errorCallback: () => {
         if (cancelled) return;
         setProblem(
-          `The ${SURVEY_NAMES[sky]} background could not be loaded from IRSA, so the map is empty. ` +
+          `The ${skyMap(sky).label} background could not be loaded from IRSA, so the map is empty. ` +
             "The frames above do not depend on it.",
         );
       },
