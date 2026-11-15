@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { type Frame, type FrameList } from "../api";
 import { colourSpread, imageAddress, playbackShortcut, REFERENCE_LABEL } from "../blink";
@@ -41,6 +41,7 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPi
   const frames = list.frames;
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const player = useRef<HTMLDivElement>(null);
   const hasShortcuts = frames.length > 1;
 
   function togglePlayback() {
@@ -61,8 +62,11 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPi
 
     const target = event.target;
     if (target instanceof Element) {
-      if (target.closest("input, select, textarea, [contenteditable], dialog, [role=tablist], #panel-sky")) return;
-      if (event.key === " " && target.closest("button, [role=button], summary")) return;
+      if (target instanceof HTMLElement && target.isContentEditable) return;
+      if (target.closest("input:not([type=range]), select, textarea, dialog")) return;
+      if (target.closest("input[type=range]") &&
+          (typeof action === "number" || !player.current?.contains(target))) return;
+      if (event.key === " " && target.closest("a[href], button, [role=button], summary")) return;
     }
     event.preventDefault();
 
@@ -74,10 +78,22 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPi
   });
 
   useEffect(() => {
-    if (!hasShortcuts) return;
-    const onKeyDown = (event: KeyboardEvent) => handlePlaybackKey(event);
+    const element = player.current;
+    if (!hasShortcuts || !element) return;
+    let inView = false;
+    const observer = new IntersectionObserver(([entry]) => {
+      inView = entry.intersectionRatio >= 0.01;
+    }, { threshold: 0.01 });
+    observer.observe(element);
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (inView) handlePlaybackKey(event);
+    };
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [hasShortcuts]);
 
   useEffect(() => {
@@ -111,7 +127,7 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPi
   const spotVisible = spot.left > 0 && spot.left < 1 && spot.top > 0 && spot.top < 1;
 
   return (
-    <div className="player">
+    <div className="player" ref={player}>
       {list.capped && (
         <p className="hint">
           Showing {list.returned} of {list.total} exposures, spread evenly over time.
@@ -198,7 +214,8 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPi
       </dl>
 
       <div className="transport">
-        <button type="button" className="primary" onClick={togglePlayback}>
+        <button type="button" className="primary"
+          aria-keyshortcuts={hasShortcuts ? "Space" : undefined} onClick={togglePlayback}>
           {playing ? "Pause" : "Play"}
         </button>
         <input
@@ -207,6 +224,7 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPi
           max={frames.length - 1}
           value={index}
           aria-label="Frame"
+          aria-keyshortcuts={hasShortcuts ? "ArrowLeft ArrowRight" : undefined}
           onChange={(e) => selectFrame(Number(e.target.value))}
         />
       </div>
