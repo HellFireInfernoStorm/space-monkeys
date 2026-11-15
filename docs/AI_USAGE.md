@@ -36,6 +36,7 @@ Rules that apply to everything listed here:
 | 2026-11-15 | Thisal | OpenAI Codex | Addressed PR #31 re-review: based bin counts on positive-error exposures, replaced circular test expectations and added a 20-flux/4-error regression, disclosed weighted-summary sample counts and derived the method paragraph numbers from diagram constants | Photometry helper/tests and panel; frontend checks and CI recorded in the PR | Not yet |
 | 2026-11-15 | Thisal | OpenAI Codex | Fixed PR #31 method-text spacing and clarified all uses of the positive-error subset; added rendered-panel tests for line/unit toggles, summary stability, subset notes and method text | Photometry panel and existing photometry tests; validation recorded in PR | Not yet |
 | 2026-11-15 | Chetha | Claude Code (Anthropic) | Implemented issue #32 Phase 3: colour-corrected light curve, visit averages, Changed? verdict and the cautionary-warning filter; fixed exact bin-centre handling after PR #33 review; ran the live validation and wrote the method section in docs/SCIENCE.md |
+| 2026-11-15 | Chetha | Claude Code (Anthropic) | Implemented issue #34 Phase 4: CSV download, click a point to open its frame, current-frame marker and drag to zoom, with tests and a headless-browser check |
 
 ## Draft statement for the project page
 
