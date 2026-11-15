@@ -20,27 +20,18 @@ from app.config import (
     PIXEL_SCALE_ARCSEC,  # noqa: E402
     Settings,  # noqa: E402
 )
+from app.photometry import measure  # noqa: E402
 from app.resample import sky_to_tangent  # noqa: E402
 from app.targets import find_target  # noqa: E402
 
 
 def aperture_flux(image: np.ndarray, x: float, y: float) -> float | None:
-    """Diagnostic Jy flux: radius 3 pixels, median sky from radii 5--7.5.
+    """Jy flux from the app's photometry (radius 3 pixels, median sky from radii 5--7.5).
 
-    Reject an incomplete source aperture rather than summing a fractional star.
-    This is a validation helper, not the deferred photometry endpoint.
+    An incomplete source aperture gives None rather than a fractional star.
     """
-    if min(x, y, image.shape[1] - x, image.shape[0] - y) < 7.5:
-        return None
-    yy, xx = np.indices(image.shape) + 0.5
-    radius = np.hypot(xx - x, yy - y)
-    source = image[radius <= 3]
-    sky = image[(radius >= 5) & (radius <= 7.5)]
-    sky = sky[np.isfinite(sky)]
-    if source.size == 0 or not np.isfinite(source).all() or sky.size < 20:
-        return None
-    solid_angle = np.radians(PIXEL_SCALE_ARCSEC / 3600) ** 2
-    return float(np.sum(source - np.median(sky)) * 1e6 * solid_angle)
+    result = measure(image, x, y)
+    return None if result is None else result.flux
 
 
 def comparison_star(settings: Settings, ra: float, dec: float) -> dict:

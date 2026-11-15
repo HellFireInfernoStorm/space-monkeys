@@ -582,13 +582,28 @@
             "type": "integer"
           },
           "flux": {
-            "description": "In `flux_unit`",
-            "title": "Flux",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "In `flux_unit`. Null when the point could not be measured: the aperture holds flagged or missing pixels (for example a saturated star core). Never a partial sum.",
+            "title": "Flux"
           },
           "flux_err": {
-            "title": "Flux Err",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "In `flux_unit`; null when `flux` is null",
+            "title": "Flux Err"
           },
           "lambda_width": {
             "description": "Width of the bandpass, micrometres",
@@ -1594,7 +1609,7 @@
     },
     "/api/photometry": {
       "get": {
-        "description": "Quick-look brightness at a point in every exposure: plot against wavelength for a\nspectrum, or against time for a light curve.",
+        "description": "Quick-look brightness at a point in every exposure: plot against wavelength for a\nspectrum, or against time for a light curve.\n\nFor a moving object, give its proper motion: each exposure is measured where the object\nwas on that date. Points whose aperture holds flagged or missing pixels have a null\n`flux`. A first request for a position can take about a minute in live mode; then it\nis cached.",
         "operationId": "photometry_api_photometry_get",
         "parameters": [
           {
@@ -1658,6 +1673,20 @@
               "maximum": 2100,
               "minimum": 1900,
               "title": "Epoch",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Parallax, mas. Moves the aperture with the object (live)",
+            "in": "query",
+            "name": "parallax",
+            "required": false,
+            "schema": {
+              "default": 0.0,
+              "description": "Parallax, mas. Moves the aperture with the object (live)",
+              "maximum": 1000,
+              "minimum": 0,
+              "title": "Parallax",
               "type": "number"
             }
           },

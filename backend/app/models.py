@@ -212,8 +212,11 @@ class PhotometryPoint(BaseModel):
     mjd: float
     wavelength: float = Field(description="Micrometres, at the measured position")
     lambda_width: float = Field(description="Width of the bandpass, micrometres")
-    flux: float = Field(description="In `flux_unit`")
-    flux_err: float
+    flux: float | None = Field(
+        description="In `flux_unit`. Null when the point could not be measured: the aperture holds "
+        "flagged or missing pixels (for example a saturated star core). Never a partial sum."
+    )
+    flux_err: float | None = Field(description="In `flux_unit`; null when `flux` is null")
     flags: int = Field(description="Bitwise OR of the pixel flags in the aperture")
 
 
