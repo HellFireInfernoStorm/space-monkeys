@@ -21,6 +21,8 @@ Required SPHEREx acknowledgement (put this on the project page and in the site f
 
 ## Space agency partner and other data
 
+The approximate fixed field-neighbour position used for WISE 0855 (RA 133.7582, Dec -7.2412) was supplied in the team's [live-check issue #4](https://github.com/HellFireInfernoStorm/space-monkeys/issues/4). Its underlying catalogue identifier, position uncertainty and licence are **unknown**; [question #6](https://github.com/HellFireInfernoStorm/space-monkeys/issues/6) requests them. The fit attributes the supplied position to that issue and does not treat the bootstrap error as a complete error budget.
+
 | Resource | How we use it | Link | Credit and terms |
 | --- | --- | --- | --- |
 | Gaia Data Release 3 (European Space Agency) | Positions and proper motions of the test targets (through SIMBAD); planned catalogue overlay | https://www.cosmos.esa.int/web/gaia/dr3 | Gaia acknowledgement to be added when the overlay is built |

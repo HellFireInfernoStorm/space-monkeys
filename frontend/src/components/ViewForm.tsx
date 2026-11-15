@@ -70,8 +70,8 @@ export default function ViewForm({ view, bands, onApply }: Props) {
     if (nSize === null || nSize < LIMITS.size[0] || nSize > LIMITS.size[1]) next.size = `Use ${LIMITS.size[0]} to ${LIMITS.size[1]} arcseconds.`;
     if (nEpoch === null || nEpoch < LIMITS.epoch[0] || nEpoch > LIMITS.epoch[1]) next.epoch = `Use a year from ${LIMITS.epoch[0]} to ${LIMITS.epoch[1]}.`;
     if (plx.trim() && (nPlx === null || nPlx < LIMITS.plx[0] || nPlx > LIMITS.plx[1])) next.plx = `Use ${LIMITS.plx[0]} to ${LIMITS.plx[1]} mas.`;
-    if (wlmin.trim() && (nMin === null || nMin <= 0 || nMin > 100)) next.wlmin = "Enter a positive wavelength up to 100 µm.";
-    if (wlmax.trim() && (nMax === null || nMax <= 0 || nMax > 100)) next.wlmax = "Enter a positive wavelength up to 100 µm.";
+    if (wlmin.trim() && (nMin === null || nMin < 0 || nMin > 100)) next.wlmin = "Enter a wavelength from 0 to 100 µm.";
+    if (wlmax.trim() && (nMax === null || nMax < 0 || nMax > 100)) next.wlmax = "Enter a wavelength from 0 to 100 µm.";
     if (!next.wlmin && !next.wlmax && nMin !== null && nMax !== null && nMin >= nMax) next.wlmax = "The longest wavelength must exceed the shortest.";
     if (pmra.trim() && (nPmra === null || Math.abs(nPmra) > 1e6)) next.pmra = "Enter motion between −1,000,000 and 1,000,000 mas/yr.";
     if (pmdec.trim() && (nPmdec === null || Math.abs(nPmdec) > 1e6)) next.pmdec = "Enter motion between −1,000,000 and 1,000,000 mas/yr.";
@@ -80,7 +80,8 @@ export default function ViewForm({ view, bands, onApply }: Props) {
       if (Object.keys(next).some((field) => field !== "ra" && field !== "dec")) {
         if (advanced.current) advanced.current.open = true;
       }
-      const first = (Object.keys(next) as Field[])[0];
+      const order: Field[] = ["ra", "dec", "size", "wlmin", "wlmax", "pmra", "pmdec", "epoch", "plx"];
+      const first = order.find((field) => next[field]);
       window.requestAnimationFrame(() => document.getElementById(`field-${first}`)?.focus());
       return;
     }

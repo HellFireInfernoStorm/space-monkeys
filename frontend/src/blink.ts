@@ -36,3 +36,9 @@ export function imageAddress(frame: Frame, mode: ViewMode, reference: Frame): st
     ? `${address}&diff_ref=${encodeURIComponent(reference.exposure_id)}`
     : address;
 }
+
+/** Native image width; mirrors backend/app/mock.py patch_pixels. */
+export function framePixels(size: number, pixelScale: number): number {
+  const width = Math.min(96, Math.max(8, Math.round(size / pixelScale)));
+  return Math.min(95, width | 1);
+}

@@ -28,7 +28,7 @@ For each: the object is found from its name, real SPHEREx frames load, and the e
 - [ ] Easy to update with the latest data release (one configuration change; shown in the demo or the documentation)
 - [ ] Creative display of the 102 wavelength bands (for example, one combined image per detector)
 - [ ] Spectrum on the fly for a chosen point ("extra kudos" in the challenge text)
-- [ ] Add together images taken at different times (stacking). Built and checked locally on 2026-11-14 (live data, local servers, WISE 0855 Stack view in the browser); not yet on a deployed site
+- [x] Add together images taken at different times (stacking). (2026-11-15, checked locally against 46 real WISE 0855 exposures: S/N 14.18 and the same motion at requested sizes 60, 80, 120 and 300 arcseconds; returned image crops and marker offsets covered by regression tests. Stack view was also checked locally in the browser on 2026-11-14; deployment not verified.)
 - [ ] Subtract images taken at different times (difference image)
 - [ ] The user can choose the field of view
 - [ ] Overlay of Gaia or WISE data
@@ -75,3 +75,11 @@ From the project's own code, run locally in live mode on 2026-11-14 (not a deplo
 
 - `/api/stack` for WISE 0855 at 4.4 to 5.0 micrometres: 46 exposures, tracked stack S/N 18.6; two visit stacks show the object stepping about 4 arcseconds west, as predicted (`docs/SCIENCE.md`, section 6). Seen in the browser in the Stack view, and the view came back after reloading the page.
 - Barnard's Star blink and difference views load 30 real frames at 1.0 to 1.2 micrometres in the browser.
+
+
+Local PR #3 merge verification, 2026-11-15 (not a deployed site):
+
+- [x] Integrated main through `bd0cf06`; preserved both AI-use logs. Backend: 89 tests passed, 2 optional live tests skipped; Ruff passed. Frontend: 26 tests passed, typecheck and build passed; generated API types unchanged.
+- [x] Browser checks at desktop 1440 px and phone 390 px: mock Images/Difference/Stack, keyboard End, mobile Compare focus, and no horizontal overflow. Real Barnard's Star loaded 30 images; real WISE 0855 loaded 46-exposure stacks and two visits; Stack URL restored on reload.
+- [x] Corrected marker sizing for the backend odd grids, with a regression test that failed before the fix. Confirmed form errors focus the first invalid field in visual order, and zero wavelength is accepted consistently with API/URL bounds.
+- Actual browser zoom and the full five-target live matrix were not repeated in this merge check. Existing large Aladin bundle warning remains.

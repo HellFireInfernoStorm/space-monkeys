@@ -2,12 +2,12 @@
 
 # detector number -> (shortest, longest) wavelength
 BANDS: dict[int, tuple[float, float]] = {
-    1: (0.75, 1.09),
-    2: (1.10, 1.62),
-    3: (1.63, 2.41),
-    4: (2.42, 3.82),
-    5: (3.83, 4.41),
-    6: (4.42, 5.00),
+    1: (0.746, 1.117),
+    2: (1.103, 1.650),
+    3: (1.630, 2.435),
+    4: (2.403, 3.847),
+    5: (3.811, 4.430),
+    6: (4.412, 5.010),
 }
 
 # Approximate spectral resolving power (wavelength / width of one channel).

@@ -68,8 +68,9 @@ def source_box(x: np.ndarray, y: np.ndarray, width: int, height: int, margin: in
 def bilinear(image: np.ndarray, x: np.ndarray, y: np.ndarray, min_weight: float = 0.25) -> np.ndarray:
     """Sample `image` at fractional pixel positions (0-based, pixel centres at integers).
 
-    Not-a-number pixels (masked or missing) are left out and the remaining weights are
-    renormalised. Where less than `min_weight` of the weight is usable, the result is NaN.
+    Any masked, missing or off-detector neighbour with nonzero weight makes the
+    result NaN. Zero-weight neighbours do not contribute, including at pixel centres.
+    `min_weight` is retained for call compatibility; partial footprints are never used.
     """
     h, w = image.shape
     x = np.asarray(x, dtype=float)
@@ -83,6 +84,7 @@ def bilinear(image: np.ndarray, x: np.ndarray, y: np.ndarray, min_weight: float 
     fy = ys - y0
     total = np.zeros(x.shape)
     weight = np.zeros(x.shape)
+    complete = finite.copy()
     for dy, dx, wgt in (
         (0, 0, (1 - fx) * (1 - fy)),
         (0, 1, fx * (1 - fy)),
@@ -94,10 +96,11 @@ def bilinear(image: np.ndarray, x: np.ndarray, y: np.ndarray, min_weight: float 
         inside = finite & (xi >= 0) & (xi < w) & (yi >= 0) & (yi < h)
         values = image[np.clip(yi, 0, h - 1), np.clip(xi, 0, w - 1)]
         good = inside & np.isfinite(values)
+        complete &= good | (wgt == 0)
         total += np.where(good, wgt * np.where(good, values, 0.0), 0.0)
         weight += np.where(good, wgt, 0.0)
     out = np.full(x.shape, np.nan)
-    usable = weight >= min_weight
+    usable = complete & (weight >= min_weight)
     out[usable] = total[usable] / weight[usable]
     return out
 

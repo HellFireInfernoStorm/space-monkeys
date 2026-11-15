@@ -43,9 +43,7 @@ export default function TargetPicker({ targets, view, onPick }: Props) {
       {active && (
         <details className="target-about"><summary>About this target</summary><p className="hint">
           <strong>{active.kind}.</strong>{" "}
-          {active.id === "wise-0855"
-            ? "Moves 8.1 arcseconds a year, so it is about two arcminutes from the 2010 position given in the challenge text. Too faint for a single exposure; it needs many exposures stacked at 4.4 to 5.0 micrometres, and tracking its motion sharpens the stack slightly."
-            : active.note}
+          {active.note}
         </p></details>
       )}
     </div>

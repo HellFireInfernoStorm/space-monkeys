@@ -35,7 +35,7 @@ from .sampling import sample_evenly
 from .targets import position_at_mjd, propagate
 
 # Bump when the resampling changes, so old cached patches are not reused.
-GRID_VERSION = 2
+GRID_VERSION = 3
 
 
 class SearchFailed(RuntimeError):

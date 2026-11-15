@@ -40,7 +40,7 @@ def _inputs(count=48, peak=2.0, total_motion_px=2.0, visits=4, seed=1, star_peak
 
 
 def test_tracked_stack_beats_one_exposure_by_about_root_n():
-    items = _inputs()
+    items = _inputs(star_peak=0.0)
     built = stacking.build(items, N_PX, SCALE, has_motion=True)
     n = len(items)
     expected = 2.0 * math.sqrt(n)  # about 13.9
@@ -57,6 +57,46 @@ def test_empty_position_reads_low():
     assert built["tracked"].snr < 4.0
 
 
+def test_static_stacking_also_reveals_a_faint_slowly_moving_source():
+    # The target note must not imply tracking is required for detection: WISE 0855
+    # moves just 1.35 native pixels over the year represented by the exposures.
+    built = stacking.build(_inputs(peak=2.0, total_motion_px=1.35, star_peak=0), N_PX, SCALE, True)
+    assert built["single"].snr < 5
+    assert built["static"].snr > 5
+    assert built["tracked"].snr > built["static"].snr
+
+
+def test_psf_snr_is_unchanged_by_field_size():
+    rng = np.random.default_rng(52)
+    image = rng.normal(0, 1, (49, 49)) + _gaussian(24.5, 24.5, 15, n=49)
+    assert stacking.snr_at(image, 24.5, 24.5) == pytest.approx(
+        stacking.snr_at(image[14:35, 14:35], 10.5, 10.5), abs=1e-12
+    )
+
+
+def test_stack_weights_and_snr_are_unchanged_by_field_size():
+    rng = np.random.default_rng(142)
+    large = []
+    small = []
+    for k in range(12):
+        image = rng.normal(0, 1 + k / 12, (49, 49)) + _gaussian(24.5, 24.5, 4, n=49)
+        # Bright objects in the extra area must not change the target's weights.
+        image[0:5, 0:5] += 1000
+        large.append(StackInput(str(k), 60800 + k * 40, 4.7, image, 0, 0))
+        small.append(StackInput(str(k), 60800 + k * 40, 4.7, image[14:35, 14:35], 0, 0))
+    a = stacking.build(large, 49, SCALE, False)
+    b = stacking.build(small, 21, SCALE, False)
+    assert a["sigmas"] == b["sigmas"]
+    assert a["tracked"].snr == pytest.approx(b["tracked"].snr, abs=1e-12)
+
+
+def test_psf_snr_empty_sky_has_zero_mean_and_unit_scatter():
+    rng = np.random.default_rng(23)
+    snrs = [stacking.snr_at(rng.normal(0, 1, (21, 21)), 10.5, 10.5) for _ in range(200)]
+    assert abs(np.mean(snrs)) < 0.2
+    assert 0.8 < np.std(snrs) < 1.2
+
+
 def test_epoch_grouping():
     mjds = [10.0, 11.0, 12.0, 13.0, 14.0, 100.0, 101.0, 200.0, 201.0, 202.0, 203.0, 204.0, 205.0]
     groups = stacking.group_epochs(mjds)
@@ -66,7 +106,7 @@ def test_epoch_grouping():
 
 
 def test_epoch_stacks_share_one_grid_and_show_the_step():
-    items = _inputs(peak=6.0)
+    items = _inputs(peak=10.0)  # stay above the conservative local-confusion S/N threshold
     built = stacking.build(items, N_PX, SCALE, has_motion=True)
     epochs = built["epochs"]
     assert len(epochs) == 4 and all(len(e.members) == 12 for e in epochs)
@@ -159,6 +199,44 @@ def test_gaussian_fit_finds_a_sub_pixel_position():
     assert wings.x == pytest.approx(11.83, abs=1e-2) and wings.y == pytest.approx(13.27, abs=1e-2)
 
 
+def test_fixed_neighbour_fit_removes_blended_centroid_bias():
+    target = (12.3, 12.6)
+    neighbour = (13.4, 12.2)
+    image = _gaussian(*target, 10) + _gaussian(*neighbour, 3.8)
+    single = stacking.fit_gaussian(image, None, (12, 12), 0, fit_sigma=True)
+    double = stacking.fit_gaussian(image, None, (12, 12), 0, fit_sigma=True, neighbour=neighbour)
+    assert double is not None and single is not None
+    assert abs(single.x - target[0]) > 0.05
+    assert double.x == pytest.approx(target[0], abs=0.001)
+    assert double.y == pytest.approx(target[1], abs=0.001)
+
+
+def test_visit_bootstrap_follows_fixed_field_star_while_target_moves():
+    rng = np.random.default_rng(91)
+    measured = []
+    for east in (-2.0, 2.0):
+        # The fixed field star moves in the opposite direction in target-centred grids.
+        neighbours = [(13.5 + east / SCALE, 12.1)] * 24
+        images = [
+            _gaussian(12.5, 12.5, 15) + _gaussian(*neighbours[k], 5.7) + rng.normal(0, 0.05, (N_PX, N_PX))
+            for k in range(24)
+        ]
+        point, _snr, _flagged = stacking.measure_visit(
+            images,
+            [0.05] * 24,
+            [east] * 24,
+            [0.0] * 24,
+            N_PX,
+            SCALE,
+            draws=30,
+            neighbours=neighbours,
+        )
+        assert point is not None and point.method == "bootstrap" and point.draws >= 20
+        measured.append(point)
+    assert measured[1].east - measured[0].east == pytest.approx(4.0, abs=0.1)
+    assert measured[1].north - measured[0].north == pytest.approx(0.0, abs=0.1)
+
+
 def test_bootstrap_error_matches_the_real_scatter():
     """Repeat a visit with fresh noise: the spread of the measured positions should be
     about the bootstrap error of one of them (within a factor of two)."""
@@ -221,18 +299,18 @@ def test_measured_step_has_no_resampling_bias():
 
 
 def test_parallax_enters_the_prediction_not_the_image_centre():
-    items = _inputs(peak=6.0)
+    items = _inputs(peak=10.0)
     for item in items:
         item.parallax_east, item.parallax_north = 0.4, -0.2
     built = stacking.build(items, N_PX, SCALE, has_motion=True)
-    plain = stacking.build(_inputs(peak=6.0), N_PX, SCALE, has_motion=True)
+    plain = stacking.build(_inputs(peak=10.0), N_PX, SCALE, has_motion=True)
     for e, p in zip(built["epochs"], plain["epochs"], strict=True):
         assert e.extra["east"] == pytest.approx(p.extra["east"] + 0.4)
         assert e.extra["north"] == pytest.approx(p.extra["north"] - 0.2)
         assert e.measured.east == pytest.approx(p.measured.east)  # same pixels, same measurement
 
 
-def test_saturated_star_is_measured_from_its_wings():
+def test_saturated_star_does_not_report_confident_motion_from_its_wings():
     items = _inputs(peak=50.0)
     for item in items:
         item.raw = item.image.copy()
@@ -241,8 +319,7 @@ def test_saturated_star_is_measured_from_its_wings():
     built = stacking.build(items, N_PX, SCALE, has_motion=True)
     assert built["tracked"].saturated and built["tracked"].snr is None
     for e in built["epochs"]:
-        assert e.saturated and e.measured is not None
-        assert e.measured.east == pytest.approx(e.extra["east"], abs=1.0)
+        assert e.saturated and e.measured is None
 
 
 def test_single_is_a_typical_exposure():

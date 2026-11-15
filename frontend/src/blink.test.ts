@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Frame } from "./api";
-import { colourSpread, imageAddress } from "./blink";
+import { colourSpread, imageAddress, framePixels } from "./blink";
 
 function frame(id: string, wavelength: number | null = 1.1): Frame {
   return {
@@ -36,4 +36,11 @@ describe("blink", () => {
     expect(colourSpread([frame("a", 0.8)]).warn).toBe(false);
     expect(colourSpread([frame("a", null), frame("b", 2.0)]).warn).toBe(false);
   });
+});
+
+it("matches the backend odd image grids at normal and limiting field sizes", () => {
+  expect(framePixels(120, 6.15)).toBe(21);
+  expect(framePixels(30, 6.15)).toBe(9);
+  expect(framePixels(600, 6.15)).toBe(95);
+  expect(framePixels(129.15, 6.15)).toBe(21);
 });
