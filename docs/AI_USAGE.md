@@ -30,6 +30,7 @@ Rules that apply to everything listed here:
 | 2026-11-15 | Thisal | OpenAI Codex | Implemented issue #19 Phase 1 chart layout, responsive SVG, linked hover and keyboard tooltips, missing-value lanes, API band strips and helper tests | Frontend chart components, photometry helpers/tests, stylesheet and architecture notes | Not yet |
 | 2026-11-15 | Thisal | OpenAI Codex | Verified Phase 1 in mock and live browser previews, adjusted chart height to fit the desktop tab, and recorded screenshots and remaining manual-check limits | `docs/SPECTRUM_PHASE1_VALIDATION.md`, `docs/screenshots/spectrum-phase1/`, chart layout | Not yet |
 | 2026-11-15 | Thisal | OpenAI Codex | Addressed PR #21 review: touch selection, synchronized highlights, visible uncertainty caveat, brighter point outlines, accessible announcements, unique date ticks and chart cleanup | Chart, photometry helpers/tests, CSS, validation and AI log | Not yet |
+| 2026-11-15 | Thisal | OpenAI Codex | Implemented issue #30 Phase 2: pure summary and verdict helpers, binned overlay, AB display conversion, WISE markers, labelled aperture diagram and URL state tests; validation recorded in the pull request | Frontend photometry helpers, charts, styles, tests and two science additions | Not yet |
 
 ## Draft statement for the project page
 

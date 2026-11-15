@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { PhotometryPoint } from "./api";
 import {
+  summarise, groupVisits, verdict, toAbMag, magnitudePoints,
   pointDetails,
   selectChartPoint,
   uniqueTicks,
@@ -250,5 +251,77 @@ describe("chart review regressions", () => {
     expect(Object.values(pointDetails(plotted)).join("\n")).toBe(pointLabel(source, 1000));
     expect(pointDetails(plotted).value).toBe("Not measured: saturated");
     expect(pointDetails({ x: 4.6, y: 0.5, err: 0.1 })).toEqual({ wavelength: "4.600 µm", value: "0.500 ± 0.10 mJy" });
+  });
+});
+
+
+describe("phase 2 summaries and units", () => {
+  it("groups unsorted dates into visits without mutating input; exactly 60 days stays together", () => {
+    const dates = [61171, 60989, 60801, 61021, 61151];
+    expect(groupVisits(dates)).toEqual([
+      { start: 60801, end: 60801, count: 1 },
+      { start: 60989, end: 61021, count: 2 },
+      { start: 61151, end: 61171, count: 2 },
+    ]);
+    expect(dates[0]).toBe(61171);
+    expect(groupVisits([60, 0, 60, 121])).toEqual([{ start: 0, end: 60, count: 3 }, { start: 121, end: 121, count: 1 }]);
+    expect(groupVisits([])).toEqual([]);
+    expect(groupVisits([0, 2], 1)).toHaveLength(2);
+  });
+  it("summarises ranges over all points but weights and S/N over measured points only", () => {
+    const summary = summarise([
+      { x: 4.5, wavelength: 4.5, mjd: 60801, y: 10, err: 1 },
+      { x: 4.9, wavelength: 4.9, mjd: 60989, y: 20, err: 2 },
+      { x: 4.4, wavelength: 4.4, mjd: 61171, y: null, err: null },
+      { x: 5, wavelength: 5, mjd: 61151, y: 1000, err: 0 },
+    ]);
+    expect(summary).toMatchObject({ measured: 2, total: 4, wlMin: 4.4, wlMax: 5, firstMjd: 60801, lastMjd: 61171, medianSnr: 10, mean: { y: 12 }, brightest: 4.9 });
+    expect(summary.mean!.err).toBeCloseTo(1 / Math.sqrt(1.25));
+    expect(summary.combinedSnr).toBeCloseTo(12 * Math.sqrt(1.25));
+    expect(summary.visits).toHaveLength(3);
+    expect(summarise([])).toMatchObject({ measured: 0, total: 0, visits: [], mean: undefined, brightest: undefined });
+    expect(summarise([{ x: 4.6, y: 1, err: 1 }]).brightest).toBeUndefined();
+  });
+  it("takes the middle S/N, averaging the middle pair for an even count", () => {
+    expect(summarise([1, 8, 3].map((y) => ({ x: 1, y, err: 1 }))).medianSnr).toBe(3);
+    expect(summarise([1, 8, 3, 5].map((y) => ({ x: 1, y, err: 1 }))).medianSnr).toBe(4);
+  });
+  it("uses the exact verdicts for empty, single, combined and weak signal", () => {
+    const options = { mock: false, warned: false };
+    expect(verdict(summarise([]), options)).toEqual({ tone: "empty", text: "No measurement: every aperture holds flagged or missing pixels." });
+    expect(verdict(summarise([{ x: 1, y: 5, err: 1 }]), options)).toEqual({ tone: "clear", text: "Clear signal in single exposures (typical S/N 5.0)." });
+    expect(verdict(summarise(Array.from({ length: 4 }, () => ({ x: 1, y: 3, err: 1 }))), options)).toEqual({ tone: "combined", text: "Signal only when exposures are combined (S/N 6.0); about 3.0 in a single exposure. The Stacked view in the frame player is the better way to see a faint object." });
+    expect(verdict(summarise([{ x: 1, y: -1, err: 1 }]), options)).toEqual({ tone: "none", text: "No clear signal in this wavelength range (combined S/N -1.0)." });
+    const text = verdict(summarise([]), { mock: true, warned: true }).text;
+    expect(text).toBe("No measurement: every aperture holds flagged or missing pixels. The warning above says what else may be in the aperture. (Synthetic data.)");
+    expect(text).not.toMatch(/detected|detection|σ/);
+  });
+  it("converts the AB zero point, mJy and propagated error, and rejects nonpositive flux", () => {
+    expect(toAbMag(3631 * 1000, 0)!.mag).toBeCloseTo(0);
+    expect(toAbMag(1, 0)!.mag.toFixed(2)).toBe("16.40");
+    expect(toAbMag(0.554, 0.043)!.mag.toFixed(2)).toBe("17.04");
+    expect(toAbMag(0.554, 0.043)!.err.toFixed(2)).toBe("0.08");
+    expect(toAbMag(-1, 1)).toBeNull();
+    expect(toAbMag(0, 1)).toBeNull();
+  });
+  it("retains exposure identity, mJy and reasons when mapping magnitude points", () => {
+    const raw = toPlotPoints([point({ flux: 0.000554, flux_err: 0.000043 }), point({ exposure_id: "negative", flux: -0.001 }), point({ flux: null, usable: false, reason: "flagged" })], "Jy", (p) => p.wavelength);
+    const mapped = magnitudePoints(raw);
+    expect(mapped[0]).toMatchObject({ id: "e", mjd: 60800 });
+    expect(pointDetails(mapped[0]).value).toBe("17.04 ± 0.08 AB mag (0.554 ± 0.043 mJy)");
+    expect(mapped[0].label).toContain(pointDetails(mapped[0]).value);
+    expect(mapped[1].y).toBeNull();
+    expect(mapped[1].label).toContain("No magnitude: flux -1.00 ± 0.10 mJy is not above zero");
+    expect(mapped[2]).toBe(raw[2]);
+    expect(mapped[2].label).toContain("Not measured: flagged");
+    expect(raw[0].y).toBeCloseTo(0.554);
+  });
+  it("keeps brighter magnitudes above faint ones, errors inside, and missing values below", () => {
+    const g = chartGeometry([{ x: 1, y: 12, err: 1 }, { x: 2, y: 17, err: 1 }, { x: 3, y: null, err: null }], 700, 220, true);
+    expect(g.sy(12)).toBeLessThan(g.sy(17));
+    expect(g.sy(11)).toBeGreaterThan(g.plot.top);
+    expect(g.sy(18)).toBeLessThan(g.floor);
+    expect(g.positioned[2].py).toBeGreaterThan(g.floor);
+    expect(g.yTicks.length).toBeGreaterThan(1);
   });
 });

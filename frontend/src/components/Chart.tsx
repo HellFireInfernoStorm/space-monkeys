@@ -4,6 +4,9 @@ import { CHART_HEIGHT, chartGeometry, nearestPoint, pointKey, uniqueTicks, type 
 type Scales = ReturnType<typeof chartGeometry>;
 interface Props {
   points: PlotPoint[];
+  invertY?: boolean;
+  laneLabel?: string;
+  pointOpacity?: number;
   title: string;
   xLabel: string;
   yLabel: string;
@@ -20,7 +23,7 @@ interface Props {
 
 /** Responsive scatter chart. Layer callbacks share the exact scales used by the marks. */
 export default function Chart({ points, title, xLabel, yLabel, xFormat, colour, tooltip,
-  highlightedId, selectedKey, onSelect, underlay, overlay, onPointClick }: Props) {
+  highlightedId, selectedKey, onSelect, underlay, overlay, onPointClick, invertY = false, laneLabel = "Not measured", pointOpacity = 1 }: Props) {
   const wrapper = useRef<HTMLDivElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -28,7 +31,7 @@ export default function Chart({ points, title, xLabel, yLabel, xFormat, colour, 
   const [cardSize, setCardSize] = useState({ width: 220, height: 140 });
   const clip = useId();
   const height = CHART_HEIGHT;
-  const scales = useMemo(() => chartGeometry(points, width, height), [points, width, height]);
+  const scales = useMemo(() => chartGeometry(points, width, height, invertY), [points, width, height, invertY]);
   const { sx, sy, y0, y1, plot, floor, lane, xTicks, yTicks, positioned } = scales;
   const active = positioned.find((p) => p.point === selected);
   const hasActive = active !== undefined;
@@ -80,13 +83,13 @@ export default function Chart({ points, title, xLabel, yLabel, xFormat, colour, 
         {uniqueTicks(xTicks, xFormat).map((t) => <text key={t} x={sx(t)} y={floor + lane + 17} textAnchor="middle" className="tick">{xFormat(t)}</text>)}
         {y0 < 0 && y1 > 0 && <line x1={plot.left} x2={plot.left + plot.width} y1={sy(0)} y2={sy(0)} className="zero" />}
         <line x1={plot.left} x2={plot.left + plot.width} y1={floor} y2={floor} className="axis" />
-        {lane > 0 && <text x={4} y={floor + 13} className="lane-label">Not measured</text>}
+        {lane > 0 && <text x={4} y={floor + 13} className="lane-label">{laneLabel}</text>}
         <text x={plot.left + plot.width / 2} y={height - 7} textAnchor="middle" className="label">{xLabel}</text>
         <text transform={`translate(15 ${plot.top + plot.height / 2}) rotate(-90)`} textAnchor="middle" className="label">{yLabel}</text>
         {positioned.map(({ point: p, px, py }, i) => {
           const highlighted = p === selected || (p.id !== undefined && p.id === highlightedId);
           const dim = (active || highlightedId) && !highlighted;
-          return <g key={p.id ?? i} className="point" style={{ color: colour?.(p), opacity: dim ? 0.35 : 1 }}>
+          return <g key={p.id ?? i} className="point" style={{ color: colour?.(p), opacity: highlighted ? 1 : dim ? Math.min(0.35, pointOpacity) : pointOpacity }}>
             {highlighted && <line x1={px} x2={px} y1={plot.top} y2={floor} className="guide" />}
             {p.y !== null && <g clipPath={`url(#${clip})`}>
               {p.err !== null && <line x1={px} x2={px} y1={sy(p.y - p.err)} y2={sy(p.y + p.err)} className="error-bar" />}
@@ -96,7 +99,7 @@ export default function Chart({ points, title, xLabel, yLabel, xFormat, colour, 
             {highlighted && <circle cx={px} cy={py} r={9} className="highlight-ring" />}
           </g>;
         })}
-        <g clipPath={`url(#${clip})`}>{overlay?.(scales)}</g>
+        <g clipPath={`url(#${clip})`} aria-hidden="true" pointerEvents="none">{overlay?.(scales)}</g>
         <rect x={plot.left} y={plot.top} width={plot.width} height={plot.height + lane}
           fill="transparent" onPointerMove={(event) => { if (event.pointerType !== "touch") select("pointer", locate(event)); }}
           onPointerLeave={(event) => { if (event.pointerType !== "touch") onSelect("pointer"); }}

@@ -264,7 +264,11 @@ Code: `backend/app/photometry.py`. Each exposure covering a point gives one samp
 
 **Limits.** Saturated stars give no light curve (R Draconis; RW Aurigae except at the shortest wavelengths). A light curve over a wide wavelength range mixes colour with change. The values are quick estimates; IRSA's Spectrophotometry Tool is the precise method.
 
+**AB display units.** AB magnitude = −2.5 log10(flux / 3631 Jy); the propagated error is (2.5 / ln 10) × flux error / flux, defined only for positive flux. Source: [Oke & Gunn (1983), ApJ 266, 713](https://articles.adsabs.harvard.edu/pdf/1983ApJ...266..713O). Flux summaries are averaged before conversion.
+
 ## 8. WISE comparison (layer 4)
+
+The spectrum interface marks WISE W1 at 3.4 µm and W2 at 4.6 µm, matching `backend/app/wise.py`; these are centre markers, not sourced filter edges.
 
 Code: `backend/app/wise.py`. The AllWISE Atlas image (WISE observations of 2010, combined) of the same field as the SPHEREx image, at WISE's 1.375-arcsecond pixels, north up, east left (details: `docs/ARCHITECTURE.md`). Dates come from the tile header: for WISE 0855's tile (`1342m076_ac51`), the frames span 2010-05-03 to 2010-11-13, middle frame 2010-05-06.
 
