@@ -6,9 +6,11 @@ A public web tool that shows SPHEREx sky images over time for any position on th
 
 > **SpaceShift** is the name of the tool, built by team space-monkeys.
 
+Open the public tool at **[spaceshift.earth](https://spaceshift.earth)**.
+
 ## Status
 
-Scaffold only. The back end answers every endpoint with **mock data** by default; the live exposure search against the SPHEREx archive works, and the live image endpoints are the first thing to build. See `docs/ACCEPTANCE.md` for what is done and what is not.
+The frontend is hosted on Azure Static Web Apps, with the API on Azure App Service and the custom domain managed through Porkbun. The public site and API connectivity were checked on 2026-11-15. Check the [API health endpoint](https://space-monkeys-demo-bjdddzdbduc6gme7.southindia-01.azurewebsites.net/api/health) for the current mode; the mode can change through deployment settings. Local live-data checks are recorded separately in [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md). Hosting and domain setup are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#hosting).
 
 ## What it will do
 
