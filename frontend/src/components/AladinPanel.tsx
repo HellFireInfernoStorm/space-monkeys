@@ -1,30 +1,24 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { AladinApi, AladinHiPS, AladinInstance } from "aladin-lite";
 
+import { chooseFrame, cubeFromProperties, cubeFromSurvey, loadProperties, type CubeInfo } from "../hipsCube";
+import { SKY_MAPS, skyMap } from "../skyMaps";
 import type { CoordinateFrame, SkyLayer, ViewState } from "../urlState";
+import CubeSlider from "./CubeSlider";
 import MapDropdown, { type MapOption } from "./MapDropdown";
 
 // Aladin Lite (CDS, Strasbourg) comes from the npm package "aladin-lite", pinned to one
 // version in package.json. It is large, so it is fetched only when this panel first appears.
 
-// Background surveys, both served by IRSA as HiPS tile sets. The addresses are given in full
-// because the short CDS names ("P/allWISE/color") resolve to CDS servers that did not
-// answer when this was written (2026-11-14). The SPHEREx all-sky cube is experimental here.
-const SURVEYS: Record<SkyLayer, string> = {
-  wise: "https://irsa.ipac.caltech.edu/data/hips/CDS/AllWISE/RGB-W4-W2-W1",
-  spherex: "https://irsa.ipac.caltech.edu/data/hips/SPHEREx/spherex_allsky_cube",
-};
+// Background surveys: addresses, labels and explanations are in one table, `skyMaps.ts`.
+// The addresses are given in full because the short CDS names ("P/allWISE/color") resolve
+// to CDS servers that did not answer when this was written (2026-11-14).
 
-const SURVEY_NAMES: Record<SkyLayer, string> = {
-  wise: "WISE",
-  spherex: "SPHEREx all-sky",
-};
-
-// The SPHEREx cube has 102 frames (6 bands of 17 channels, shortest wavelength first).
-// Aladin Lite opens it at frame 50, which is empty, so one frame is chosen here.
-// Frame 8 is in band 1. Showing the frame that matches the wavelength range is not built yet.
-const SPHEREX_CUBE_FRAME = 8;
+// A survey that is a multi-frame cube (the SPHEREx cube: 102 frames, 6 bands of 17 channels,
+// shortest wavelength first) gets a wavelength slider. Aladin Lite opens a cube at its middle
+// frame, which for SPHEREx is empty, so the frame is always set here: the one in the URL
+// (`skyf`), or the one nearest the middle of the wavelength range (`hipsCube.ts`).
 
 const SPEED_OF_LIGHT_M_PER_S = 299792458;
 const FIELD_OF_VIEW_DEG = 0.5;
@@ -62,10 +56,7 @@ function showCubeFrame(survey: AladinHiPS, frame: number) {
   survey.setFrequency({ value: SPEED_OF_LIGHT_M_PER_S / frequency, unit: "m" });
 }
 
-const SKY_OPTIONS: readonly MapOption<SkyLayer>[] = [
-  { value: "wise", label: "WISE (2010)", help: "An infrared picture of the whole sky, taken by the WISE space telescope around 2010. Compare it with SPHEREx to see what has moved since." },
-  { value: "spherex", label: "SPHEREx all-sky (experimental)", help: "SPHEREx's own map of the whole sky, at one wavelength. Still experimental, so parts may look empty." },
-];
+const SKY_OPTIONS: readonly MapOption<SkyLayer>[] = SKY_MAPS.map(({ value, label, help }) => ({ value, label, help }));
 const FRAME_OPTIONS: readonly MapOption<CoordinateFrame>[] = [
   { value: "ICRS", label: "ICRS", help: "The standard grid for the sky, like longitude and latitude on Earth. Right ascension in hours, minutes, seconds; declination in degrees." },
   { value: "ICRSd", label: "ICRS (decimal)", help: "The same grid in decimal degrees, for example 133.79, −7.24. Easiest to copy into other tools." },
@@ -80,6 +71,10 @@ interface Props {
   ra: number;
   dec: number;
   sky: SkyLayer;
+  /** Wavelength range and chosen cube frame (1-based), from the URL. */
+  wlmin: number | null;
+  wlmax: number | null;
+  skyf: number | null;
   frame: CoordinateFrame;
   wiseUrl: string;
   onChange: (change: Partial<ViewState>) => void;
@@ -87,7 +82,7 @@ interface Props {
 }
 
 /** A wide-field sky map centred on the position, for context around the small frames. */
-export default function AladinPanel({ ra, dec, sky, frame, wiseUrl, onChange, onPosition }: Props) {
+export default function AladinPanel({ ra, dec, sky, wlmin, wlmax, skyf, frame, wiseUrl, onChange, onPosition }: Props) {
   const [clicked, setClicked] = useState<Point | null>(null);
   const clickedRef = useRef<Point | null>(null);
   const [currentPixel, setCurrentPixel] = useState<ScreenPoint>(null);
@@ -99,6 +94,10 @@ export default function AladinPanel({ ra, dec, sky, frame, wiseUrl, onChange, on
   const holder = useRef<HTMLDivElement>(null);
   const map = useRef<{ api: AladinApi; aladin: AladinInstance } | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  // The loaded survey and, when it is a cube, its frames. Both belong to the current `sky`.
+  const survey = useRef<AladinHiPS | null>(null);
+  const [cube, setCube] = useState<CubeInfo | null>(null);
+  const cubeFrame = useMemo(() => cube && chooseFrame(cube, skyf, wlmin, wlmax), [cube, skyf, wlmin, wlmax]);
   const [ready, setReady] = useState(false);
 
   // Start the map once. The position at that moment comes from a ref,
@@ -115,7 +114,7 @@ export default function AladinPanel({ ra, dec, sky, frame, wiseUrl, onChange, on
         const aladin = api.aladin(holder.current, {
           // Name a survey here, or Aladin Lite first asks a CDS server for its own default.
           // The effect further down sets it again with the error and frame handling.
-          survey: api.HiPS(SURVEYS[now.sky]),
+          survey: api.HiPS(skyMap(now.sky).url),
           fov: FIELD_OF_VIEW_DEG,
           target: `${now.ra} ${now.dec}`,
           cooFrame: now.frame,
@@ -199,24 +198,44 @@ export default function AladinPanel({ ra, dec, sky, frame, wiseUrl, onChange, on
     let cancelled = false;
     const { api, aladin } = map.current;
     setProblem(null);
-    const survey = api.HiPS(SURVEYS[sky], {
+    survey.current = null;
+    setCube(null);
+    const { url, cube: config } = skyMap(sky);
+    // Started now so it runs while Aladin Lite loads the survey. Fetched once per address.
+    const properties = loadProperties(url);
+    properties.catch(() => undefined);
+    const layer = api.HiPS(url, {
       successCallback: (loaded) => {
-        if (!cancelled && sky === "spherex") showCubeFrame(loaded, SPHEREX_CUBE_FRAME);
+        if (cancelled) return;
+        properties
+          .then((values) => cubeFromProperties(values, config))
+          // Without the properties file, use what Aladin Lite read; never break the map.
+          .catch(() => cubeFromSurvey(loaded, config))
+          .then((info) => {
+            if (cancelled || !info) return;
+            survey.current = loaded;
+            setCube(info);
+          });
       },
       // Without this, a survey that cannot be reached leaves an empty map and no message.
       errorCallback: () => {
         if (cancelled) return;
         setProblem(
-          `The ${SURVEY_NAMES[sky]} background could not be loaded from IRSA, so the map is empty. ` +
+          `The ${skyMap(sky).label} background could not be loaded from IRSA, so the map is empty. ` +
             "The frames above do not depend on it.",
         );
       },
     });
-    aladin.setBaseImageLayer(survey);
+    aladin.setBaseImageLayer(layer);
     return () => {
       cancelled = true;
     };
   }, [ready, sky]);
+
+  // Change the frame of the same layer; recreating the layer would reload every tile.
+  useEffect(() => {
+    if (survey.current && cubeFrame !== null) showCubeFrame(survey.current, cubeFrame);
+  }, [cube, cubeFrame]);
 
   useEffect(() => {
     if (!ready || !map.current) return;
@@ -274,7 +293,7 @@ export default function AladinPanel({ ra, dec, sky, frame, wiseUrl, onChange, on
             style={{ left: clickedPixel![0], top: clickedPixel![1] }} />
           <div className="map-popup" role="region" aria-label="Clicked sky position"
             style={{ left: Math.max(8, Math.min(clickedPixel![0] + 18, width - 278)),
-              top: Math.max(90, Math.min(clickedPixel![1] + 18, height - 140)) }}>
+              top: Math.max(90, Math.min(clickedPixel![1] + 18, height - (cube ? 230 : 140))) }}>
             <button type="button" className="popup-close" aria-label="Dismiss clicked position" onClick={dismissPoint}>✕</button>
             <p className="mono">{coordinates}</p>
             <button type="button" className="primary" onClick={() => {
@@ -282,6 +301,9 @@ export default function AladinPanel({ ra, dec, sky, frame, wiseUrl, onChange, on
             }}>Show frames here</button>
           </div>
         </>}
+        {cube && cubeFrame !== null && (
+          <CubeSlider cube={cube} frame={cubeFrame} onCommit={(next) => onChange({ skyf: next + 1 })} />
+        )}
         <div className="map-bottom-controls">
           <div className="map-zoom">
             <button type="button" aria-label="Zoom in" onClick={() => map.current?.aladin.setFoV(Math.max(fov / 1.5, 1 / 36000))}>+</button>

@@ -23,7 +23,7 @@ import WiseCompare, { type SpherexImage } from "./components/WiseCompare";
 import StackView from "./components/StackView";
 import TargetPicker from "./components/TargetPicker";
 import ViewForm from "./components/ViewForm";
-import { isNewView, parseView, serializeView, type ViewState } from "./urlState";
+import { applyChange, isNewView, parseView, serializeView, type ViewState } from "./urlState";
 import { framePixels } from "./wiseCompare";
 import { wiseViewUrl } from "./wiseview";
 import { viewForTypedPosition } from "./targetView";
@@ -56,13 +56,8 @@ export default function App() {
   const [shownFrame, setShownFrame] = useState<Frame | null>(null);
 
   const update = useCallback((change: Partial<ViewState>) => {
-    setView((previous) => {
-      const next = { ...previous, ...change };
-      // A measured point belongs to the position it was picked at; a new position drops it.
-      const moved = next.ra !== previous.ra || next.dec !== previous.dec;
-      if (moved && !("pra" in change)) return { ...next, pra: null, pdec: null };
-      return next;
-    });
+    // A new position drops the measured point; a new sky map or range drops the cube frame.
+    setView((previous) => applyChange(previous, change));
   }, []);
   const pick = useCallback((pra: number, pdec: number) => update({ phot: true, pra, pdec, tab: "spectrum" }), [update]);
 
@@ -276,6 +271,7 @@ export default function App() {
             className="sky-tab" tabIndex={0}>
             {mapRa !== null && mapDec !== null ? skyVisited && (
               <AladinPanel ra={mapRa} dec={mapDec} sky={view.sky} frame={view.frame}
+                wlmin={wlmin} wlmax={wlmax} skyf={view.skyf}
                 onChange={update}
                 onPosition={(newRa, newDec) => update(viewForTypedPosition(view, newRa, newDec, {}))}
                 wiseUrl={wiseViewUrl(
@@ -331,7 +327,8 @@ export default function App() {
         <p>{ACKNOWLEDGEMENT}</p>
         <p>This publication makes use of data products from the Wide-field Infrared Survey Explorer, which is a joint project of the University of California, Los Angeles, and the Jet Propulsion Laboratory/California Institute of Technology, and NEOWISE, which is a project of the Jet Propulsion Laboratory/California Institute of Technology. WISE and NEOWISE are funded by the National Aeronautics and Space Administration.</p>
         <p>
-          Sky map: Aladin Lite, developed at CDS, Strasbourg Observatory, France. WISE comparison images:
+          Sky map: Aladin Lite, developed at CDS, Strasbourg Observatory, France. Sky map backgrounds: DSS, IRIS (IRAS),
+          2MASS, SDSS, GALEX, Spitzer, Planck, AllWISE and SPHEREx HiPS maps (most made by CDS), served by IRSA. WISE comparison images:
           AllWISE Atlas, from the NASA/IPAC Infrared Science Archive. Further WISE images: WiseView.
         </p>
         <p>This project is not affiliated with or endorsed by NASA.</p>

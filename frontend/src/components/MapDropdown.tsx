@@ -1,4 +1,25 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+
+const HELP_WIDTH = 270;
+const HELP_GAP = 12;
+const EDGE = 8;
+
+type HelpPlace = { side: "right" | "left"; width: number };
+
+/**
+ * Where the option explanations fit: beside the list on the side with more room inside the
+ * sky map (and the window), narrowed if neither side has the full width.
+ */
+function placeHelp(list: HTMLElement): HelpPlace {
+  const bounds = (list.closest(".sky-map") ?? document.documentElement).getBoundingClientRect();
+  const right = Math.min(bounds.right, window.innerWidth) - EDGE;
+  const left = Math.max(bounds.left, 0) + EDGE;
+  const box = list.getBoundingClientRect();
+  const roomRight = right - box.right - HELP_GAP;
+  const roomLeft = box.left - left - HELP_GAP;
+  const side = roomRight >= HELP_WIDTH || roomRight >= roomLeft ? "right" : "left";
+  return { side, width: Math.max(140, Math.min(HELP_WIDTH, side === "right" ? roomRight : roomLeft)) };
+}
 
 export interface MapOption<T extends string> {
   value: T;
@@ -16,6 +37,8 @@ export default function MapDropdown<T extends string>({ label, value, options, o
   const id = useId();
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  const list = useRef<HTMLUListElement>(null);
+  const [help, setHelp] = useState<HelpPlace>({ side: "right", width: HELP_WIDTH });
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const selected = options.findIndex((option) => option.value === value);
@@ -24,6 +47,10 @@ export default function MapDropdown<T extends string>({ label, value, options, o
     if (!open) return;
     root.current?.querySelectorAll<HTMLElement>('[role="option"]')[active]?.focus();
   }, [open, active]);
+
+  useLayoutEffect(() => {
+    if (open && list.current) setHelp(placeHelp(list.current));
+  }, [open]);
 
   function close() { setOpen(false); trigger.current?.focus(); }
   function show(index = selected) { setActive(index); setOpen(true); }
@@ -47,7 +74,9 @@ export default function MapDropdown<T extends string>({ label, value, options, o
         <span role="tooltip" id={`${id}-help`} className="tooltip">{options[selected].help}</span>
       </span>
       {open && (
-        <ul id={`${id}-list`} role="listbox" aria-label={label} className="map-options"
+        <ul ref={list} id={`${id}-list`} role="listbox" aria-label={label}
+          className={`map-options${help.side === "left" ? " help-left" : ""}`}
+          style={{ "--help-width": `${help.width}px` } as CSSProperties}
           onKeyDown={(event) => {
             const key = event.key;
             if (key === "Escape") { event.preventDefault(); event.stopPropagation(); close(); }
@@ -66,7 +95,7 @@ export default function MapDropdown<T extends string>({ label, value, options, o
           {options.map((option, index) => (
             <li key={option.value} role="option" aria-selected={value === option.value}
               tabIndex={active === index ? 0 : -1} aria-describedby={`${id}-${index}-help`}
-              onFocus={() => setActive(index)} onClick={() => { onChange(option.value); close(); }}>
+              onFocus={() => setActive(index)} onMouseEnter={() => setActive(index)} onClick={() => { onChange(option.value); close(); }}>
               {option.label}
               <span role="tooltip" id={`${id}-${index}-help`} className="option-help">{option.help}</span>
             </li>

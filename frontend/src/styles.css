@@ -701,13 +701,30 @@ body:has(.sky-map.expanded) { overflow: hidden; }
 .tooltip-anchor:hover > .tooltip, .tooltip-anchor:focus-within > .tooltip { display: block; }
 .tooltip-anchor:has(button.info-button) .tooltip { left: auto; right: 0; }
 .map-options { position: absolute; top: calc(100% + 5px); left: 0; margin: 0; padding: 4px; list-style: none; min-width: 220px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 16px #0008; }
-.map-options li { padding: 8px; cursor: pointer; border-radius: 4px; }
+.map-options li { position: relative; padding: 8px; cursor: pointer; border-radius: 4px; }
 .map-options li[aria-selected="true"] { color: var(--accent); }
-.map-options li:hover, .map-options li:focus { background: var(--bg); }
-.option-help { left: 0; top: calc(100% + 8px); pointer-events: none; }
-.map-options li:hover > .option-help, .map-options li:focus > .option-help { display: block; }
+.map-options li:focus { background: var(--bg); outline: none; }
+/* One explanation at a time: the active option's, beside that option. Hovering an option
+   makes it the active one (MapDropdown), so mouse and keyboard never show two. */
+.option-help { left: calc(100% + 12px); top: 0; width: var(--help-width, 270px); pointer-events: none; }
+/* MapDropdown flips the explanations to the left when the map has no room on the right. */
+.map-options.help-left .option-help { left: auto; right: calc(100% + 12px); }
+.map-options li:focus > .option-help { display: block; }
 .map-marker { position: absolute; width: 22px; height: 22px; border: 2px solid #ffd24a; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 0 1px #000; pointer-events: none; z-index: 1; }
 .map-marker.clicked { border-color: #fff; border-style: dashed; }
 .map-popup { position: absolute; width: 270px; padding: 12px; background: var(--panel); border: 1px solid var(--accent); border-radius: 8px; box-shadow: 0 4px 16px #0008; z-index: 2; }
 .map-popup .mono { margin: 24px 0 12px; }
 .map-popup .popup-close { position: absolute; right: 4px; top: 4px; padding: 1px 6px; }
+/* Cube frame slider: bottom centre, clear of the zoom and WiseView stack on the right. */
+.sky-map { container-type: inline-size; }
+.map-cube-slider { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); width: min(360px, calc(100% - 400px)); z-index: 1; display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; font-size: 0.8rem; }
+.cube-slider-label { display: flex; align-items: center; justify-content: center; gap: 4px; text-align: center; }
+.cube-slider-row { display: flex; align-items: center; gap: 6px; }
+.cube-slider-row input[type="range"] { flex: 1; min-width: 0; accent-color: var(--accent); }
+.cube-slider-row button { padding: 2px 10px; font-weight: 600; }
+.cube-slider-row button:disabled { opacity: 0.4; cursor: default; }
+.map-cube-slider .tooltip { top: auto; bottom: calc(100% + 6px); }
+/* Too narrow to sit beside that stack: go full width above it. */
+@container (max-width: 760px) {
+  .map-cube-slider { left: 12px; right: 12px; width: auto; transform: none; bottom: 112px; }
+}
