@@ -1,4 +1,5 @@
 import "../landing.css";
+import SiteBrand from "./SiteBrand";
 
 const REPOSITORY = "https://github.com/HellFireInfernoStorm/space-monkeys";
 
@@ -35,7 +36,7 @@ export default function LandingPage() {
       <SkyArtwork />
       <div className="home-planet" aria-hidden="true" />
       <header className="home-header">
-        <a className="home-brand" href="/" aria-label="SpaceShift home">SPACE<span>·</span>SHIFT</a>
+        <SiteBrand />
         <nav aria-label="Main navigation">
           <a href="#how-it-works">How it works</a>
           <a href="#the-science">The science</a>
@@ -98,6 +99,6 @@ export default function LandingPage() {
       <div className="home-more-item"><span>THEN & NOW</span><h3>The same field, years apart.</h3><p>Compare AllWISE observations from 2010 with SPHEREx views from 2025–26. Differences in sharpness and wavelength matter, too.</p></div>
     </section>
     <section className="home-final"><p className="home-eyebrow">BUILT FOR THE CURIOUS</p><h2>The sky is waiting.</h2><a className="home-launch-button" href="/explore/">Open SpaceShift <span aria-hidden="true">↗</span></a><p>Copy your workbench URL to share a position and its settings.</p></section>
-    <footer className="home-footer"><a className="home-brand" href="/">SPACE<span>·</span>SHIFT</a><p>Built by space-monkeys · Planet X and SPHEREx</p><div><a href={REPOSITORY} target="_blank" rel="noreferrer">Source & credits ↗</a><span>AI-assisted code & illustration · No NASA affiliation or endorsement</span></div></footer>
+    <footer className="home-footer"><SiteBrand /><p>Built by space-monkeys · Planet X and SPHEREx</p><div><a href={REPOSITORY} target="_blank" rel="noreferrer">Source & credits ↗</a><span>AI-assisted code & illustration · No NASA affiliation or endorsement</span></div></footer>
   </div>;
 }

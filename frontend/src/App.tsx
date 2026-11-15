@@ -18,6 +18,7 @@ import {
 import AladinPanel from "./components/AladinPanel";
 import BlinkPlayer from "./components/BlinkPlayer";
 import ControlsDrawer from "./components/ControlsDrawer";
+import SiteBrand from "./components/SiteBrand";
 import PhotometryPanel from "./components/PhotometryPanel";
 import WiseCompare, { type SpherexImage } from "./components/WiseCompare";
 import StackView from "./components/StackView";
@@ -179,7 +180,7 @@ export default function App() {
           aria-label={drawerOpen ? "Hide controls" : "Show controls"}
           aria-expanded={drawerOpen} aria-controls="controls-drawer"
           onClick={() => setDrawerOpen((open) => !open)}>☰ <span>Controls</span></button>
-        <h1><a className="workbench-home-link" href="/">SpaceShift</a></h1>
+        <h1><SiteBrand /></h1>
         <div className="view-summary">
           <span className="summary-position">{ra !== null && dec !== null
             ? `RA ${ra.toFixed(5)}°, Dec ${dec.toFixed(5)}°` : "No position yet"}</span>

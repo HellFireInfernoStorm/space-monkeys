@@ -1,7 +1,5 @@
 /* Homepage styles are scoped so the existing workbench keeps its layout. */
-.workbench-home-link { color: inherit; text-decoration: none; }
-.workbench-home-link:hover { color: var(--accent); }
-.home-page { --home-blue: #454bff; --home-muted: #b7b8c9; background: #0b0d17; color: #f4f3fa; overflow: clip; font-family: Arial, Helvetica, sans-serif; }
+.home-page { --home-blue: var(--action); --home-muted: var(--muted); background: var(--bg); color: var(--text); overflow: clip; font-family: var(--ui-font); }
 .home-page * { box-sizing: border-box; }
 .home-page a { color: inherit; text-decoration: none; }
 .home-page a:focus-visible { outline: 2px solid #aeb2ff; outline-offset: 6px; }
@@ -13,8 +11,6 @@
 .home-hero::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(90deg, #080b1855, transparent 60%), linear-gradient(0deg, #0b0d1733, transparent 35%); }
 .home-planet { position: absolute; width: 620px; aspect-ratio: 1; border-radius: 50%; right: -170px; bottom: -300px; z-index: -1; background: radial-gradient(circle at 25% 12%, #292134, #11111c 62%); box-shadow: -16px -12px 100px #9870610c; }
 .home-header { display: flex; align-items: center; justify-content: space-between; gap: 36px; margin: 0 5.5%; min-height: 102px; border-bottom: 1px solid #ffffff20; }
-.home-brand { font-size: 19px; font-weight: 850; letter-spacing: -.04em; white-space: nowrap; }
-.home-brand span { color: #777bff; padding: 0 4px; }
 .home-header nav { display: flex; align-items: center; gap: 32px; margin-left: auto; }
 .home-header nav a, .home-header-cta { font-size: 13px; font-weight: 500; }
 .home-header nav a { color: #c7c6d2; }
@@ -36,8 +32,8 @@
 .home-launch { justify-self: end; width: 290px; padding-bottom: 6px; }
 .home-launch .home-eyebrow { font-size: 9px; margin-bottom: 14px; color: #bcb6cd; }
 .home-launch > p { font-size: 34px; line-height: 1.2; letter-spacing: -.04em; margin: 0 0 24px; }
-.home-launch-button { display: inline-flex; min-height: 51px; align-items: center; justify-content: space-between; gap: 46px; padding: 14px 23px; background: var(--home-blue); color: #fff; font-size: 14px; font-weight: 600; border: 1px solid #7374ff; }
-.home-launch-button:hover { background: #555bff; }
+.home-launch-button { display: inline-flex; min-height: 51px; align-items: center; justify-content: space-between; gap: 46px; padding: 14px 23px; background: var(--home-blue); color: #fff; font-size: 14px; font-weight: 600; border: 1px solid var(--action-line); }
+.home-launch-button:hover { background: var(--action-hover); }
 .home-launch .home-launch-button { width: 100%; }
 .home-launch small { display: block; margin-top: 14px; font-size: 10px; line-height: 1.5; color: #beb9ce; }
 .home-hero-bottom { position: relative; display: flex; align-items: center; gap: 44px; padding: 23px 5.5%; border-top: 1px solid #ffffff20; }
@@ -104,7 +100,7 @@
 }
 @media (max-width: 680px) {
   .home-header { flex-wrap: wrap; gap: 18px; padding: 24px 0; }
-  .home-brand { font-size: 17px; }
+  .home-page .site-brand { font-size: 17px; }
   .home-header nav { order: 3; width: 100%; margin: 0; gap: 26px; }
   .home-header nav a { font-size: 12px; }
   .home-header-cta { margin-left: auto; padding: 9px 11px; font-size: 11px; }
