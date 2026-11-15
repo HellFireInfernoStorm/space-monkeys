@@ -32,3 +32,17 @@ Before uses untouched main at `0a701fd`; the other screenshots use the phase 1 c
 - [All six API band strips, mock](screenshots/spectrum-phase1/all-bands-mock.jpg)
 - [WISE 0855, live warning and missing-value lane](screenshots/spectrum-phase1/wise-live.jpg)
 - [Barnard's Star, live all-unmeasured lanes and reason](screenshots/spectrum-phase1/barnard-live.jpg)
+
+
+## PR review follow-up — 2026-11-15
+
+Addressed both LAKWAN194 reviews: repaired the AI log table; touch/click now selects and touch pointerleave preserves the card; the exact existing uncertainty sentence is visible under the charts; measured dots use radius 5 and a light outline while keeping the wavelength ramp unchanged. A single parent owns pointer and keyboard selection, with the keyboard selection restored when pointer hover ends. A `binned` effect clears both selections for checkbox and history navigation without remounting the controls. Selections use point IDs (or wavelength keys for bins), rather than array indices.
+
+Also memoised transformed points/binning and chart geometry, shared formatted tooltip/accessibility fields, removed duplicate numerical bandpass metadata, centralised chart height, removed duplicate displayed date ticks, added a border-box measurement fallback, and added a polite live region.
+
+Validation: typecheck, 84 tests, production build and whitespace checks pass. Browser at 1440 × 900 still has `clientHeight = scrollHeight = 719`, with the uncertainty caveat visible. Checked at 1280 × 800 as well (scrolling allowed). Back from a selected binned view clears rings, tooltip and dimming. A temporary browser harness exercised the real mounted chart components with simulated pointer/touch/keyboard events and an observer lacking `borderBoxSize`: pointer selection overrides keyboard temporarily; leaving the other chart restores the original tooltip and two rings; touch click plus pointerleave retains the tooltip; fallback dimensions keep the tooltip inside its wrapper; the live-region text contains the selection. All five checks passed without browser console errors. The temporary harness was not added to the product.
+
+These are event simulations in the current browser, not physical-device touch tests, an actual old Safari run, or a screen-reader listening test. New unit regressions cover selection ownership/restoration, unique formatted ticks and shared card/accessible formatting. No new dependency, measurement or API changes.
+
+- [Reviewed desktop view](screenshots/spectrum-phase1/review-1440.jpg)
+- [Reviewed linked tooltip and visible caveat](screenshots/spectrum-phase1/review-1440-tooltip.jpg)

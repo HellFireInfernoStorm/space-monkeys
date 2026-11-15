@@ -8,7 +8,7 @@ export interface PlotPoint {
   mjd?: number;
   detector?: number;
   reason?: string | null;
-  bandpass?: number;
+  details?: PointDetails;
   x: number;
   y: number | null;
   err: number | null;
@@ -34,19 +34,38 @@ export function isUsable(p: PhotometryPoint): boolean {
   return p.usable !== false && p.flux !== null && p.flux !== undefined;
 }
 
-/** Hover text for one point: date, wavelength and bandpass, flux, or why it was not measured. */
+export interface PointDetails {
+  date?: string;
+  wavelength: string;
+  value: string;
+  detector?: string;
+  exposure?: string;
+}
+
+/** One formatting path for cards, accessible labels and binned points. */
+export function pointDetails(p: PlotPoint): PointDetails {
+  return p.details ?? {
+    wavelength: `${p.x.toFixed(3)} µm`,
+    value: p.y === null ? `Not measured: ${p.reason ?? "flagged or missing pixels in the aperture"}`
+      : `${p.y.toPrecision(3)} ± ${(p.err ?? 0).toPrecision(2)} mJy`,
+  };
+}
+
+function measurementDetails(p: PhotometryPoint, factor: number): PointDetails {
+  return {
+    date: `${mjdToDay(p.mjd)} (MJD ${p.mjd.toFixed(2)})`,
+    wavelength: `${p.wavelength.toFixed(3)} ± ${(p.lambda_width / 2).toFixed(3)} µm`,
+    value: isUsable(p)
+      ? `${(p.flux! * factor).toPrecision(3)} ± ${((p.flux_err ?? 0) * factor).toPrecision(2)} mJy`
+      : `Not measured: ${p.reason ?? "flagged or missing pixels in the aperture"}`,
+    detector: `Detector ${p.det_id}`,
+    exposure: p.exposure_id,
+  };
+}
+
+/** Accessible text uses the same formatted fields as the visible card. */
 export function pointLabel(p: PhotometryPoint, factor: number): string {
-  const lines = [
-    `${mjdToDay(p.mjd)} (MJD ${p.mjd.toFixed(2)}), detector ${p.det_id}`,
-    `${p.wavelength.toFixed(3)} ± ${(p.lambda_width / 2).toFixed(3)} µm`,
-  ];
-  if (isUsable(p)) {
-    lines.push(`${((p.flux as number) * factor).toPrecision(3)} ± ${((p.flux_err ?? 0) * factor).toPrecision(2)} mJy`);
-  } else {
-    lines.push(`Not measured: ${p.reason ?? "flagged or missing pixels in the aperture"}`);
-  }
-  lines.push(p.exposure_id);
-  return lines.join("\n");
+  return Object.values(measurementDetails(p, factor)).join("\n");
 }
 
 export function toPlotPoints(
@@ -58,18 +77,19 @@ export function toPlotPoints(
   const factor = milliJanskyFactor(unit);
   return points.map((p) => {
     const usable = isUsable(p);
+    const details = measurementDetails(p, factor);
     return {
       id: p.exposure_id,
       mjd: p.mjd,
       detector: p.det_id,
       reason: p.reason,
-      bandpass: p.lambda_width / 2,
+      details,
       x: x(p),
       y: usable ? (p.flux as number) * factor : null,
       err: usable && p.flux_err !== null && p.flux_err !== undefined ? p.flux_err * factor : null,
       xerr: options.bandpass ? p.lambda_width / 2 : undefined,
       wavelength: p.wavelength,
-      label: pointLabel(p, factor),
+      label: Object.values(details).join("\n"),
     };
   });
 }
@@ -225,7 +245,7 @@ export function nearestPoint<T extends { px: number; py: number }>(points: T[], 
 }
 
 /** All chart geometry uses CSS pixels, including the separate missing-value lane. */
-export function chartGeometry(points: PlotPoint[], width: number, height = 220) {
+export function chartGeometry(points: PlotPoint[], width: number, height = CHART_HEIGHT) {
   const lane = points.some((p) => p.y === null) ? 18 : 0;
   const plot = { left: 64, top: 22, width: Math.max(1, width - 108), height: height - 66 - lane };
   const [x0, x1] = extent(points.map((p) => p.x));
@@ -237,4 +257,32 @@ export function chartGeometry(points: PlotPoint[], width: number, height = 220) 
     xTicks: ticks(x0, x1, Math.max(1, Math.floor(plot.width / 100))), yTicks: ticks(y0, y1, 5),
     positioned: points.map((point) => ({ point, px: sx(point.x), py: point.y === null ? floor + 10 : sy(point.y) })),
   };
+}
+
+
+export const CHART_HEIGHT = 220;
+
+export function pointKey(point: PlotPoint): string {
+  return point.id ?? `bin:${point.x}`;
+}
+
+export interface ChartSelection { chart: string; key: string }
+export interface ChartSelections { keyboard?: ChartSelection; pointer?: ChartSelection }
+export type SelectionKind = keyof ChartSelections;
+
+/** Leaving one chart cannot clear a selection owned by the other chart. */
+export function selectChartPoint(state: ChartSelections, chart: string, kind: SelectionKind, key?: string): ChartSelections {
+  if (key === undefined && state[kind]?.chart !== chart) return state;
+  return { ...state, [kind]: key === undefined ? undefined : { chart, key } };
+}
+
+/** One label per displayed x value (e.g. calendar dates instead of fractional days). */
+export function uniqueTicks(values: number[], format: (value: number) => string): number[] {
+  const seen = new Set<string>();
+  return values.filter((value) => {
+    const label = format(value);
+    if (seen.has(label)) return false;
+    seen.add(label);
+    return true;
+  });
 }

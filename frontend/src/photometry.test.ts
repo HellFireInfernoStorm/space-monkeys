@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import type { PhotometryPoint } from "./api";
 import {
+  pointDetails,
+  selectChartPoint,
+  uniqueTicks,
   bandStrips,
   chartGeometry,
   nearestPoint,
@@ -216,8 +219,36 @@ describe("responsive chart geometry", () => {
     const p = point({ usable: false, reason: "saturated" });
     for (const x of [(p: PhotometryPoint) => p.wavelength, (p: PhotometryPoint) => p.mjd]) {
       expect(toPlotPoints([p], "uJy", x)[0]).toMatchObject({
-        id: "e", mjd: 60800, detector: 6, reason: "saturated", bandpass: 0.0175, y: null,
+        id: "e", mjd: 60800, detector: 6, reason: "saturated", details: { wavelength: "4.600 ± 0.018 µm" }, y: null,
       });
     }
+  });
+});
+
+
+describe("chart review regressions", () => {
+  it("restores keyboard selection after a pointer visit to the other chart", () => {
+    const keyboard = selectChartPoint({}, "spectrum", "keyboard", "e1");
+    const hovered = selectChartPoint(keyboard, "lightCurve", "pointer", "e2");
+    expect(hovered.pointer).toEqual({ chart: "lightCurve", key: "e2" });
+    const left = selectChartPoint(hovered, "lightCurve", "pointer");
+    expect(left.pointer ?? left.keyboard).toEqual({ chart: "spectrum", key: "e1" });
+    expect(selectChartPoint(left, "lightCurve", "keyboard")).toBe(left);
+    expect(selectChartPoint(left, "spectrum", "keyboard").keyboard).toBeUndefined();
+  });
+  it("does not clear a pointer selection owned by the other chart", () => {
+    const state = selectChartPoint({}, "spectrum", "pointer", "e1");
+    expect(selectChartPoint(state, "lightCurve", "pointer")).toBe(state);
+  });
+  it("shows each date once when ticks span fractional days", () => {
+    expect(uniqueTicks([60800.1, 60800.4, 60800.9, 60801.2], mjdToDay)).toEqual([60800.1, 60801.2]);
+    expect(uniqueTicks([1, 2, 3], String)).toEqual([1, 2, 3]);
+  });
+  it("uses one set of formatted fields for accessible labels and tooltip cards", () => {
+    const source = point({ flux: null, usable: false, reason: "saturated" });
+    const plotted = toPlotPoints([source], "Jy", (p) => p.mjd)[0];
+    expect(Object.values(pointDetails(plotted)).join("\n")).toBe(pointLabel(source, 1000));
+    expect(pointDetails(plotted).value).toBe("Not measured: saturated");
+    expect(pointDetails({ x: 4.6, y: 0.5, err: 0.1 })).toEqual({ wavelength: "4.600 µm", value: "0.500 ± 0.10 mJy" });
   });
 });

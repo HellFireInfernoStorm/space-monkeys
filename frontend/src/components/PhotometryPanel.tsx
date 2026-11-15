@@ -1,7 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { getPhotometry, type Band, type PhotometryResult } from "../api";
 import {
+  CHART_HEIGHT,
+  pointDetails,
+  selectChartPoint,
+  type ChartSelections,
+  type SelectionKind,
   binCount,
   binPoints,
   bandStrips,
@@ -85,7 +90,7 @@ export default function PhotometryPanel({ view, onChange, bands }: Props) {
           Measuring every exposure… {Math.round((Date.now() - state.started) / 1000)} s. The first request for a
           position can take about a minute; after that it is saved.
         </p>
-        <div className="plots" aria-hidden="true"><div className="chart-placeholder" /><div className="chart-placeholder" /></div>
+        <div className="plots" aria-hidden="true" style={{ "--chart-height": `${CHART_HEIGHT}px` } as React.CSSProperties}><div className="chart-placeholder" /><div className="chart-placeholder" /></div>
         </>
       )}
       {state.status === "error" && <p className="notice error">Could not measure: {state.message}</p>}
@@ -106,7 +111,21 @@ function Body({
   binned: boolean;
   onChange: (change: Partial<ViewState>) => void;
 }) {
-  const [hoveredId, setHoveredId] = useState<string>();
+  const [selections, setSelections] = useState<ChartSelections>({});
+  useEffect(() => setSelections({}), [binned]);
+  const selection = selections.pointer ?? selections.keyboard;
+  const chartSelection = (chart: string) => ({
+    selectedKey: selection?.chart === chart ? selection.key : undefined,
+    highlightedId: binned ? undefined : selection?.key,
+    onSelect: (kind: SelectionKind, key?: string) => setSelections((state) => selectChartPoint(state, chart, kind, key)),
+  });
+  const spectrum = useMemo(() => toPlotPoints(data.points, data.flux_unit, (p) => p.wavelength, { bandpass: true }), [data]);
+  const lightCurve = useMemo(() => toPlotPoints(data.points, data.flux_unit, (p) => p.mjd), [data]);
+  const measured = spectrum.filter((p) => p.y !== null).length;
+  const shown = useMemo(() => binned ? [
+    ...binPoints(spectrum, binCount(measured)).map((p) => ({ ...p, label: Object.values(pointDetails(p)).join("\n") })),
+    ...spectrum.filter((p) => p.y === null),
+  ] : spectrum, [spectrum, binned, measured]);
   const warnings = (data.warnings ?? []).map((warning) => (
     <p key={warning} className="notice">
       {splitLinks(warning).map((part, i) =>
@@ -133,15 +152,11 @@ function Body({
       </>
     );
   }
-  const spectrum = toPlotPoints(data.points, data.flux_unit, (p) => p.wavelength, { bandpass: true });
-  const lightCurve = toPlotPoints(data.points, data.flux_unit, (p) => p.mjd);
   const wavelengths = data.points.map((p) => p.wavelength);
   const wlLo = Math.min(...wavelengths);
   const wlHi = Math.max(...wavelengths);
   const byWavelength = (p: PlotPoint) => wavelengthColour(p.wavelength ?? p.x, wlLo, wlHi);
-  const measured = spectrum.filter((p) => p.y !== null).length;
   const unmeasured = spectrum.length - measured;
-  const shown = binned ? [...binPoints(spectrum, binCount(measured)).map((p) => ({ ...p, label: `${p.x.toFixed(3)} µm, ${p.y!.toPrecision(3)} ± ${(p.err ?? 0).toPrecision(2)} mJy` })), ...spectrum.filter((p) => p.y === null)] : spectrum;
 
   return (
     <>
@@ -156,11 +171,11 @@ function Body({
       <div className="plots">
         <figure>
           <div className="chart-heading"><h3>Spectrum</h3><span>Brightness against wavelength</span>
-            <label className="check inline"><input type="checkbox" checked={binned} onChange={(e) => { setHoveredId(undefined); onChange({ bin: e.target.checked }); }} />Bin</label>
+            <label className="check inline"><input type="checkbox" checked={binned} onChange={(e) => onChange({ bin: e.target.checked })} />Bin</label>
           </div>
-          <Chart key={String(binned)} points={shown} xLabel="Wavelength (µm)" yLabel="Flux (mJy)" xFormat={(x) => x.toFixed(2)}
+          <Chart {...chartSelection("spectrum")} points={shown} xLabel="Wavelength (µm)" yLabel="Flux (mJy)" xFormat={(x) => x.toFixed(2)}
             title={binned ? "Binned spectrum" : "Spectrum: flux against wavelength"} colour={byWavelength}
-            tooltip={pointTooltip} highlightedId={binned ? undefined : hoveredId} onHighlight={setHoveredId}
+            tooltip={pointTooltip}
             underlay={({ sx, x0, x1, plot }) => bandStrips(bands, x0, x1).map((band) => {
               const width = sx(band.right) - sx(band.left);
               return <g key={band.band} className="band-strip">
@@ -171,15 +186,15 @@ function Body({
         </figure>
         <figure>
           <div className="chart-heading"><h3>Light curve</h3><span>Brightness against time</span></div>
-          <Chart points={lightCurve} xLabel="Date (UTC)" yLabel="Flux (mJy)" xFormat={mjdToDay}
-            title="Light curve: flux against time" colour={byWavelength} tooltip={pointTooltip}
-            highlightedId={binned ? undefined : hoveredId} onHighlight={binned ? () => {} : setHoveredId} />
+          <Chart {...chartSelection("lightCurve")} points={lightCurve} xLabel="Date (UTC)" yLabel="Flux (mJy)" xFormat={mjdToDay}
+            title="Light curve: flux against time" colour={byWavelength} tooltip={pointTooltip} />
         </figure>
       </div>
       <p className="hint">
         Each exposure sees this point at a different wavelength, so in a wide wavelength range the light curve
         mixes colour with change. Narrow the range to compare like with like.
       </p>
+      <p className="hint error-caveat">The error bars cover background noise only: for bright sources the scatter between exposures is larger (3.8% for a 0.14 Jy check star), so treat smaller changes as not significant.</p>
       <details className="phot-method"><summary>How this is measured</summary>
       <p className="hint legend">
         <span className="key measured" /> measured, with ±1σ error bar (on the spectrum, the horizontal bar is
@@ -210,12 +225,7 @@ function Body({
 
 
 function pointTooltip(p: PlotPoint) {
-  return <>
-    {p.mjd !== undefined && <div>{mjdToDay(p.mjd)} · MJD {p.mjd.toFixed(2)}</div>}
-    <div>{(p.wavelength ?? p.x).toFixed(3)}{p.bandpass !== undefined && ` ± ${p.bandpass.toFixed(3)}`} µm</div>
-    {p.y !== null ? <div>{p.y.toPrecision(3)} ± {(p.err ?? 0).toPrecision(2)} mJy</div>
-      : <div>Not measured: {p.reason ?? "flagged or missing pixels in the aperture"}</div>}
-    {p.detector !== undefined && <div>Detector {p.detector}</div>}
-    {p.id && <small>{p.id}</small>}
-  </>;
+  const details = pointDetails(p);
+  return <>{Object.entries(details).map(([field, text]) => field === "exposure"
+    ? <small key={field}>{text}</small> : <div key={field}>{text}</div>)}</>;
 }
