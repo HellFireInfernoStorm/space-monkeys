@@ -3,12 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import { getPhotometry, type Band, type PhotometryResult } from "../api";
 import {
   CHART_HEIGHT,
+  summarise, verdict, magnitudePoints, toAbMag, WISE_BANDS,
+  APERTURE_RADIUS_PIXELS, BACKGROUND_RADII_PIXELS, PIXEL_SCALE_ARCSEC,
   pointDetails,
   selectChartPoint,
   type ChartSelections,
   type SelectionKind,
-  binCount,
-  binPoints,
   bandStrips,
   linkLabel,
   mjdToDay,
@@ -94,7 +94,7 @@ export default function PhotometryPanel({ view, onChange, bands }: Props) {
         </>
       )}
       {state.status === "error" && <p className="notice error">Could not measure: {state.message}</p>}
-      {state.status === "ready" && <Body data={state.data} binned={view.bin} onChange={onChange} bands={bands} />}
+      {state.status === "ready" && <Body data={state.data} binned={view.bin} unit={view.unit} onChange={onChange} bands={bands} />}
 
     </div>
   );
@@ -103,29 +103,42 @@ export default function PhotometryPanel({ view, onChange, bands }: Props) {
 function Body({
   data,
   binned,
+  unit,
   onChange,
   bands,
 }: {
   bands: Band[];
   data: PhotometryResult;
   binned: boolean;
+  unit: ViewState["unit"];
   onChange: (change: Partial<ViewState>) => void;
 }) {
   const [selections, setSelections] = useState<ChartSelections>({});
-  useEffect(() => setSelections({}), [binned]);
+  useEffect(() => setSelections({}), [data]);
   const selection = selections.pointer ?? selections.keyboard;
   const chartSelection = (chart: string) => ({
     selectedKey: selection?.chart === chart ? selection.key : undefined,
-    highlightedId: binned ? undefined : selection?.key,
+    highlightedId: selection?.key,
     onSelect: (kind: SelectionKind, key?: string) => setSelections((state) => selectChartPoint(state, chart, kind, key)),
   });
   const spectrum = useMemo(() => toPlotPoints(data.points, data.flux_unit, (p) => p.wavelength, { bandpass: true }), [data]);
-  const lightCurve = useMemo(() => toPlotPoints(data.points, data.flux_unit, (p) => p.mjd), [data]);
-  const measured = spectrum.filter((p) => p.y !== null).length;
-  const shown = useMemo(() => binned ? [
-    ...binPoints(spectrum, binCount(measured)).map((p) => ({ ...p, label: Object.values(pointDetails(p)).join("\n") })),
-    ...spectrum.filter((p) => p.y === null),
-  ] : spectrum, [spectrum, binned, measured]);
+  const summary = useMemo(() => summarise(spectrum), [spectrum]);
+  const signal = verdict(summary, { mock: data.mode === "mock", warned: !!data.warnings?.length });
+  const measured = summary.measured;
+  const bins = summary.bins;
+  const ab = unit === "ab";
+  const displayedSpectrum = useMemo(() => ab ? magnitudePoints(spectrum) : spectrum, [spectrum, ab]);
+  const displayedBins = useMemo(() => (ab ? magnitudePoints(bins) : bins).filter((p) => p.y !== null), [bins, ab]);
+  const lightCurve = useMemo(() => {
+    const points = toPlotPoints(data.points, data.flux_unit, (p) => p.mjd);
+    return ab ? magnitudePoints(points) : points;
+  }, [data, ab]);
+  const meanMag = summary.mean && toAbMag(summary.mean.y, summary.mean.err);
+  const meanText = !summary.mean ? "—" : ab
+    ? meanMag ? `${meanMag.mag.toFixed(2)} ± ${meanMag.err.toFixed(2)} AB mag` : "—"
+    : `${summary.mean.y.toPrecision(3)} ± ${summary.mean.err.toPrecision(2)} mJy`;
+  const yLabel = ab ? "AB magnitude" : "Flux (mJy)";
+  const laneLabel = ab ? "No magnitude" : "Not measured";
   const warnings = (data.warnings ?? []).map((warning) => (
     <p key={warning} className="notice">
       {splitLinks(warning).map((part, i) =>
@@ -152,9 +165,8 @@ function Body({
       </>
     );
   }
-  const wavelengths = data.points.map((p) => p.wavelength);
-  const wlLo = Math.min(...wavelengths);
-  const wlHi = Math.max(...wavelengths);
+  const wlLo = summary.wlMin!;
+  const wlHi = summary.wlMax!;
   const byWavelength = (p: PlotPoint) => wavelengthColour(p.wavelength ?? p.x, wlLo, wlHi);
   const unmeasured = spectrum.length - measured;
 
@@ -164,30 +176,53 @@ function Body({
         <p className="notice">Mock mode: these numbers are synthetic, not measurements of the real sky.</p>
       )}
       {warnings}
-      <div className="phot-summary"><p className="hint">
-        {measured} of {data.returned} exposures measured
-        {data.capped ? ` (${data.returned} of ${data.total} matching, spread evenly over time)` : ""}.
-      </p><span className="ramp-legend">{wlLo.toFixed(2)} µm <span className="ramp" style={{ background: WAVELENGTH_GRADIENT }} /> {wlHi.toFixed(2)} µm</span></div>
+      <div className="phot-tiles">
+        <div className="phot-tile"><span>Measured</span><strong>{measured} of {data.returned}</strong><small>{data.capped ? `of ${data.returned} returned; ${data.total.toLocaleString("en-US")} match, spread evenly over time` : "exposures"}</small></div>
+        <div className="phot-tile"><span>Wavelengths</span><strong>{wlLo.toFixed(2)}–{wlHi.toFixed(2)} µm</strong><small className="ramp-legend">{wlLo.toFixed(2)} µm <span className="ramp" style={{ background: WAVELENGTH_GRADIENT }} /> {wlHi.toFixed(2)} µm</small></div>
+        <div className="phot-tile"><span>Dates</span><strong className="phot-dates">{summary.firstMjd === undefined ? "—" : mjdToDay(summary.firstMjd)} – {summary.lastMjd === undefined ? "—" : mjdToDay(summary.lastMjd)}</strong><small>{summary.visits.length} {summary.visits.length === 1 ? "visit" : "visits"}</small></div>
+        {summary.mean && <div className="phot-tile"><span>Mean flux</span><strong>{meanText}</strong><small>weighted, whole range</small></div>}
+        <div className="phot-tile"><span>Brightest at</span><strong>{summary.brightest === undefined ? "—" : `${summary.brightest.toFixed(2)} µm`}</strong><small>{summary.brightest === undefined ? "signal too weak" : "weighted bin"}</small></div>
+      </div>
+      {summary.snrMeasured > 0 && summary.snrMeasured < measured && <p className="hint">Mean flux, combined and typical single-exposure S/N, Brightest at and the binned line use {summary.snrMeasured} of {measured} measured exposures with positive errors.</p>}
+      <p className={`phot-verdict ${signal.tone}`}><span aria-hidden="true" />{signal.text}</p>
       <div className="plots">
         <figure>
           <div className="chart-heading"><h3>Spectrum</h3><span>Brightness against wavelength</span>
-            <label className="check inline"><input type="checkbox" checked={binned} onChange={(e) => onChange({ bin: e.target.checked })} />Bin</label>
+            <div className="phot-units">{(["mjy", "ab"] as const).map((value) => <button key={value} type="button" aria-pressed={unit === value} onClick={() => onChange({ unit: value })}>{value === "mjy" ? "mJy" : "AB mag"}</button>)}</div>
+            <label className="check inline"><input type="checkbox" checked={binned} onChange={(e) => onChange({ bin: e.target.checked })} />Binned line</label>
           </div>
-          <Chart {...chartSelection("spectrum")} points={shown} xLabel="Wavelength (µm)" yLabel="Flux (mJy)" xFormat={(x) => x.toFixed(2)}
-            title={binned ? "Binned spectrum" : "Spectrum: flux against wavelength"} colour={byWavelength}
+          <Chart {...chartSelection("spectrum")} points={displayedSpectrum} pointOpacity={binned ? 0.45 : 1} invertY={ab} laneLabel={laneLabel} xLabel="Wavelength (µm)" yLabel={yLabel} xFormat={(x) => x.toFixed(2)}
+            title={ab ? "Spectrum: AB magnitude against wavelength" : "Spectrum: flux against wavelength"} colour={byWavelength}
             tooltip={pointTooltip}
-            underlay={({ sx, x0, x1, plot }) => bandStrips(bands, x0, x1).map((band) => {
-              const width = sx(band.right) - sx(band.left);
-              return <g key={band.band} className="band-strip">
-                <rect x={sx(band.left)} y={plot.top} width={width} height={plot.height} opacity={band.band % 2 ? 0.5 : 0.15} />
-                {width >= 48 && <text x={sx(band.left) + width / 2} y={plot.top + 12} textAnchor="middle">Band {band.band}</text>}
-              </g>;
-            })} />
+            underlay={({ sx, x0, x1, plot }) => <>
+              {bandStrips(bands, x0, x1).map((band) => {
+                const width = sx(band.right) - sx(band.left);
+                return <g key={band.band} className="band-strip">
+                  <rect x={sx(band.left)} y={plot.top} width={width} height={plot.height} opacity={band.band % 2 ? 0.5 : 0.15} />
+                  {width >= 48 && <text x={sx(band.left) + width / 2} y={plot.top + 12} textAnchor="middle">Band {band.band}</text>}
+                </g>;
+              })}
+              {WISE_BANDS.filter((band) => band.wavelength >= x0 && band.wavelength <= x1).map((band) => {
+                const x = sx(band.wavelength);
+                const nearRight = x > plot.left + plot.width - 60;
+                return <g key={band.name} className="wise-marker">
+                  <line x1={x} x2={x} y1={plot.top} y2={plot.top + plot.height} />
+                  <text x={x + (nearRight ? -4 : 4)} y={plot.top + 26} textAnchor={nearRight ? "end" : "start"}>{band.name}</text>
+                </g>;
+              })}
+            </>}
+            overlay={({ sx, sy }) => binned && <g className="binned-overlay">
+              {displayedBins.length >= 2 && <>
+                <path className="bin-band" d={`M${displayedBins.map((p) => `${sx(p.x)},${sy(p.y! + p.err!)}`).join(" L")} L${[...displayedBins].reverse().map((p) => `${sx(p.x)},${sy(p.y! - p.err!)}`).join(" L")} Z`} />
+                <path className="bin-line" d={`M${displayedBins.map((p) => `${sx(p.x)},${sy(p.y!)}`).join(" L")}`} />
+              </>}
+              {displayedBins.map((p) => <circle key={p.x} cx={sx(p.x)} cy={sy(p.y!)} r={3.5} />)}
+            </g>} />
         </figure>
         <figure>
           <div className="chart-heading"><h3>Light curve</h3><span>Brightness against time</span></div>
-          <Chart {...chartSelection("lightCurve")} points={lightCurve} xLabel="Date (UTC)" yLabel="Flux (mJy)" xFormat={mjdToDay}
-            title="Light curve: flux against time" colour={byWavelength} tooltip={pointTooltip} />
+          <Chart {...chartSelection("lightCurve")} points={lightCurve} invertY={ab} laneLabel={laneLabel} xLabel="Date (UTC)" yLabel={yLabel} xFormat={mjdToDay}
+            title={ab ? "Light curve: AB magnitude against time" : "Light curve: flux against time"} colour={byWavelength} tooltip={pointTooltip} />
         </figure>
       </div>
       <p className="hint">
@@ -196,6 +231,7 @@ function Body({
       </p>
       <p className="hint error-caveat">The error bars cover background noise only: for bright sources the scatter between exposures is larger (3.8% for a 0.14 Jy check star), so treat smaller changes as not significant.</p>
       <details className="phot-method"><summary>How this is measured</summary>
+      <ApertureDiagram />
       <p className="hint legend">
         <span className="key measured" /> measured, with ±1σ error bar (on the spectrum, the horizontal bar is
         the bandpass)
@@ -209,7 +245,7 @@ function Body({
         )}
       </p>
       <p className="hint">
-        Quick estimates: aperture of 3 pixels (18.5″) radius, background from the median of a ring from 5 to 7.5
+        Quick estimates: aperture of {APERTURE_RADIUS_PIXELS} pixels ({(APERTURE_RADIUS_PIXELS * PIXEL_SCALE_ARCSEC).toFixed(1)}″) radius, background from the median of a ring from {BACKGROUND_RADII_PIXELS[0]} to {BACKGROUND_RADII_PIXELS[1]}{" "}
         pixels, error from the scatter in that ring. The error bars cover background noise only: for bright
         sources the scatter between exposures is larger (3.8% for a 0.14 Jy check star), so treat smaller changes
         as not significant. For precise values use IRSA's{" "}
@@ -218,6 +254,9 @@ function Body({
         </a>
         .
       </p>
+      <p className="hint">S/N here is the aperture flux divided by its background-noise error. It overstates the significance for bright sources (see the error-bar note).</p>
+      <p className="hint">The binned line is the inverse-variance weighted mean of the points in equal-width wavelength bins, with its ±1σ error as the shaded band.</p>
+      <p className="hint">AB magnitude = −2.5 log10(flux / 3631 Jy) (Oke &amp; Gunn 1983).</p>
       </details>
     </>
   );
@@ -228,4 +267,24 @@ function pointTooltip(p: PlotPoint) {
   const details = pointDetails(p);
   return <>{Object.entries(details).map(([field, text]) => field === "exposure"
     ? <small key={field}>{text}</small> : <div key={field}>{text}</div>)}</>;
+}
+
+/** Labelled fallback, not an image of the sky; the full background ring remains visible. */
+function ApertureDiagram() {
+  const extentPixels = 2 * BACKGROUND_RADII_PIXELS[1] + 1;
+  const extentArcsec = extentPixels * PIXEL_SCALE_ARCSEC;
+  const scale = 120 / extentArcsec;
+  const caption = `Diagram: aperture ${APERTURE_RADIUS_PIXELS} pixels (${(APERTURE_RADIUS_PIXELS * PIXEL_SCALE_ARCSEC).toFixed(1)}″), background ring ${BACKGROUND_RADII_PIXELS[0]} to ${BACKGROUND_RADII_PIXELS[1]} pixels.`;
+  return <figure className="aperture-diagram">
+    <svg width="120" height="120" viewBox="0 0 120 120" role="img" aria-label={caption}>
+      <rect width="120" height="120" fill="var(--panel)" />
+      {Array.from({ length: extentPixels + 1 }, (_, i) => <g key={i} stroke="var(--line)">
+        <line x1={i * 120 / extentPixels} x2={i * 120 / extentPixels} y1="0" y2="120" />
+        <line y1={i * 120 / extentPixels} y2={i * 120 / extentPixels} x1="0" x2="120" />
+      </g>)}
+      <circle cx="60" cy="60" r={APERTURE_RADIUS_PIXELS * PIXEL_SCALE_ARCSEC * scale} fill="none" stroke="var(--accent)" />
+      {BACKGROUND_RADII_PIXELS.map((radius) => <circle key={radius} cx="60" cy="60" r={radius * PIXEL_SCALE_ARCSEC * scale} fill="none" stroke="var(--muted)" strokeDasharray="3 3" />)}
+    </svg>
+    <figcaption>{caption}</figcaption>
+  </figure>;
 }

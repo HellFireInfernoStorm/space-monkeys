@@ -62,6 +62,7 @@ The approximate fixed field-neighbour position used for WISE 0855 (RA 133.7582, 
 | --- | --- | --- | --- |
 | IRSA tutorial notebooks for SPHEREx | The method for reading the wavelength at a pixel, the cloud access pattern, and facts about the file layout. Any code adapted from them must be marked in a comment where it is used (`wavelength_at` in `backend/app/resample.py`, and the comparison in `backend/tests/test_live_frames.py`) | https://caltech-ipac.github.io/irsa-tutorials/ | BSD 3-Clause, Copyright (c) 2022-2026 California Institute of Technology |
 | 2MASS Point Source Catalog, queried through IRSA's TAP service | One-off check on 2026-11-14 that live frames are north up and east left (three stars near Barnard's Star landed within one pixel of their catalogue offsets). Not used by the site | https://irsa.ipac.caltech.edu/Missions/2mass.html | 2MASS acknowledgement, if we ever show it |
+| Oke & Gunn (1983), ApJ 266, 713–717, “Secondary Standard Stars for Absolute Spectrophotometry” | AB magnitude definition used for the display conversion; no article text or figures copied | https://articles.adsabs.harvard.edu/pdf/1983ApJ...266..713O | © American Astronomical Society, all rights reserved (article p. 713); scientific formula implemented independently |
 | WiseView (Backyard Worlds: Planet 9 community tool) | Inspiration for the blink interface and for keeping view state in the URL. No code copied | http://byw.tools/wiseview | Credit as inspiration |
 | NEOSSat data tutorial (Canadian Space Agency) | Read only. Nothing taken | Challenge resources page | Modified MIT, Canadian Space Agency 2023 |
 | NASA Space Apps challenge text | Objectives and test targets, restated in `docs/ACCEPTANCE.md` | Challenge page | NASA Space Apps |
@@ -101,3 +102,5 @@ Front end:
 The site uses system fonts and no icon set. Layout controls use plain Unicode characters.
 
 The issue #10 screenshots in `docs/screenshots/issue-10/` show our own interface and mock frames, plus the existing Aladin Lite/AllWISE sky map (credits and terms above). The live Barnard and WISE validation screenshots also show SPHEREx DR1/QR3 data (credits above). These are validation screenshots, not new image assets used by the site.
+
+The issue #30 screenshots in `docs/screenshots/spectrum-phase2/` show our own interface with synthetic frames or existing SPHEREx data (credited above). The aperture view is an independently drawn, labelled SVG diagram, not a sky image.
