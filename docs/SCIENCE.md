@@ -275,7 +275,7 @@ Code: `backend/app/photometry.py`. Each exposure covering a point gives one samp
 **Method.** The code is in `frontend/src/photometry.ts` (`spectrumAt`, `correctedPoints`, `visitMeans`, `changeVerdict`).
 
 1. The spectrum S(λ) is the binned spectrum the tab draws: inverse-variance weighted means in equal-width wavelength bins (about four exposures per bin).
-2. S at an exposure's wavelength comes from linear interpolation between bin centres, taking the larger of the two bins' errors. Beyond the outermost bin centres the end bin's value is used for up to one bin width. Nothing is used across a gap of more than two bin widths between centres, where S ≤ 0, or where S/N < 5 (section 6). Such exposures are shown as "Not corrected", with no value.
+2. S at an exposure's wavelength is that bin's own value when the wavelength is a bin centre (a bin holding one exposure is centred on it). Elsewhere it comes from linear interpolation between bin centres, taking the larger of the two bins' errors. Beyond the outermost bin centres the end bin's value is used for up to one bin width. Nothing is used across a gap of more than two bin widths between centres, where S ≤ 0, or where S/N < 5 (section 6). Such exposures are shown as "Not corrected", with no value.
 3. Each exposure's ratio r = f / S has error sqrt(σ_f² + (r σ_S)²) / S. A ratio of 1 means the usual brightness at that wavelength.
 4. Exposures are grouped into visits wherever consecutive exposures are more than 60 days apart. The ratios in each visit are averaged with inverse-variance weights.
 5. Each visit's error is the formal error of that mean combined in quadrature with 3.8 %, the exposure-to-exposure scatter of the steady 2MASS check star above.

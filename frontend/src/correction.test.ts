@@ -62,6 +62,26 @@ describe("spectrumAt", () => {
     expect(spectrumAt([bin(1, 10, 1), bin(3, 10, 1)], 2, 1)).toEqual({ y: 10, err: 1 });
   });
 
+  it("uses an interior bin's own value at its centre, ignoring a noisier neighbour", () => {
+    // Review of PR #33: the third bin's error must not reach the second bin's centre.
+    expect(spectrumAt([bin(1, 10, 1), bin(2, 10, 1), bin(3, 10, 3)], 2, 1)).toEqual({ y: 10, err: 1 });
+  });
+
+  it("uses an interior bin's own value at its centre, ignoring a gap after it", () => {
+    expect(spectrumAt([bin(1, 10, 1), bin(2, 10, 1), bin(5, 10, 1)], 2, 1)).toEqual({ y: 10, err: 1 });
+    // Between the centres the gap rule still applies.
+    expect(spectrumAt([bin(1, 10, 1), bin(2, 10, 1), bin(5, 10, 1)], 3.5, 1)).toBeNull();
+  });
+
+  it("matches a bin centre that differs from the exposure's wavelength only by rounding", () => {
+    const [centre] = binPoints([{ x: 4.611, y: 10, err: 0.7 }], 1);
+    expect(spectrumAt([bin(4.5, 10, 1), centre, bin(4.7, 10, 3)], 4.611, 0.1)).toEqual({ y: 10, err: centre.err });
+  });
+
+  it("still applies the S/N rule to an exact bin", () => {
+    expect(spectrumAt([bin(1, 10, 1), bin(2, 4, 1), bin(3, 10, 1)], 2, 1)).toBeNull();
+  });
+
   it("refuses a spectrum with S/N under 5, or at or below zero", () => {
     expect(spectrumAt([bin(1, 4, 1)], 1, 1)).toBeNull();
     expect(spectrumAt([bin(1, 5, 1)], 1, 1)).toEqual({ y: 5, err: 1 });

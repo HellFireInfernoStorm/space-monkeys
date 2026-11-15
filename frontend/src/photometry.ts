@@ -406,7 +406,8 @@ export const CHANGE_THRESHOLD = SIGNAL_THRESHOLD;
 export const HINT_THRESHOLD = 3;
 
 /**
- * The binned spectrum at `wavelength`: linear between bin centres (error: the larger of the two),
+ * The binned spectrum at `wavelength`: the bin's own value at a bin centre; elsewhere linear between
+ * bin centres (error: the larger of the two),
  * the end bin's value up to one bin width beyond the outermost centres. Null where the spectrum is
  * too uncertain to divide by: outside that reach, across a gap of more than two bin widths between
  * centres, at or below zero, or with S/N under SIGNAL_THRESHOLD.
@@ -416,8 +417,13 @@ export function spectrumAt(bins: PlotPoint[], wavelength: number, width: number)
   if (sorted.length === 0) return null;
   const first = sorted[0];
   const last = sorted[sorted.length - 1];
+  // At a bin centre no interpolation is needed: use that bin alone, without its neighbours'
+  // errors or gaps. A one-exposure bin's centre is that exposure's wavelength, up to rounding.
+  const exact = sorted.find((p) => Math.abs(p.x - wavelength) <= 1e-9 * Math.max(width, Math.abs(p.x)));
   let value: { y: number; err: number };
-  if (wavelength <= first.x) {
+  if (exact) {
+    value = { y: exact.y, err: exact.err };
+  } else if (wavelength <= first.x) {
     if (first.x - wavelength > width) return null;
     value = { y: first.y, err: first.err };
   } else if (wavelength >= last.x) {
