@@ -179,7 +179,12 @@ export default function App() {
         <button type="button" ref={menuButton} className="menu-button"
           aria-label={drawerOpen ? "Hide controls" : "Show controls"}
           aria-expanded={drawerOpen} aria-controls="controls-drawer"
-          onClick={() => setDrawerOpen((open) => !open)}>☰ <span>Controls</span></button>
+          onClick={() => setDrawerOpen((open) => !open)}>
+          <svg className="menu-icon" viewBox="0 0 14 10" aria-hidden="true" focusable="false">
+            <path d="M0 0.75h14M0 5h14M0 9.25h14" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
+          <span>Controls</span>
+        </button>
         <h1 aria-label="SpaceShift"><SiteBrand /></h1>
         <div className="view-summary">
           <span className="summary-position">{ra !== null && dec !== null
