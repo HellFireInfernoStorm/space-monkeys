@@ -531,6 +531,17 @@ export interface components {
             /** Obs Id */
             obs_id: string;
             /**
+             * Reason
+             * @description Why the point could not be measured, with problem flags; null if usable
+             */
+            reason?: string | null;
+            /**
+             * Usable
+             * @description False when the point could not be measured
+             * @default true
+             */
+            usable: boolean;
+            /**
              * Wavelength
              * @description Micrometres, at the measured position
              */

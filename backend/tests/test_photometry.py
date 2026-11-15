@@ -70,6 +70,24 @@ def test_no_measurement_near_the_edge_or_without_enough_sky():
     assert phot.measure(image, 15.5, 15.5) is None
 
 
+def test_refusals_say_why():
+    image = _star()
+    assert phot.measure_or_reason(image, 15.5, 15.5)[1] is None
+    assert phot.measure_or_reason(image, 5.0, 15.5) == (None, phot.EDGE)
+    image[15, 15] = np.nan
+    assert phot.measure_or_reason(image, 15.5, 15.5) == (None, phot.EMPTY)
+    sparse = np.full((31, 31), np.nan)
+    sparse[12:19, 12:19] = 1.0
+    assert phot.measure_or_reason(sparse, 15.5, 15.5) == (None, phot.NO_SKY)
+
+
+def test_reason_names_problem_flags_but_not_informational_ones():
+    flags = (1 << 26) | (1 << 15) | (1 << 21)  # BLOOM, NONLINEAR, SOURCE (informational)
+    assert phot.reason_text(phot.EMPTY, flags) == f"{phot.EMPTY}; flags: NONLINEAR, BLOOM"
+    assert phot.reason_text(phot.EMPTY, 1 << 21) == phot.EMPTY
+    assert phot.reason_text(phot.EDGE, 1 << 26) == phot.EDGE
+
+
 def test_aperture_flags_combine_the_aperture_only():
     flags = np.zeros((21, 21), dtype=np.int32)
     flags[10, 10] = 1 << 21
@@ -140,14 +158,17 @@ def live_api(tmp_path):
 def test_live_photometry_endpoint(live_api, fake_archive):
     body = live_api.get("/api/photometry", params={"ra": 133.8, "dec": -7.2, "wl_min": 4.4}).json()
     assert body["mode"] == "live"
-    assert body["flux_unit"] == "Jy"
+    assert body["flux_unit"] == "uJy"
     assert body["total"] == 3 and body["returned"] == 2
     good, flagged = body["points"]
-    assert good["flux"] == pytest.approx(100.0 * phot.JY_PER_PIXEL_MJY_SR, rel=0.02)
+    assert good["flux"] == pytest.approx(100.0 * phot.JY_PER_PIXEL_MJY_SR * 1e6, rel=0.02)
+    assert good["usable"] is True and good["reason"] is None
     assert good["det_id"] == 6 and good["obs_id"] == "obs0"
     assert good["lambda_width"] == pytest.approx(4.6 / 130.0, abs=1e-5)
     assert flagged["flux"] is None and flagged["flux_err"] is None
     assert flagged["flags"] == 1 << 4
+    assert flagged["usable"] is False
+    assert flagged["reason"] == phot.EMPTY  # bit 4 is not a known problem bit, so no names
     assert any("could not be read" in w for w in body["warnings"])
     assert any("1 of 2 point(s) have no flux" in w for w in body["warnings"])
 

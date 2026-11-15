@@ -217,6 +217,10 @@ class PhotometryPoint(BaseModel):
         "flagged or missing pixels (for example a saturated star core). Never a partial sum."
     )
     flux_err: float | None = Field(description="In `flux_unit`; null when `flux` is null")
+    usable: bool = Field(default=True, description="False when the point could not be measured")
+    reason: str | None = Field(
+        default=None, description="Why the point could not be measured, with problem flags; null if usable"
+    )
     flags: int = Field(description="Bitwise OR of the pixel flags in the aperture")
 
 

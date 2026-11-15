@@ -618,6 +618,24 @@
             "title": "Obs Id",
             "type": "string"
           },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the point could not be measured, with problem flags; null if usable",
+            "title": "Reason"
+          },
+          "usable": {
+            "default": true,
+            "description": "False when the point could not be measured",
+            "title": "Usable",
+            "type": "boolean"
+          },
           "wavelength": {
             "description": "Micrometres, at the measured position",
             "title": "Wavelength",

@@ -27,6 +27,7 @@ from . import models as m
 from .bands import RESOLVING_POWER
 from .cache import make_key
 from .config import PIXEL_SCALE_ARCSEC, Settings
+from .flags import describe
 from .live_frames import GRID_VERSION, _cache, _centre_text, _safe, get_patch, matching_exposures
 from .mock import patch_pixels
 from .resample import sky_to_tangent
@@ -42,9 +43,11 @@ MIN_SKY_PIXELS = 20
 # centred on the same point, so the two share the disk cache.
 PATCH_SIZE_ARCSEC = 120.0
 # Bump when the measurement changes, so old cached results are not reused.
-PHOTOMETRY_VERSION = 2
+PHOTOMETRY_VERSION = 3
 
-FLUX_UNIT = "Jy"
+# The same unit as mock mode, so the two answer alike. 1 Jy = 1e6 uJy.
+FLUX_UNIT = "uJy"
+UJY_PER_JY = 1e6
 METHOD = (
     "Quick-look aperture photometry: radius 3 pixels (18.5 arcsec), background from the median "
     "of an annulus of 5 to 7.5 pixels, error from the scatter of that annulus. The error covers "
@@ -70,11 +73,25 @@ def _radius(shape: tuple[int, int], x: float, y: float) -> np.ndarray:
     return np.hypot(xx - x, yy - y)
 
 
+# Why a point could not be measured. The front end shows these words as they are.
+EDGE = "too close to the edge of the image for the aperture and background ring"
+EMPTY = "empty pixel in the aperture (flagged, missing or off the detector)"
+NO_SKY = "too few usable pixels in the background ring"
+
+
 def measure(image: np.ndarray, x: float, y: float) -> Measurement | None:
     """Aperture flux and its error at (x, y), in janskys, or None if it cannot be measured.
 
+    See `measure_or_reason` for the method; this form is for callers that need only the number.
+    """
+    return measure_or_reason(image, x, y)[0]
+
+
+def measure_or_reason(image: np.ndarray, x: float, y: float) -> tuple[Measurement | None, str | None]:
+    """(measurement, None), or (None, why it was refused): one of EDGE, EMPTY, NO_SKY.
+
     `image` is MJy/sr with NaN for unusable pixels. (x, y) is in pixels from the image
-    corner, with pixel centres at i + 0.5. None when the annulus does not fit inside the
+    corner, with pixel centres at i + 0.5. Refused when the annulus does not fit inside the
     image, any aperture pixel is empty, or fewer than `MIN_SKY_PIXELS` sky pixels are left.
 
     The error combines the pixel scatter in the aperture with the uncertainty of the
@@ -83,19 +100,27 @@ def measure(image: np.ndarray, x: float, y: float) -> Measurement | None:
     annulus.
     """
     if min(x, y, image.shape[1] - x, image.shape[0] - y) < SKY_OUTER_PX:
-        return None
+        return None, EDGE
     radius = _radius(image.shape, x, y)
     source = image[radius <= APERTURE_RADIUS_PX]
     sky = image[(radius >= SKY_INNER_PX) & (radius <= SKY_OUTER_PX)]
     sky = sky[np.isfinite(sky)]
-    if source.size == 0 or not np.isfinite(source).all() or sky.size < MIN_SKY_PIXELS:
-        return None
+    if source.size == 0 or not np.isfinite(source).all():
+        return None, EMPTY
+    if sky.size < MIN_SKY_PIXELS:
+        return None, NO_SKY
     level = float(np.median(sky))
     sigma = 1.4826 * float(np.median(np.abs(sky - level)))
     n_ap, n_sky = source.size, sky.size
     error = sigma * math.sqrt(n_ap + (math.pi / 2.0) * n_ap**2 / n_sky)
     flux = float(np.sum(source - level))
-    return Measurement(flux=flux * JY_PER_PIXEL_MJY_SR, flux_err=error * JY_PER_PIXEL_MJY_SR)
+    return Measurement(flux=flux * JY_PER_PIXEL_MJY_SR, flux_err=error * JY_PER_PIXEL_MJY_SR), None
+
+
+def reason_text(reason: str, flags: int) -> str:
+    """The refusal reason, with the names of the problem flags set in the aperture, if any."""
+    names = [f.name for f in describe(flags) if not f.informational]
+    return f"{reason}; flags: {', '.join(names)}" if reason == EMPTY and names else reason
 
 
 def aperture_flags(flags: np.ndarray, x: float, y: float) -> int:
@@ -192,7 +217,8 @@ def _measure_all(
         size = patch.image.shape[0]
         x = size / 2.0 - (float(east[0]) + plx_east) / PIXEL_SCALE_ARCSEC
         y = size / 2.0 - (float(north[0]) + plx_north) / PIXEL_SCALE_ARCSEC
-        result = measure(patch.image, x, y)
+        result, reason = measure_or_reason(patch.image, x, y)
+        flags = aperture_flags(patch.flags, x, y)
         return m.PhotometryPoint(
             exposure_id=exposure.exposure_id,
             obs_id=exposure.obs_id,
@@ -200,9 +226,11 @@ def _measure_all(
             mjd=exposure.mjd,
             wavelength=round(wavelength, 5),
             lambda_width=round(wavelength / RESOLVING_POWER[exposure.detector], 5),
-            flux=None if result is None else round(result.flux, 8),
-            flux_err=None if result is None else round(result.flux_err, 8),
-            flags=aperture_flags(patch.flags, x, y),
+            flux=None if result is None else round(result.flux * UJY_PER_JY, 2),
+            flux_err=None if result is None else round(result.flux_err * UJY_PER_JY, 2),
+            flags=flags,
+            usable=result is not None,
+            reason=None if reason is None else reason_text(reason, flags),
         )
 
     with ThreadPoolExecutor(max_workers=max(1, settings.s3_concurrency)) as pool:
@@ -215,7 +243,7 @@ def _measure_all(
             points.append(point)
     if failed:
         notes.append(f"{failed} exposure(s) could not be read and were skipped.")
-    unmeasured = sum(1 for p in points if p.flux is None)
+    unmeasured = sum(1 for p in points if not p.usable)
     if unmeasured:
         notes.append(
             f"{unmeasured} of {len(points)} point(s) have no flux: the aperture holds flagged or missing "
