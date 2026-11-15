@@ -161,7 +161,7 @@ def test_live_wise_fit_gets_a_fixed_sky_neighbour(monkeypatch):
     monkeypatch.setattr(stack_service.stacking, "build", capture)
     stack_service._compute(Settings(mode="live", _env_file=None), req)
     for item, (ra, dec) in zip(captured, positions, strict=True):
-        east, north = sky_to_tangent(ra, dec, np.array([133.7582]), np.array([-7.2412]))
+        east, north = sky_to_tangent(ra, dec, np.array([133.75818250]), np.array([-7.24115591]))
         assert np.allclose(item.neighbour, (10.5 - east[0] / 6.15, 10.5 - north[0] / 6.15))
     assert captured[0].neighbour != captured[1].neighbour
 

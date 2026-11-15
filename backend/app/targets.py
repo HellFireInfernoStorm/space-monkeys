@@ -17,7 +17,7 @@ MAS_PER_DEG = 3_600_000.0
 class KnownNeighbour:
     ra: float
     dec: float
-    source: str
+    source: str  # catalogue name, shown to the user
 
 
 @dataclass(frozen=True)
@@ -89,10 +89,12 @@ TARGETS: tuple[Target, ...] = (
         "motion tracking sharpens it slightly.",
         reference="Kirkpatrick et al. 2021 (2021ApJS..253....7K), through SIMBAD",
         neighbours=(
+            # Gaia DR3, ESA Gaia archive, read 2026-11-15. Epoch 2016.0; its own motion
+            # (-6.19, +1.93 mas/yr) moves it under 0.1 arcsecond by 2026, so it is ignored.
             KnownNeighbour(
-                133.7582,
-                -7.2412,
-                "https://github.com/HellFireInfernoStorm/space-monkeys/issues/4",
+                133.75818250,
+                -7.24115591,
+                "Gaia DR3 5756956644387831296",
             ),
         ),
     ),

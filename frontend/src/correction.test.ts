@@ -214,7 +214,7 @@ describe("chartGeometry extraY", () => {
 describe("cautionWarnings", () => {
   // Exact texts from backend/app/photometry.py and backend/app/live.py.
   const unmeasured = "10 of 19 point(s) have no flux: the aperture holds flagged or missing pixels (for example a saturated star core, a cosmic ray or the detector edge).";
-  const neighbour = "A known field star is 3.9 to 11.2 arcseconds from the measured position, inside the 18.5-arcsecond aperture: these fluxes include its light, and its share changes as the object moves. They do not measure the object alone, and differences between visits are not evidence of a brightness change. The Stack view fits the object and the star separately. Source: https://github.com/HellFireInfernoStorm/space-monkeys/issues/4";
+  const neighbour = "A known field star (Gaia DR3 5756956644387831296) is 3.9 to 11.2 arcseconds from the measured position, inside the 18.5-arcsecond aperture: these fluxes include its light, and its share changes as the object moves. They do not measure the object alone, and differences between visits are not evidence of a brightness change. The Stack view fits the object and the star separately.";
   const failed = "Search of spherex_qr3 failed: HTTPError: 502";
   const unread = "2 exposure(s) could not be read and were skipped.";
 
