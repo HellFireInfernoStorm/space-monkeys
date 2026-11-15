@@ -327,7 +327,8 @@ export default function App() {
         <p>{ACKNOWLEDGEMENT}</p>
         <p>This publication makes use of data products from the Wide-field Infrared Survey Explorer, which is a joint project of the University of California, Los Angeles, and the Jet Propulsion Laboratory/California Institute of Technology, and NEOWISE, which is a project of the Jet Propulsion Laboratory/California Institute of Technology. WISE and NEOWISE are funded by the National Aeronautics and Space Administration.</p>
         <p>
-          Sky map: Aladin Lite, developed at CDS, Strasbourg Observatory, France. WISE comparison images:
+          Sky map: Aladin Lite, developed at CDS, Strasbourg Observatory, France. Sky map backgrounds: DSS, IRIS (IRAS),
+          2MASS, SDSS, GALEX, Spitzer, Planck, AllWISE and SPHEREx HiPS maps (most made by CDS), served by IRSA. WISE comparison images:
           AllWISE Atlas, from the NASA/IPAC Infrared Science Archive. Further WISE images: WiseView.
         </p>
         <p>This project is not affiliated with or endorsed by NASA.</p>
