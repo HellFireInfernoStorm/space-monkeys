@@ -131,7 +131,7 @@ Code: `backend/app/wise.py`; front end `components/WiseCompare.tsx` and `src/wis
 
 ### Desktop layout (issue #10)
 
-The header centres the title and shows the URL position, wavelength range and unchanged data-mode badge. `ControlsDrawer` uses a native modal dialog (focus containment, Esc and backdrop dismissal). It opens on every page load, returns focus to Menu on close, and closes after a target is picked or the position form is applied; toggling "Follow the object" keeps it open.
+The header centres the title and shows the URL position, wavelength range and unchanged data-mode badge. `ControlsDrawer` uses a native modal dialog (focus containment, Esc and backdrop dismissal). It opens on every page load, returns focus to the Controls button on close, and closes after a target is picked or the position form is applied; toggling "Follow the object" keeps it open.
 
 The main row gives 40% to frames (minimum 520 px) and 60% to the tabbed workbench, with equal-height panels and independent scrolling for long stacks and measurements. The right tabs use arrow-key navigation. A frame-pixel click sets `phot=1` and `tab=spectrum`; opening the spectrum tab alone shows the existing measurement hint/button. Both plots are stacked vertically there. The sky map initialises only after its tab is first opened (so a spectrum-first link never initialises WebGL at zero size), then stays mounted while hidden, preserving its zoom and pending clicked point. The WISE comparison remains full width below, and footer credits are unchanged.
 

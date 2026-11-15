@@ -23,6 +23,7 @@ Format: number, date, the decision in one or two sentences, the reason, and who 
 | D-015 | 2026-11-14 | One canonical instruction file for AI tools, `AGENTS.md`, with `CLAUDE.md` as a pointer. | Codex, Cursor and Antigravity read `AGENTS.md` from the repository root; one file cannot drift out of step with itself. | Repository owner |
 | D-016 | 2026-11-14 | The repository is public from the start, under the repository owner's personal GitHub account for now. | Gets the prototype where the team can reach it quickly; a move to an organisation can still happen later. | Repository owner |
 | D-017 | 2026-11-14 | Our own code and documents are licensed under Apache 2.0 (`LICENSE`). | The Space Apps terms require an open-source licence and apply Apache 2.0 when none is named; it works with every library we use. | Repository owner |
+| D-018 | 2026-11-15 | The public product name is spaceshift; the team and repository name stays space-monkeys (D-010). | Agreed by the team in issue #12. | Team |
 
 ## Open
 
@@ -31,4 +32,3 @@ Format: number, date, the decision in one or two sentences, the reason, and who 
 | Exact final submission time | Organisers (deferred on 2026-11-14) |
 | Whether to move the repository to a GitHub organisation | Repository owner |
 | The six GitHub usernames | Team |
-| Product name | Team |

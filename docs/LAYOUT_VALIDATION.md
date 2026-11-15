@@ -14,7 +14,7 @@ Checked locally on 2026-11-15 in the Codex in-app browser, with the existing moc
 
 The mock preview was checked at 1440 × 900 and 1280 × 800. At 1280 px the frames panel is 520 px wide and the right panel is 697 px; at 1440 px they are about 551 and 826 px. Each pair has equal height. Long stack content and the motion table scroll within the frames panel and fit its width; spectrum and light curve stack vertically and scroll within their tab.
 
-- Drawer opens on fresh load and reload; target selection closes it. Close, Esc and a click on the backdrop dismiss it. Focus starts on Close and returns to Menu. Native modal-dialog behaviour contains keyboard focus.
+- Drawer opens on fresh load and reload; target selection closes it. Close, Esc and a click on the backdrop dismiss it. Focus starts on Close and returns to the Controls button. Native modal-dialog behaviour contains keyboard focus.
 - Pixel click opens the spectrum tab, shows the measurement loading state and then charts. Arrow keys move between the tabs. The measurement hint/button is present before measuring.
 - Coordinate listbox supports arrow keys, Home/End and Enter; The default decimal ICRS selector, plus ICRS sexagesimal and Galactic popup values, were checked. Explanations appear on keyboard focus, including the active option. Hover styles are implemented in CSS; a separate hover-only sweep was not performed.
 - Both sky-survey options update the URL. No map-click marker is created by using the floating controls.
