@@ -96,6 +96,20 @@ def test_aperture_flags_combine_the_aperture_only():
     assert phot.aperture_flags(flags, 10.5, 10.5) == (1 << 21) | 1
 
 
+def test_known_neighbour_in_the_aperture_is_found_along_the_motion():
+    """WISE 0855's catalogued field star (targets.py) is inside the aperture in 2025 and 2026."""
+    from app.targets import find_target
+
+    t = find_target("wise-0855")
+    found = phot.neighbours_in_aperture(t.ra, t.dec, t.pmra, t.pmdec, t.epoch, t.parallax, [60801.0, 61160.0])
+    assert len(found) == 1
+    source, closest, farthest = found[0]
+    assert source == t.neighbours[0].source
+    assert 3.0 < closest < farthest < 12.0
+    # Far from it (the 2000 position, two arcminutes away), nothing is found.
+    assert phot.neighbours_in_aperture(t.ra, t.dec, 0, 0, 2000, 0, [60801.0]) == []
+
+
 def test_search_incomplete():
     assert phot.search_incomplete(["Search of spherex_qr3 failed: TimeoutError: slow"])
     assert phot.search_incomplete(["The archive search failed; showing the last saved search result."])

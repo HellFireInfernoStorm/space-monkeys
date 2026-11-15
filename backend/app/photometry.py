@@ -32,7 +32,7 @@ from .live_frames import GRID_VERSION, _cache, _centre_text, _safe, get_patch, m
 from .mock import patch_pixels
 from .resample import sky_to_tangent
 from .sampling import sample_evenly
-from .targets import parallax_offset, position_at_mjd
+from .targets import TARGETS, parallax_offset, position_at_mjd
 
 APERTURE_RADIUS_PX = 3.0
 SKY_INNER_PX = 5.0
@@ -43,7 +43,7 @@ MIN_SKY_PIXELS = 20
 # centred on the same point, so the two share the disk cache.
 PATCH_SIZE_ARCSEC = 120.0
 # Bump when the measurement changes, so old cached results are not reused.
-PHOTOMETRY_VERSION = 3
+PHOTOMETRY_VERSION = 4
 
 # The same unit as mock mode, so the two answer alike. 1 Jy = 1e6 uJy.
 FLUX_UNIT = "uJy"
@@ -127,6 +127,32 @@ def aperture_flags(flags: np.ndarray, x: float, y: float) -> int:
     """Bitwise OR of the flag bits of every pixel in the aperture."""
     inside = flags[_radius(flags.shape, x, y) <= APERTURE_RADIUS_PX]
     return int(np.bitwise_or.reduce(inside.astype(np.int64))) if inside.size else 0
+
+
+# A known field star whose centre is closer than this to the aperture centre adds its light to
+# the measurement: the aperture radius plus one pixel, for the star's own spread.
+NEIGHBOUR_RADIUS_ARCSEC = (APERTURE_RADIUS_PX + 1.0) * PIXEL_SCALE_ARCSEC
+
+
+def neighbours_in_aperture(
+    ra: float, dec: float, pmra: float, pmdec: float, epoch: float, parallax: float, mjds: list[float]
+) -> list[tuple[str, float, float]]:
+    """Known field stars (`Target.neighbours` in targets.py) near the measured position on any of
+    the dates: (source, closest, farthest) separation in arcseconds over the dates where it is near."""
+    found = []
+    for target in TARGETS:
+        for known in target.neighbours:
+            seps = []
+            for mjd in mjds:
+                t_ra, t_dec = position_at_mjd(ra, dec, pmra, pmdec, epoch, mjd)
+                plx_east, plx_north = parallax_offset(t_ra, t_dec, parallax, mjd)
+                east, north = sky_to_tangent(t_ra, t_dec, np.array([known.ra]), np.array([known.dec]))
+                sep = math.hypot(float(east[0]) - plx_east, float(north[0]) - plx_north)
+                if sep <= NEIGHBOUR_RADIUS_ARCSEC:
+                    seps.append(sep)
+            if seps:
+                found.append((known.source, min(seps), max(seps)))
+    return found
 
 
 def search_incomplete(warnings: list[str]) -> bool:
@@ -243,6 +269,16 @@ def _measure_all(
             points.append(point)
     if failed:
         notes.append(f"{failed} exposure(s) could not be read and were skipped.")
+    usable_dates = [p.mjd for p in points if p.usable]
+    for source, closest, farthest in neighbours_in_aperture(
+        ra, dec, pmra, pmdec, epoch, parallax, usable_dates
+    ):
+        notes.append(
+            f"A known field star is {closest:.1f} to {farthest:.1f} arcseconds from the measured position, "
+            f"inside the 18.5-arcsecond aperture: these fluxes include its light, and its share changes as "
+            f"the object moves. They do not measure the object alone, and differences between visits are "
+            f"not evidence of a brightness change. Source: {source}"
+        )
     unmeasured = sum(1 for p in points if not p.usable)
     if unmeasured:
         notes.append(
