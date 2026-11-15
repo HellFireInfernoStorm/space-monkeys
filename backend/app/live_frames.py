@@ -87,6 +87,11 @@ def find_exposure(settings: Settings, exposure_id: str) -> LiveExposure:
 def search(settings: Settings, ra: float, dec: float, radius: float) -> tuple[list[LiveExposure], list[str]]:
     """Exposures covering a position, from the disk cache when fresh enough.
 
+    When the search finds nothing and any collection failed, the last saved result is used
+    if there is one. "Any", not "every": the deep collections cover only small fields, so
+    during an outage one of them often answers successfully with no rows, and requiring
+    every collection to fail would skip the saved result almost always.
+
     Raises SearchFailed when every collection failed and nothing usable is cached.
     """
     cache = _cache(settings)
@@ -96,12 +101,13 @@ def search(settings: Settings, ra: float, dec: float, radius: float) -> tuple[li
         return [LiveExposure(**e) for e in fresh], []
 
     found, problems = live.search_exposures(settings, ra, dec, radius)
-    if not found and len(problems) >= len(settings.collections):
+    if not found and problems:
         stale = cache.get_json("search", key)
-        if stale is not None:
+        if stale:
             note = "The archive search failed; showing the last saved search result."
             return [LiveExposure(**e) for e in stale], [note, *problems]
-        raise SearchFailed("The SPHEREx archive search failed. " + " ".join(problems)[:400])
+        if len(problems) >= len(settings.collections):
+            raise SearchFailed("The SPHEREx archive search failed. " + " ".join(problems)[:400])
     if not problems:
         cache.put_json("search", key, [asdict(e) for e in found])
     for exposure in found:

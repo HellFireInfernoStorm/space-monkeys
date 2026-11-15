@@ -26,6 +26,7 @@ Rules that apply to everything listed here:
 | 2026-11-15 | Thisal | OpenAI Codex | Reran the requested frontend commands and mock/live browser checks; confirmed the real 46-exposure WISE stack and all 30 Barnard frames, playback and moving marker; recorded successful evidence superseding the earlier archive blocker | `docs/LAYOUT_VALIDATION.md`, live screenshots and PR #11; no application code changes | Not yet |
 | 2026-11-15 | Thisal | OpenAI Codex | Found and fixed the generic button rule overriding active-tab styles by reducing its selector specificity; checked both selected tabs in the browser and reran frontend checks | `frontend/src/styles.css`, layout-validation notes, screenshots and PR #11 | Not yet |
 | 2026-11-15 | Thisal | OpenAI Codex | Addressed PR #11 review: restored focus after leaving expanded map with Esc; corrected the initial 30-arcminute field after canvas resize and kept drawer scrollbar space stable; checked both desktop sizes, zoom preservation and spectrum-first links, then reran frontend checks | `frontend/src/components/AladinPanel.tsx`, `frontend/src/styles.css`, validation notes and review screenshots | Not yet |
+| 2026-11-15 | Chetha | Claude Code (Anthropic) | Diagnosed the IRSA 502 outage, found that a deep collection answering with no rows stopped the saved-search fallback, wrote the fix and its tests, and opened issue #13 | `backend/app/live_frames.py`, `backend/tests/test_live_frames.py` and issue #13 | Not yet |
 
 ## Draft statement for the project page
 
