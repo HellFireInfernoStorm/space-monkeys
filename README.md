@@ -31,7 +31,7 @@ WISE 0855 is too faint to see in a single SPHEREx exposure. Following its motion
 
 ## Status
 
-- The site is public at https://spaceshift.earth/: the homepage at `/` and the workbench at `/explore/`. The workbench badge, and the [API health endpoint](https://space-monkeys-demo-bjdddzdbduc6gme7.southindia-01.azurewebsites.net/api/health), show whether it is using live or mock data. Hosting and domain setup are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#hosting).
+- The site is public at https://spaceshift.earth/: the homepage at `/` and the workbench at `/explore/`. The workbench badge, and the [API health endpoint](https://space-monkeys-demo-bjdddzdbduc6gme7.southindia-01.azurewebsites.net/api/health), show whether it is using live or mock data.
 - Layers 1 to 4 have been checked on real SPHEREx data. [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md) records what was checked, when and how.
 - The two variable-star targets are hard cases: R Draconis is saturated in every exposure, and RW Aurigae has usable measurements only at 0.75 to 1.12 micrometres.
 - A position the tool has not seen before takes about 30 seconds the first time (archive search and image reads); after that it loads in under a second from the cache.
