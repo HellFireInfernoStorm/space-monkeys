@@ -44,6 +44,14 @@ The live Stack-pixel click was also checked to open the spectrum tab and show "M
 
 The previous archive blocker is resolved for the requested check. A complete repeat of every issue #10 interaction in live mode and a separate hover-only tooltip sweep have not been performed; the mock interaction checks above remain the evidence for those controls. No backend workaround, science change or application code change was introduced during this rerun. The PR remains draft; this validation run did not request review or merge it.
 
+## Active-tab styling correction
+
+A merge-readiness check found that the generic `button:not(...)` selector had higher specificity than the tab rules. Both tabs therefore rendered with the same text colour and 1 px border, despite the correct `aria-selected` state. On 2026-11-15 the exclusions were moved into `:where(...)`, reducing the base selector's specificity so the component's own rules apply.
+
+Checked both selections in the browser: the active tab has accent text and a 3 px accent underline (`rgb(124, 196, 255)`); the inactive tab has muted text and a transparent 3 px underline. Clicking the other tab moves the highlight. Type checking, all 53 tests and the production build passed again. No behaviour, API or science code changed.
+
+Latest screenshots: [Sky map active](screenshots/issue-10/tab-highlight-sky.jpg), [Spectrum active](screenshots/issue-10/tab-highlight-spectrum.jpg). The earlier screenshots below predate this styling correction.
+
 ## Screenshots
 
 All mock screenshots label their synthetic data; the sky map is the existing external WISE context survey.

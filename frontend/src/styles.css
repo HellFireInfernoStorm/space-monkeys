@@ -608,7 +608,7 @@ button.link {
 }
 
 /* Desktop workbench: images and measurements stay beside one another. */
-button:not(.chip):not(.primary):not(.link) {
+button:where(:not(.chip):not(.primary):not(.link)) {
   color: var(--text);
   background: var(--panel);
   border: 1px solid var(--line);
