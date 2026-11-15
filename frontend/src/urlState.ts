@@ -60,6 +60,8 @@ export interface ViewState {
   bin: boolean;
   /** Display units for both photometry charts; measurements stay in flux space. */
   unit: "mjy" | "ab";
+  /** Light curve relative to the object's own spectrum ("rel"), or raw flux. "rel" falls back to raw when the spectrum is too uncertain. */
+  lc: "rel" | "raw";
   /** Layer 4: compare with this WISE band (2010). Null hides the comparison. */
   wise: WiseBand | null;
   /** Layer 4: the two images side by side, or blinking between them. */
@@ -89,6 +91,7 @@ export const DEFAULT_VIEW: ViewState = {
   pdec: null,
   bin: true,
   unit: "mjy",
+  lc: "rel",
   wise: null,
   cmp: "side",
 };
@@ -152,6 +155,7 @@ export function parseView(search: string): ViewState {
     pdec: hasPoint ? pdec : null,
     bin: p.get("bin") !== "0",
     unit: p.get("unit") === "ab" ? "ab" : "mjy",
+    lc: p.get("lc") === "raw" ? "raw" : "rel",
     wise: p.get("wise") === "W1" || p.get("wise") === "W2" ? (p.get("wise") as WiseBand) : null,
     cmp: p.get("cmp") === "blink" ? "blink" : "side",
   };
@@ -187,13 +191,14 @@ export function serializeView(view: ViewState): string {
   }
   if (!view.bin) p.set("bin", "0");
   if (view.unit === "ab") p.set("unit", "ab");
+  if (view.lc === "raw") p.set("lc", "raw");
   if (view.wise) p.set("wise", view.wise);
   if (view.cmp !== DEFAULT_VIEW.cmp) p.set("cmp", view.cmp);
   return p.toString();
 }
 
 /** Settings that change continuously while watching; every other change is a new view. */
-const CONTINUOUS: ReadonlyArray<keyof ViewState> = ["speed", "sky", "skyf", "bin", "unit", "cmp"];
+const CONTINUOUS: ReadonlyArray<keyof ViewState> = ["speed", "sky", "skyf", "bin", "unit", "lc", "cmp"];
 
 /**
  * Whether going from one view to the next deserves its own entry in the browser history
