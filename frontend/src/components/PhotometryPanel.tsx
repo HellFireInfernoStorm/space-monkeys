@@ -14,8 +14,9 @@ import {
 } from "../photometry";
 import type { ViewState } from "../urlState";
 
-// The address recorded in docs/RESOURCES.md: IRSA's SPHEREx page, which links the tool.
-const SPECTROPHOTOMETRY_TOOL = "https://irsa.ipac.caltech.edu/Missions/spherex.html";
+// The tool itself (docs/RESOURCES.md). It is a browser application: a plain HTTP request for
+// this address answers 404, but it opens in a browser.
+const SPECTROPHOTOMETRY_TOOL = "https://irsa.ipac.caltech.edu/applications/spherex/tool-spectrophotometry";
 
 interface Props {
   view: ViewState;
@@ -174,7 +175,7 @@ export default function PhotometryPanel({ view, onChange }: Props) {
         sources the scatter between exposures is larger (3.8% for a 0.14 Jy check star), so treat smaller changes
         as not significant. For precise values use IRSA's{" "}
         <a href={SPECTROPHOTOMETRY_TOOL} target="_blank" rel="noreferrer">
-          SPHEREx Spectrophotometry Tool (from its SPHEREx page)
+          SPHEREx Spectrophotometry Tool
         </a>
         .
       </p>

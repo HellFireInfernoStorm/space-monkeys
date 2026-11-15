@@ -27,7 +27,7 @@ For each: the object is found from its name, real SPHEREx frames load, and the e
 
 - [ ] Easy to update with the latest data release (one configuration change; shown in the demo or the documentation)
 - [ ] Creative display of the 102 wavelength bands (for example, one combined image per detector)
-- [ ] Spectrum on the fly for a chosen point ("extra kudos" in the challenge text)
+- [x] Spectrum on the fly for a chosen point ("extra kudos" in the challenge text) (2026-11-15, checked locally in live mode, not on a deployed site: `/api/photometry` and the spectrum panel, seen in headless-Chrome screenshots; cross-checked against IRSA's Spectrophotometry Tool, see `docs/SCIENCE.md`, section 7. Clicking with a real mouse was not tested; the click-to-position conversion is unit-tested.)
 - [x] Add together images taken at different times (stacking). (2026-11-15, checked locally against 46 real WISE 0855 exposures: S/N 14.18 and the same motion at requested sizes 60, 80, 120 and 300 arcseconds; returned image crops and marker offsets covered by regression tests. Stack view was also checked locally in the browser on 2026-11-14; deployment not verified.)
 - [ ] Subtract images taken at different times (difference image)
 - [ ] The user can choose the field of view
@@ -40,7 +40,7 @@ For each: the object is found from its name, real SPHEREx frames load, and the e
 
 - [ ] Layer 1: wavelength-matched blink and difference images
 - [ ] Layer 2: motion-tracked stacking, with WISE 0855
-- [ ] Layer 3: click a point for spectrum and light curve, cross-checked once against IRSA's Spectrophotometry Tool
+- [x] Layer 3: click a point for spectrum and light curve, cross-checked once against IRSA's Spectrophotometry Tool (2026-11-15, checked locally in live mode, not on a deployed site. 2MASS check star: our 9 measured exposures are 1.007 to 1.041 times the tool's values, median 1.021; refusals agree in 18 of 19 exposures (`docs/SCIENCE.md`, section 7). Spectrum, light curve, binning and link restore seen in headless-Chrome screenshots; clicking with a real mouse not tested.)
 - [ ] Layer 4: WISE-era versus SPHEREx comparison (at least the link to WiseView)
 - [ ] Layer 5: automatic flags on moved or changed sources
 
@@ -76,7 +76,7 @@ From the project's own code, run locally in live mode on 2026-11-14 (not a deplo
 - `/api/stack` for WISE 0855 at 4.4 to 5.0 micrometres: 46 exposures, tracked stack S/N 18.6; two visit stacks show the object stepping about 4 arcseconds west, as predicted (`docs/SCIENCE.md`, section 6). Seen in the browser in the Stack view, and the view came back after reloading the page.
 - Barnard's Star blink and difference views load 30 real frames at 1.0 to 1.2 micrometres in the browser.
 
-Layer 3, `/api/photometry` in live mode, run locally through the endpoint code on 2026-11-15 (not a deployed site; seen in headless-Chrome screenshots; not yet cross-checked against IRSA's Spectrophotometry Tool). IRSA's search service returned intermittent 502 errors during these runs, so some collections were missing; results with failed searches are not cached:
+Layer 3, `/api/photometry` in live mode, run locally through the endpoint code on 2026-11-15 (not a deployed site; seen in headless-Chrome screenshots; cross-checked against IRSA's Spectrophotometry Tool on the 2MASS check star, median ratio 1.021). IRSA's search service returned intermittent 502 errors during these runs, so some collections were missing; results with failed searches are not cached:
 
 - 2MASS check star in the RW Aurigae field (RA 76.97773, Dec +30.37557, H = 9.64, reference 0.143 Jy), 1.6 to 1.8 micrometres, complete search: 19 matching exposures (as in pull request #5); 9 measured at 0.1298 to 0.1466 Jy (pull request #5: 0.1296 to 0.1462 Jy), 10 refused (as in pull request #5). Scatter between exposures 3.8 %; the background-only error bars are about 0.1 mJy.
 - RW Aurigae, 0.746 to 1.117 micrometres, one collection of four searched: 11 of 38 exposures measured (0.073 to 0.181 Jy across that wavelength range), 27 with a flagged core.

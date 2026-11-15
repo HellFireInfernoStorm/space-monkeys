@@ -12,7 +12,7 @@ If you do not know a licence, write "unknown" and open a `question` issue. Do no
 | SPHEREx Spectral All-Sky Cube (HiPS) | Optional all-sky layer in the sky map | https://irsa.ipac.caltech.edu/data/hips/SPHEREx/spherex_allsky_cube ; DOI 10.26131/IRSA679 | Acknowledgement text below |
 | IRSA Simple Image Access service | Finding exposures that cover a position | https://irsa.ipac.caltech.edu/SIA | IRSA |
 | SPHEREx data on the AWS Open Data mirror (bucket `nasa-irsa-spherex`) | Reading image patches | https://irsa.ipac.caltech.edu/Missions/spherex.html | Same data, same acknowledgement |
-| IRSA Spectrophotometry Tool | Cross-check for our quick-look brightness values; model for our column names | https://irsa.ipac.caltech.edu/Missions/spherex.html | IRSA |
+| IRSA Spectrophotometry Tool | Cross-check for our quick-look brightness values; model for our column names; linked from the spectrum panel | https://irsa.ipac.caltech.edu/applications/spherex/tool-spectrophotometry (from https://irsa.ipac.caltech.edu/Missions/spherex.html) | IRSA |
 | WISE and NEOWISE images, through WiseView | Layer 4 links out to WiseView at the same coordinates | http://byw.tools/wiseview | WiseView credits below |
 
 Required SPHEREx acknowledgement (put this on the project page and in the site footer):

@@ -244,7 +244,25 @@ Code: `backend/app/photometry.py`. Each exposure covering a point gives one samp
 
 **WISE 0855 and its neighbour.** The fixed field star near RA 133.7582, Dec −7.2412 (`targets.py`) is 11.2 arcseconds from WISE 0855 at the first visit (MJD 60801), 8.1 to 7.4 at the second (MJD 60989 to 61021) and 4.3 to 3.9 at the third (MJD 61151 to 61171): always inside the 18.5-arcsecond aperture. The aperture flux is the sum of both, so the 0.554 mJy above does not measure WISE 0855 alone. Per visit: 0.23 ± 0.28 mJy (1 point), 0.69 ± 0.09 mJy (6 points), 0.51 ± 0.05 mJy (15 points). The difference between visits is not evidence of a brightness change: the star's share of the aperture changes as the object moves. The stack (section 6) fits the two separately; the aperture cannot.
 
-**Limits.** Saturated stars give no light curve (R Draconis; RW Aurigae except at the shortest wavelengths). A light curve over a wide wavelength range mixes colour with change. The values are quick estimates; IRSA's Spectrophotometry Tool is the precise method. The cross-check against it has not been done yet.
+**Cross-check against IRSA's Spectrophotometry Tool** (2026-11-15; single object, point source, no deep fields; the tool's result was downloaded as a VOTable and compared exposure by exposure on `obs_publisher_did`). For the 2MASS check star, all 9 of our measured exposures at 1.6 to 1.8 µm are in the tool's result:
+
+| Exposure | Wavelength (µm) | Ours (Jy) | IRSA (Jy) | Ours / IRSA |
+| --- | --- | --- | --- | --- |
+| 2025W37_1A_0496_2 D2 | 1.628 | 0.1446 | 0.1435 ± 0.0043 | 1.007 |
+| 2025W38_1A_0538_2 D3 | 1.664 | 0.1466 | 0.1439 ± 0.0043 | 1.018 |
+| 2025W38_1A_0538_3 D3 | 1.702 | 0.1438 | 0.1386 ± 0.0042 | 1.037 |
+| 2026W09_2A_0224_2 D3 | 1.635 | 0.1426 | 0.1408 ± 0.0042 | 1.013 |
+| 2026W09_2A_0224_3 D3 | 1.672 | 0.1380 | 0.1351 ± 0.0041 | 1.021 |
+| 2026W09_2A_0552_1 D3 | 1.750 | 0.1395 | 0.1358 ± 0.0041 | 1.028 |
+| 2026W09_2A_0552_2 D3 | 1.790 | 0.1298 | 0.1246 ± 0.0038 | 1.041 |
+| 2026W37_2A_0630_1 D2 | 1.613 | 0.1464 | 0.1449 ± 0.0044 | 1.010 |
+| 2026W38_1A_0162_1 D3 | 1.648 | 0.1453 | 0.1410 ± 0.0043 | 1.031 |
+
+- Ours are higher by a median of 2.1 % (1.007 to 1.041). Six of the nine differences are within one of the tool's error bars (about 3 %); the other three (1.648, 1.702 and 1.790 µm) are 1.0, 1.2 and 1.4 error bars above. The cause of the offset is not known; aperture photometry against the tool's model fit is one candidate. We did not adjust anything to remove it.
+- The tool's errors (about 3 %) match the 3.8 % scatter we see between exposures, which confirms that our background-only error bars are too small for a bright star.
+- Refusals agree in 18 of 19 exposures. Our 9 measured exposures carry only flag bit 21 (informational) in the tool's result; 9 of our 10 refused ones carry problem bits there (OVERFLOW, TRANSIENT, SUR_ERROR, HALO; their lower 32 bits equal the flags we report). The exception, MJD 61297.861 at 1.765 µm, is clean in the tool but holds a HALO-flagged pixel in our 3-pixel aperture. The tool also sets a bit 32, which is not in our flag table (section 4); we have not looked up its meaning.
+
+**Limits.** Saturated stars give no light curve (R Draconis; RW Aurigae except at the shortest wavelengths). A light curve over a wide wavelength range mixes colour with change. The values are quick estimates; IRSA's Spectrophotometry Tool is the precise method.
 
 ## 8. What we must not claim
 
