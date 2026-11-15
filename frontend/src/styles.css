@@ -634,6 +634,11 @@ button:hover, button:focus-visible { border-color: var(--accent); }
   border-bottom: 3px solid transparent;
   padding: 14px 6px;
   color: var(--muted);
+  /* Same lettering as the panel headings (h2), so "Frames over time" and the tabs match. */
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 .workbench-tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
 .sky-tab { flex: 1; min-height: 0; display: flex; }
@@ -672,10 +677,14 @@ body:has(.sky-map.expanded) { overflow: hidden; }
 .map-top-controls { position: absolute; top: 12px; left: 12px; right: 58px; display: flex; flex-wrap: wrap; gap: 8px; z-index: 4; pointer-events: none; }
 .map-top-controls > * { pointer-events: auto; }
 .map-expand { position: absolute !important; top: 12px; right: 12px; z-index: 5; }
-.map-bottom-controls { position: absolute; right: 12px; bottom: 12px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; z-index: 3; }
+/* Aladin Lite draws its 32 px logo in the map's bottom right corner (2 px up, 5 px in); keep it uncovered:
+   zoom and view width sit above it, the WiseView link to its left. */
+.map-bottom-controls { position: absolute; right: 12px; bottom: 46px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; z-index: 3; }
 .map-zoom { display: flex; gap: 6px; }
 .map-zoom button { min-width: 36px; font-weight: 600; }
 .map-fov, .wise-link { background: var(--panel); border: 1px solid var(--line); padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; }
+/* Shown while no position is chosen; sits under the top controls, clear of the slider and zoom. */
+.map-hint { position: absolute; top: 56px; left: 12px; max-width: 320px; margin: 0; z-index: 3; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font-size: 0.8rem; line-height: 1.4; pointer-events: none; }
 .map-status { position: absolute; top: 100px; left: 12px; right: 12px; z-index: 3; background: var(--panel); padding: 8px 12px; }
 .map-dropdown { position: relative; display: flex; align-items: center; gap: 2px; font-size: 0.8rem; }
 .tooltip-anchor { position: relative; display: inline-flex; }
@@ -698,6 +707,8 @@ body:has(.sky-map.expanded) { overflow: hidden; }
 .tooltip { top: calc(100% + 6px); right: 0; }
 .map-top-controls .tooltip { left: 0; right: auto; }
 .map-bottom-controls .tooltip { top: auto; bottom: calc(100% + 6px); }
+.sky-map > .wise-link { position: absolute; right: 50px; bottom: 6px; z-index: 3; }
+.sky-map > .wise-link .tooltip { top: auto; bottom: calc(100% + 6px); right: 0; }
 .tooltip-anchor:hover > .tooltip, .tooltip-anchor:focus-within > .tooltip { display: block; }
 .tooltip-anchor:has(button.info-button) .tooltip { left: auto; right: 0; }
 .map-options { position: absolute; top: calc(100% + 5px); left: 0; margin: 0; padding: 4px; list-style: none; min-width: 220px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 16px #0008; }
@@ -726,5 +737,5 @@ body:has(.sky-map.expanded) { overflow: hidden; }
 .map-cube-slider .tooltip { top: auto; bottom: calc(100% + 6px); }
 /* Too narrow to sit beside that stack: go full width above it. */
 @container (max-width: 760px) {
-  .map-cube-slider { left: 12px; right: 12px; width: auto; transform: none; bottom: 112px; }
+  .map-cube-slider { left: 12px; right: 12px; width: auto; transform: none; bottom: 128px; }
 }

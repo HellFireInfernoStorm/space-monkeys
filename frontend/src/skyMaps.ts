@@ -19,8 +19,40 @@ export interface SkyMap {
 
 const IRSA = "https://irsa.ipac.caltech.edu/data/hips/";
 
-/** Dropdown order is time order: oldest pictures first. */
+/** Dropdown order: SPHEREx, then the WISE maps, then the others oldest first. */
 export const SKY_MAPS = [
+  {
+    value: "spherex",
+    url: IRSA + "SPHEREx/spherex_allsky_cube",
+    label: "SPHEREx all-sky (2025)",
+    help: "SPHEREx's own map of the whole sky in 102 infrared wavelengths, with a slider to pick the wavelength. It is the average of all its pictures, so the slider changes wavelength, not time.",
+    cube: {
+      // Said only in the free-text obs_description; their tiles answer 404 (checked 2026-11-15).
+      blankFrames: [50, 51],
+      // 6 bands of 17 channels: frame = 17 x (band - 1) + (channel - 1).
+      framesPerBand: 17,
+      // Frame 9 (0.910 µm, band 1), used when no wavelength range is chosen.
+      defaultFrame: 8,
+    },
+  },
+  {
+    value: "wise",
+    url: IRSA + "CDS/AllWISE/RGB-W4-W2-W1",
+    label: "WISE colour (2010)",
+    help: "An infrared picture of the whole sky, taken by the WISE space telescope around 2010. Compare it with SPHEREx to see what has moved since.",
+  },
+  {
+    value: "w1",
+    url: IRSA + "CDS/AllWISE/W1",
+    label: "WISE W1 3.4 µm (2010)",
+    help: "One WISE band, at 3.4 µm, in black and white, from around 2010.",
+  },
+  {
+    value: "w2",
+    url: IRSA + "CDS/AllWISE/W2",
+    label: "WISE W2 4.6 µm (2010)",
+    help: "One WISE band, at 4.6 µm, in black and white, from around 2010. Cold brown dwarfs show best here.",
+  },
   {
     value: "dss",
     url: IRSA + "CDS/DSS2/color",
@@ -63,41 +95,26 @@ export const SKY_MAPS = [
     label: "Planck dust colour (2009–2013)",
     help: "Cold dust across the whole sky, seen in microwaves by the Planck space telescope, 2009 to 2013. Very blurry when you zoom in.",
   },
-  {
-    value: "wise",
-    url: IRSA + "CDS/AllWISE/RGB-W4-W2-W1",
-    label: "WISE colour (2010)",
-    help: "An infrared picture of the whole sky, taken by the WISE space telescope around 2010. Compare it with SPHEREx to see what has moved since.",
-  },
-  {
-    value: "w1",
-    url: IRSA + "CDS/AllWISE/W1",
-    label: "WISE W1 3.4 µm (2010)",
-    help: "One WISE band, at 3.4 µm, in black and white, from around 2010.",
-  },
-  {
-    value: "w2",
-    url: IRSA + "CDS/AllWISE/W2",
-    label: "WISE W2 4.6 µm (2010)",
-    help: "One WISE band, at 4.6 µm, in black and white, from around 2010. Cold brown dwarfs show best here.",
-  },
-  {
-    value: "spherex",
-    url: IRSA + "SPHEREx/spherex_allsky_cube",
-    label: "SPHEREx all-sky (2025)",
-    help: "SPHEREx's own map of the whole sky in 102 infrared wavelengths, with a slider to pick the wavelength. It is the average of all its pictures, so the slider changes wavelength, not time.",
-    cube: {
-      // Said only in the free-text obs_description; their tiles answer 404 (checked 2026-11-15).
-      blankFrames: [50, 51],
-      // 6 bands of 17 channels: frame = 17 x (band - 1) + (channel - 1).
-      framesPerBand: 17,
-      // Frame 9 (0.910 µm, band 1), used when no wavelength range is chosen.
-      defaultFrame: 8,
-    },
-  },
 ] as const satisfies readonly SkyMap[];
 
 export type SkyLayer = (typeof SKY_MAPS)[number]["value"];
+
+/** Field width of the sky map, in degrees, once a position is chosen. */
+export const MAP_FOV_DEG = 0.5;
+
+/**
+ * Where the sky map opens before any position is chosen: the Orion Nebula (Messier 42),
+ * a bright cloud of gas where stars form, visible in every map above. Position from the
+ * NASA/IPAC Extragalactic Database (NED) name lookup for "M42", read 2026-11-15.
+ * Not stored in the URL: it is only a place to start looking.
+ */
+export const DEFAULT_SKY_CENTRE = {
+  name: "Orion Nebula",
+  ra: 83.81866,
+  dec: -5.38968,
+  /** Field width in degrees: wide enough to show the whole nebula. */
+  fov: 1.5,
+} as const;
 
 export function skyMap(value: SkyLayer): SkyMap {
   return SKY_MAPS.find((map) => map.value === value)!;

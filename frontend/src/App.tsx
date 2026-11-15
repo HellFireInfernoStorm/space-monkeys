@@ -23,6 +23,7 @@ import WiseCompare, { type SpherexImage } from "./components/WiseCompare";
 import StackView from "./components/StackView";
 import TargetPicker from "./components/TargetPicker";
 import ViewForm from "./components/ViewForm";
+import { DEFAULT_SKY_CENTRE } from "./skyMaps";
 import { applyChange, isNewView, parseView, serializeView, type ViewState } from "./urlState";
 import { framePixels } from "./wiseCompare";
 import { wiseViewUrl } from "./wiseview";
@@ -269,17 +270,20 @@ export default function App() {
           </div>
           <div id="panel-sky" role="tabpanel" aria-labelledby="tab-sky" hidden={view.tab !== "sky"}
             className="sky-tab" tabIndex={0}>
-            {mapRa !== null && mapDec !== null ? skyVisited && (
-              <AladinPanel ra={mapRa} dec={mapDec} sky={view.sky} frame={view.frame}
+            {/* With no position yet the map still opens, on a starting place (DEFAULT_SKY_CENTRE). */}
+            {skyVisited && (
+              <AladinPanel ra={mapRa ?? DEFAULT_SKY_CENTRE.ra} dec={mapDec ?? DEFAULT_SKY_CENTRE.dec}
+                centred={mapRa !== null && mapDec !== null}
+                sky={view.sky} frame={view.frame}
                 wlmin={wlmin} wlmax={wlmax} skyf={view.skyf}
                 onChange={update}
                 onPosition={(newRa, newDec) => update(viewForTypedPosition(view, newRa, newDec, {}))}
-                wiseUrl={wiseViewUrl(
+                wiseUrl={mapRa === null || mapDec === null ? null : wiseViewUrl(
                   ra !== null && dec !== null ? { ra, dec, pmra, pmdec, epoch } : { ra: mapRa, dec: mapDec },
                   Math.max(size, 176),
                 )}
               />
-            ) : <p className="hint tab-hint">The sky map appears once a position is chosen.</p>}
+            )}
           </div>
           <div id="panel-spectrum" role="tabpanel" aria-labelledby="tab-spectrum" hidden={view.tab !== "spectrum"}
             className="spectrum-tab" tabIndex={0}>
