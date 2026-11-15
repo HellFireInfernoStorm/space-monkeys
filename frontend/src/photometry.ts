@@ -317,7 +317,7 @@ export function summarise(points: PlotPoint[]) {
   const meanPoint = binPoints(points, 1)[0];
   const mean = meanPoint ? { y: meanPoint.y!, err: meanPoint.err! } : undefined;
   const combinedSnr = mean ? mean.y / mean.err : undefined;
-  const bins = binPoints(points, binCount(measured.length));
+  const bins = binPoints(points, binCount(withError.length));
   const brightest = bins.reduce<PlotPoint | undefined>((best, p) => !best || p.y! > best.y! ? p : best, undefined);
   const wavelengths = points.map((p) => p.wavelength ?? p.x);
   const mjds = points.flatMap((p) => p.mjd === undefined ? [] : [p.mjd]);

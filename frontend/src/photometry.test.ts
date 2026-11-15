@@ -296,12 +296,26 @@ describe("phase 2 summaries and units", () => {
     const mixed = summarise([...plotted, { x: 4.6, y: 10, err: 2 }]);
     expect(mixed).toMatchObject({ measured: 3, snrMeasured: 1, mean: { y: 10, err: 2 }, combinedSnr: 5, medianSnr: 5 });
   });
-  it("returns the same bins used for the brightest wavelength, independent of the display toggle", () => {
+  it("returns the weighted bins used for the brightest wavelength", () => {
     const points = Array.from({ length: 20 }, (_, i) => ({ x: 4.4 + i * 0.03, y: i + 10, err: 1 }));
     const summary = summarise(points);
-    expect(summary.bins).toEqual(binPoints(points, binCount(summary.measured)));
+    expect(summary.bins).toHaveLength(5);
+    expect(summary.bins.map((p) => p.y)).toEqual([11.5, 15.5, 19.5, 23.5, 27.5]);
     expect(summary.brightest).toBe(summary.bins.reduce((best, p) => p.y! > best.y! ? p : best).x);
     expect(summarise([{ x: 4.6, y: null, err: null }]).bins).toEqual([]);
+  });
+  it("sizes bins from the four weighted exposures, not all twenty flux measurements", () => {
+    const usable = new Map([[0, 10], [6, 20], [12, 30], [19, 40]]);
+    const points = Array.from({ length: 20 }, (_, i) => ({
+      x: i, y: usable.get(i) ?? 1000, err: usable.has(i) ? 1 : null,
+    }));
+    const summary = summarise(points);
+    expect(summary).toMatchObject({ measured: 20, snrMeasured: 4, mean: { y: 25, err: 0.5 }, brightest: 19 });
+    expect(summary.bins).toHaveLength(3);
+    expect(summary.bins.map((p) => ({ x: p.x, y: p.y }))).toEqual([
+      { x: 3, y: 15 }, { x: 12, y: 30 }, { x: 19, y: 40 },
+    ]);
+    expect(summary.bins[0].err).toBeCloseTo(1 / Math.SQRT2);
   });
   it("takes the middle S/N, averaging the middle pair for an even count", () => {
     expect(summarise([1, 8, 3].map((y) => ({ x: 1, y, err: 1 }))).medianSnr).toBe(3);
