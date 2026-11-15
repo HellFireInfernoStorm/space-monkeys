@@ -55,6 +55,9 @@ export default function App() {
   const menuButton = useRef<HTMLButtonElement>(null);
   const tabButtons = useRef<Array<HTMLButtonElement | null>>([]);
   const [shownFrame, setShownFrame] = useState<Frame | null>(null);
+  // Layer 3, phase 4: an exposure clicked on the spectrum tab, and whether the player had it.
+  const [requestedFrame, setRequestedFrame] = useState<{ id: string; nonce: number } | null>(null);
+  const [missingFrame, setMissingFrame] = useState<{ id: string; nonce: number; loaded: number } | null>(null);
 
   const update = useCallback((change: Partial<ViewState>) => {
     // A new position drops the measured point; a new sky map or range drops the cube frame.
@@ -246,6 +249,11 @@ export default function App() {
               onChange={update}
               onFrame={setShownFrame}
               onPick={pick}
+              requestedFrame={requestedFrame}
+              onRequestResult={(request, found) => {
+                setRequestedFrame(null);
+                setMissingFrame(found ? null : { ...request, loaded: frames.data.frames.length });
+              }}
             />
           )}
         </section>
@@ -289,7 +297,14 @@ export default function App() {
           <div id="panel-spectrum" role="tabpanel" aria-labelledby="tab-spectrum" hidden={view.tab !== "spectrum"}
             className="spectrum-tab" tabIndex={0}>
             {ra !== null && dec !== null ? view.phot ? (
-              <PhotometryPanel view={view} onChange={update} bands={bands} />
+              <PhotometryPanel view={view} onChange={update} bands={bands}
+                currentFrame={frame ? { id: frame.exposure_id, mjd: frame.mjd } : null}
+                missingFrame={missingFrame}
+                onOpenFrame={(id) => {
+                  setMissingFrame(null);
+                  if (stackMode) update({ mode: "blink" });
+                  setRequestedFrame({ id, nonce: Date.now() });
+                }} />
             ) : (
               <>
                 <p className="hint">Measure the brightness in every exposure: against wavelength for a spectrum,

@@ -18,6 +18,10 @@ interface Props {
   onFrame?: (frame: Frame | null) => void;
   /** Called with the sky position of a click on the image, for the spectrum panel. */
   onPick?: (ra: number, dec: number) => void;
+  /** Show this exposure (from a click on the spectrum tab); the nonce lets the same one be asked twice. */
+  requestedFrame?: { id: string; nonce: number } | null;
+  /** Whether the requested exposure is among the loaded frames. */
+  onRequestResult?: (request: { id: string; nonce: number }, found: boolean) => void;
 }
 
 const MJD_OF_UNIX_EPOCH = 40587;
@@ -39,7 +43,7 @@ function targetSpot(frame: Frame, extentArcsec: number): { left: number; top: nu
 }
 
 /** Shows the frames one after another (blink), or each one minus the first (difference). */
-export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPick, showMatches }: Props) {
+export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPick, showMatches, requestedFrame, onRequestResult }: Props) {
   const frames = list.frames;
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -107,6 +111,19 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPi
     );
     return () => window.clearInterval(timer);
   }, [playing, speed, frames.length]);
+
+  const answerRequest = useEffectEvent((request: { id: string; nonce: number }) => {
+    const found = frames.findIndex((frame) => frame.exposure_id === request.id);
+    if (found >= 0) {
+      selectFrame(found);
+      // The #23 shortcuts act while the player is in view, so bring it into view.
+      player.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+    }
+    onRequestResult?.(request, found >= 0);
+  });
+  useEffect(() => {
+    if (requestedFrame) answerRequest(requestedFrame);
+  }, [requestedFrame]);
 
   const shown = frames[Math.min(index, frames.length - 1)] ?? null;
   useEffect(() => {

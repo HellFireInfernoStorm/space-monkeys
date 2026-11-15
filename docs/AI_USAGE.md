@@ -43,6 +43,7 @@ Rules that apply to everything listed here:
 | 2026-11-15 | Deeshan | OpenAI Codex | Standardized the SpaceShift display name and audited remaining references | App heading, browser title, documentation and issue #35 | Not yet |
 | 2026-11-15 | Chetha | Claude Code (Anthropic) | Implemented issue #32 Phase 3: colour-corrected light curve, visit averages, Changed? verdict and the cautionary-warning filter; fixed exact bin-centre handling after PR #33 review; ran the live validation and wrote the method section | `frontend/src/photometry.ts`, `PhotometryPanel.tsx`, `Chart.tsx`, `urlState.ts`, tests, `docs/SCIENCE.md` section 7, `docs/screenshots/spectrum-phase3/` | Not yet |
 | 2026-11-15 | Repository owner (PR #28 update) | OpenAI Codex | Integrated current main's SpaceShift capitalization, preserved both AI logs and resolved the decision-number collision by renumbering the plate-solving approval to D-020 | PR #28 branch, decision log and validation note | Not yet |
+| 2026-11-15 | Chetha | Claude Code (Anthropic) | Implemented issue #34 Phase 4: CSV download, click a point to open its frame, current-frame marker and drag to zoom, with tests and a headless-browser check | `frontend/src/export.ts`, `PhotometryPanel.tsx`, `Chart.tsx`, `BlinkPlayer.tsx`, `App.tsx`, `photometry.ts`, `export.test.ts`, `phase4.test.ts` | Not yet |
 
 ## Draft statement for the project page
 
