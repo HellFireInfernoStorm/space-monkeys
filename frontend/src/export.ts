@@ -54,7 +54,7 @@ export function photometryCsv(data: PhotometryResult, context: CsvContext): stri
   const corrected = new Map(context.corrected.filter((p) => p.id !== undefined).map((p) => [p.id!, p]));
   const where = context.isPoint ? "fixed point" : context.moving ? "followed along its motion" : "fixed position";
   const header = [
-    "# spaceshift quick-look photometry",
+    "# SpaceShift quick-look photometry",
     `# mode: ${data.mode === "mock" ? "mock: synthetic numbers, not measurements of the real sky" : data.mode}`,
     `# position: RA ${context.ra.toFixed(6)}, Dec ${context.dec.toFixed(6)} (ICRS degrees), ${where}`,
     ...(context.name && !context.isPoint ? [`# target: ${context.name}`] : []),
@@ -82,7 +82,7 @@ export function photometryCsv(data: PhotometryResult, context: CsvContext): stri
   return [...header, ...rows].join("\n") + "\n";
 }
 
-/** "spaceshift-wise-0855-4.4-5um.csv"; "-mock" is added in mock mode so it is never taken for real data. */
+/** "spaceshift-wise-0855-4.4-5um.csv" (lower case, as file names usually are); "-mock" is added in mock mode so it is never taken for real data. */
 export function csvFileName(context: Pick<CsvContext, "name" | "ra" | "dec" | "isPoint" | "wlmin" | "wlmax">, mock: boolean): string {
   const slug = context.name && !context.isPoint
     ? context.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")

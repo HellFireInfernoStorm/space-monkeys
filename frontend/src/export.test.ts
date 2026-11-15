@@ -50,7 +50,7 @@ describe("photometryCsv", () => {
   it("writes the header lines and one row per exposure in time order, fluxes in mJy", () => {
     const text = photometryCsv(result([point({ exposure_id: "late", mjd: 61000 }), point({})]), context);
     const all = lines(text);
-    expect(all[0]).toBe("# spaceshift quick-look photometry");
+    expect(all[0]).toBe("# SpaceShift quick-look photometry");
     expect(all).toContain("# mode: live");
     expect(all).toContain("# position: RA 133.818908, Dec -7.247048 (ICRS degrees), followed along its motion");
     expect(all).toContain("# target: WISE 0855");
