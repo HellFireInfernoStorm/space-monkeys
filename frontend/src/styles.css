@@ -74,6 +74,16 @@ h2:not(:first-child) {
 }
 
 .menu-button { justify-self: start; }
+/* Bars span exactly the capital-letter height of the label, sitting on its baseline. */
+.menu-icon {
+  height: 0.7em;
+  height: 1cap;
+  width: auto;
+  aspect-ratio: 14 / 10;
+  margin-right: 0.45em;
+  vertical-align: baseline;
+  overflow: visible;
+}
 .view-summary {
   display: flex;
   flex-wrap: wrap;
