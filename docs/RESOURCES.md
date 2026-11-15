@@ -110,3 +110,9 @@ The issue #10 screenshots in `docs/screenshots/issue-10/` show our own interface
 
 The issue #22 screenshots in `docs/screenshots/issue-22/` show our own interface and synthetic SPHEREx-like frames, plus the same existing Aladin Lite/AllWISE sky map where visible. Credits and terms are the existing ones above; our own interface is Apache 2.0. These are test evidence, not new application images or a redistributed Gaia catalogue.
 The issue #30 screenshots in `docs/screenshots/spectrum-phase2/` show our own interface with synthetic frames or existing SPHEREx data (credited above). The aperture view is an independently drawn, labelled SVG diagram, not a sky image.
+
+### Homepage (2026-11-15)
+
+- Team-owned SpaceShift presentation (provided directly by the team): feature narrative and local WISE 0855 research example, independently worded for the homepage and checked against `docs/SCIENCE.md`. The user confirmed team ownership and authorised homepage reuse on 2026-11-15; recorded in [#42](https://github.com/HellFireInfernoStorm/space-monkeys/issues/42). No Canva template, illustration or slide-image assets are redistributed.
+- User-supplied Space Fly landing-page screenshot: visual inspiration only (large condensed type, highlighted word and orbital composition). Source/asset licence not provided; no screenshot pixels, logos, text or code are reused.
+- Homepage sky artwork: original, AI-assisted SVG code by this project, Apache-2.0. Decorative illustration, not astronomical observations. Fonts are browser/OS-supplied fallbacks (Impact, Arial Narrow, Helvetica Neue, Arial, Helvetica and sans-serif); no font files are bundled, downloaded or redistributed.
