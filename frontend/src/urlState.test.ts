@@ -23,6 +23,8 @@ describe("urlState", () => {
       mode: "diff",
       track: true,
       sky: "spherex",
+      frame: "Galactic",
+      tab: "spectrum",
       name: "WISE 0855",
       phot: true,
       pra: 133.802411,
@@ -49,6 +51,9 @@ describe("urlState", () => {
       { mode: "stack" },
       { track: true },
       { sky: "spherex" },
+      { frame: "ICRS" },
+      { frame: "Galactic" },
+      { tab: "spectrum" },
       { name: "Barnard's Star" },
       { phot: true },
       { pra: 76.97773, pdec: 30.37557 },
@@ -70,6 +75,12 @@ describe("urlState", () => {
 
   it("accepts only known WISE bands and comparison modes", () => {
     expect(parseView("?wise=W3&cmp=sideways")).toMatchObject({ wise: null, cmp: "side" });
+  });
+
+  it("restores old measurement links and preserves a measured target on the sky tab", () => {
+    expect(parseView("?phot=1").tab).toBe("spectrum");
+    expect(parseView(serializeView({ ...DEFAULT_VIEW, phot: true, tab: "sky" })).tab).toBe("sky");
+    expect(parseView("?frame=unknown&tab=unknown")).toMatchObject({ frame: "ICRSd", tab: "sky" });
   });
 
   it("needs both coordinates of a measured point, in range", () => {

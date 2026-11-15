@@ -22,6 +22,10 @@ Rules that apply to everything listed here:
 | 2026-11-15 | Issue #7 assignee | Claude Code (Anthropic) | Wrote layer 3: live aperture photometry for `/api/photometry` (moved the 2MASS-checked aperture into the app, null flux for flagged apertures, parallax, caching), the spectrum and light-curve panel with URL state, photometry prewarming, tests and docs; ran the live checks on the 2MASS star, RW Aurigae, R Draconis and WISE 0855 | `backend/app/photometry.py`, `frontend/src/components/PhotometryPanel.tsx`, `frontend/src/photometry.ts`, tests, `scripts/prewarm.py`, `docs/ARCHITECTURE.md`, `docs/ACCEPTANCE.md` and PR #8 | Not yet |
 | 2026-11-15 | Issue #7 assignee | Claude Code (Anthropic) | Wrote layer 4: `/api/wise` reading AllWISE Atlas tiles from the AWS mirror (tile lookup by listing, two range requests, resampling onto the SPHEREx field), the WISE-versus-SPHEREx comparison panel with URL state and position markers, tests and docs; ran the alignment and WISE 0855 position checks | `backend/app/wise.py`, `frontend/src/components/WiseCompare.tsx`, `frontend/src/wiseCompare.ts`, tests, `docs/SCIENCE.md` section 8, `docs/ARCHITECTURE.md`, `docs/RESOURCES.md` | Not yet |
 
+| 2026-11-15 | Thisal | OpenAI Codex | Read the current project documentation, implementation, test coverage and assigned layout handoff; summarised how the project addresses the challenge and distinguished implemented features from documented verification limits | Project orientation in the Codex chat; no application changes or new validation runs | Not yet |
+
+| 2026-11-15 | Thisal | OpenAI Codex | Implemented issue #10: controls drawer, centred header, tabbed workbench, sky map controls and confirmed-position navigation; added URL round-trip coverage and checked the frontend | `frontend/src/`, architecture notes and the issue #10 pull request | Not yet |
+
 ## Draft statement for the project page
 
 Keep this current; copy it to the project page at submission.

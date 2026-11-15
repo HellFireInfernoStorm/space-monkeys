@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 
 import type { AladinApi, AladinHiPS, AladinInstance } from "aladin-lite";
 
-import type { SkyLayer } from "../urlState";
+import type { CoordinateFrame, SkyLayer, ViewState } from "../urlState";
+import MapDropdown, { type MapOption } from "./MapDropdown";
 
 // Aladin Lite (CDS, Strasbourg) comes from the npm package "aladin-lite", pinned to one
 // version in package.json. It is large, so it is fetched only when this panel first appears.
@@ -61,15 +62,40 @@ function showCubeFrame(survey: AladinHiPS, frame: number) {
   survey.setFrequency({ value: SPEED_OF_LIGHT_M_PER_S / frequency, unit: "m" });
 }
 
+const SKY_OPTIONS: readonly MapOption<SkyLayer>[] = [
+  { value: "wise", label: "WISE (2010)", help: "An infrared picture of the whole sky, taken by the WISE space telescope around 2010. Compare it with SPHEREx to see what has moved since." },
+  { value: "spherex", label: "SPHEREx all-sky (experimental)", help: "SPHEREx's own map of the whole sky, at one wavelength. Still experimental, so parts may look empty." },
+];
+const FRAME_OPTIONS: readonly MapOption<CoordinateFrame>[] = [
+  { value: "ICRS", label: "ICRS", help: "The standard grid for the sky, like longitude and latitude on Earth. Right ascension in hours, minutes, seconds; declination in degrees." },
+  { value: "ICRSd", label: "ICRS (decimal)", help: "The same grid in decimal degrees, for example 133.79, −7.24. Easiest to copy into other tools." },
+  { value: "Galactic", label: "Galactic", help: "A grid lined up with the Milky Way; 0° points at the centre of our galaxy. Shows whether something lies in the galaxy's disc." },
+];
+const WISE_HELP = "Opens WiseView, a separate website, in a new tab. It flips through WISE images of this spot from 2010 to today, so you can check over 15 years whether something moved. It starts where the object was in 2014, the middle of the WISE years.";
+const EXPAND_HELP = "Fills the whole screen with the sky map. Press Esc or the button again to go back.";
+
+type Point = { ra: number; dec: number };
+type ScreenPoint = [number, number] | null;
 interface Props {
   ra: number;
   dec: number;
   sky: SkyLayer;
-  onSky: (sky: SkyLayer) => void;
+  frame: CoordinateFrame;
+  wiseUrl: string;
+  onChange: (change: Partial<ViewState>) => void;
+  onPosition: (ra: number, dec: number) => void;
 }
 
 /** A wide-field sky map centred on the position, for context around the small frames. */
-export default function AladinPanel({ ra, dec, sky, onSky }: Props) {
+export default function AladinPanel({ ra, dec, sky, frame, wiseUrl, onChange, onPosition }: Props) {
+  const container = useRef<HTMLDivElement>(null);
+  const [clicked, setClicked] = useState<Point | null>(null);
+  const clickedRef = useRef<Point | null>(null);
+  const [currentPixel, setCurrentPixel] = useState<ScreenPoint>(null);
+  const [clickedPixel, setClickedPixel] = useState<ScreenPoint>(null);
+  const [coordinates, setCoordinates] = useState("");
+  const [fov, setFov] = useState(FIELD_OF_VIEW_DEG);
+  const [expanded, setExpanded] = useState(false);
   const holder = useRef<HTMLDivElement>(null);
   const map = useRef<{ api: AladinApi; aladin: AladinInstance } | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -77,8 +103,8 @@ export default function AladinPanel({ ra, dec, sky, onSky }: Props) {
 
   // Start the map once. The position at that moment comes from a ref,
   // so later changes do not rebuild it.
-  const latest = useRef({ ra, dec, sky });
-  latest.current = { ra, dec, sky };
+  const latest = useRef({ ra, dec, sky, frame });
+  latest.current = { ra, dec, sky, frame };
 
   useEffect(() => {
     let cancelled = false;
@@ -92,7 +118,19 @@ export default function AladinPanel({ ra, dec, sky, onSky }: Props) {
           survey: api.HiPS(SURVEYS[now.sky]),
           fov: FIELD_OF_VIEW_DEG,
           target: `${now.ra} ${now.dec}`,
-          cooFrame: "ICRSd",
+          cooFrame: now.frame,
+          showZoomControl: false,
+          showFov: false,
+          showFrame: false,
+          showCooLocation: false,
+          showStatusBar: false,
+          showSettingsControl: false,
+          showShareControl: false,
+          showSimbadPointerControl: false,
+          showCooGridControl: false,
+          showSelectionModeControl: false,
+          showColorPickerControl: false,
+          showReticle: false,
           showFullscreenControl: false,
           showLayersControl: false,
           showProjectionControl: false,
@@ -101,6 +139,35 @@ export default function AladinPanel({ ra, dec, sky, onSky }: Props) {
           log: false,
         });
         map.current = { api, aladin };
+        const refresh = () => {
+          const current = latest.current;
+          const project = (point: Point): ScreenPoint => {
+            const pixel = aladin.world2pix(point.ra, point.dec, "ICRS");
+            return pixel && pixel.every(Number.isFinite) ? pixel : null;
+          };
+          setCurrentPixel(project(current));
+          const point = clickedRef.current;
+          const pixel = point ? project(point) : null;
+          setClickedPixel(pixel);
+          if (point && pixel) {
+            const [lon, lat] = aladin.pix2world(pixel[0], pixel[1], current.frame);
+            setCoordinates(current.frame === "ICRS"
+              ? api.coo(lon, lat, 7).format("s")
+              : current.frame === "Galactic" ? `l ${lon.toFixed(5)}°, b ${lat.toFixed(5)}°`
+              : `RA ${lon.toFixed(5)}°, Dec ${lat.toFixed(5)}°`);
+          }
+          setFov(aladin.getFov()[0]);
+        };
+        aladin.on("click", (point) => {
+          if (point.isDragging || !Number.isFinite(point.ra) || !Number.isFinite(point.dec)) return;
+          clickedRef.current = { ra: point.ra, dec: point.dec };
+          setClicked(clickedRef.current);
+          refresh();
+        });
+        aladin.on("positionChanged", refresh);
+        aladin.on("zoomChanged", refresh);
+        aladin.on("resizeChanged", refresh);
+        refresh();
         setReady(true);
       })
       .catch((error: unknown) => {
@@ -112,7 +179,10 @@ export default function AladinPanel({ ra, dec, sky, onSky }: Props) {
   }, []);
 
   useEffect(() => {
-    if (ready) map.current?.aladin.gotoRaDec(ra, dec);
+    if (ready && map.current) {
+      map.current.aladin.gotoRaDec(ra, dec);
+      setCurrentPixel(map.current.aladin.world2pix(ra, dec, "ICRS") ?? null);
+    }
   }, [ready, ra, dec]);
 
   useEffect(() => {
@@ -139,27 +209,85 @@ export default function AladinPanel({ ra, dec, sky, onSky }: Props) {
     };
   }, [ready, sky]);
 
+  useEffect(() => {
+    if (!ready || !map.current) return;
+    const { aladin, api } = map.current;
+    aladin.setFrame(frame);
+    const point = clickedRef.current;
+    if (point) {
+      const pixel = aladin.world2pix(point.ra, point.dec, "ICRS");
+      if (pixel) {
+        const [lon, lat] = aladin.pix2world(pixel[0], pixel[1], frame);
+        setCoordinates(frame === "ICRS" ? api.coo(lon, lat, 7).format("s")
+          : frame === "Galactic" ? `l ${lon.toFixed(5)}°, b ${lat.toFixed(5)}°`
+          : `RA ${lon.toFixed(5)}°, Dec ${lat.toFixed(5)}°`);
+      }
+    }
+  }, [frame, ready]);
+
+  useEffect(() => {
+    const changed = () => setExpanded(document.fullscreenElement === container.current);
+    document.addEventListener("fullscreenchange", changed);
+    return () => document.removeEventListener("fullscreenchange", changed);
+  }, []);
+
+  async function fullscreen() {
+    try {
+      if (document.fullscreenElement === container.current) await document.exitFullscreen();
+      else await container.current?.requestFullscreen();
+      // Aladin Lite observes its container with ResizeObserver and redraws after fullscreen.
+    } catch {
+      setProblem("The browser could not expand the sky map.");
+    }
+  }
+
+  function dismissPoint() { clickedRef.current = null; setClicked(null); setClickedPixel(null); }
+  const width = holder.current?.clientWidth ?? 0;
+  const height = holder.current?.clientHeight ?? 0;
+  const visible = (pixel: ScreenPoint) => pixel && pixel[0] >= 0 && pixel[1] >= 0 && pixel[0] < width && pixel[1] < height;
+
   return (
-    <div>
-      <div className="toggle" role="group" aria-label="Background survey">
-        <button
-          type="button"
-          className={sky === "wise" ? "chip active" : "chip"}
-          onClick={() => onSky("wise")}
-        >
-          WISE (2010)
-        </button>
-        <button
-          type="button"
-          className={sky === "spherex" ? "chip active" : "chip"}
-          onClick={() => onSky("spherex")}
-          title="One frame (band 1) of the SPHEREx all-sky map from IRSA. Experimental."
-        >
-          SPHEREx all-sky (experimental)
-        </button>
-      </div>
-      {problem && <p className="notice error">{problem}</p>}
+    <div ref={container} className="sky-map" aria-label="Interactive sky map">
       <div ref={holder} className="aladin" />
+      {!ready && !problem && <p className="map-status" role="status">Loading sky map…</p>}
+      {problem && <p className="notice error map-status">{problem}</p>}
+      {ready && <>
+        <div className="map-top-controls">
+          <MapDropdown label="Sky view" value={sky} options={SKY_OPTIONS} onChange={(sky) => onChange({ sky })} />
+          <MapDropdown label="Coordinates" value={frame} options={FRAME_OPTIONS} onChange={(frame) => onChange({ frame })} />
+        </div>
+        <span className="tooltip-anchor map-expand">
+          <button type="button" aria-label={expanded ? "Exit expanded sky map" : "Expand sky map"}
+            aria-describedby="expand-help" aria-pressed={expanded} onClick={fullscreen}>⛶</button>
+          <span className="tooltip" role="tooltip" id="expand-help">{EXPAND_HELP}</span>
+        </span>
+        {visible(currentPixel) && <span className="map-marker current" role="img" aria-label="Current position"
+          style={{ left: currentPixel![0], top: currentPixel![1] }} />}
+        {clicked && visible(clickedPixel) && <>
+          <span className="map-marker clicked" role="img" aria-label="Clicked position"
+            style={{ left: clickedPixel![0], top: clickedPixel![1] }} />
+          <div className="map-popup" role="region" aria-label="Clicked sky position"
+            style={{ left: Math.max(8, Math.min(clickedPixel![0] + 18, width - 278)),
+              top: Math.max(90, Math.min(clickedPixel![1] + 18, height - 140)) }}>
+            <button type="button" className="popup-close" aria-label="Dismiss clicked position" onClick={dismissPoint}>✕</button>
+            <p className="mono">{coordinates}</p>
+            <button type="button" className="primary" onClick={() => {
+              onPosition(clicked.ra, clicked.dec); dismissPoint();
+            }}>Show frames here</button>
+          </div>
+        </>}
+        <div className="map-bottom-controls">
+          <div className="map-zoom">
+            <button type="button" aria-label="Zoom in" onClick={() => map.current?.aladin.setFoV(Math.max(fov / 1.5, 1 / 36000))}>+</button>
+            <button type="button" aria-label="Zoom out" onClick={() => map.current?.aladin.setFoV(Math.min(fov * 1.5, 180))}>−</button>
+          </div>
+          <output className="map-fov">View: {fov < 1 ? `${(fov * 60).toFixed(1)}′` : `${fov.toFixed(2)}°`}</output>
+          <span className="tooltip-anchor wise-link">
+            <a href={wiseUrl} target="_blank" rel="noreferrer" aria-describedby="wise-help">Open in WiseView ↗ ⓘ</a>
+            <span className="tooltip" role="tooltip" id="wise-help">{WISE_HELP}</span>
+          </span>
+        </div>
+      </>}
     </div>
   );
 }
