@@ -7,6 +7,8 @@ interface Props {
   invertY?: boolean;
   laneLabel?: string;
   pointOpacity?: number;
+  /** Extra values the y range must include, such as a shaded band. Pass a stable (memoised) array. */
+  extraY?: number[];
   title: string;
   xLabel: string;
   yLabel: string;
@@ -23,7 +25,7 @@ interface Props {
 
 /** Responsive scatter chart. Layer callbacks share the exact scales used by the marks. */
 export default function Chart({ points, title, xLabel, yLabel, xFormat, colour, tooltip,
-  highlightedId, selectedKey, onSelect, underlay, overlay, onPointClick, invertY = false, laneLabel = "Not measured", pointOpacity = 1 }: Props) {
+  highlightedId, selectedKey, onSelect, underlay, overlay, onPointClick, invertY = false, laneLabel = "Not measured", pointOpacity = 1, extraY }: Props) {
   const wrapper = useRef<HTMLDivElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -31,7 +33,7 @@ export default function Chart({ points, title, xLabel, yLabel, xFormat, colour, 
   const [cardSize, setCardSize] = useState({ width: 220, height: 140 });
   const clip = useId();
   const height = CHART_HEIGHT;
-  const scales = useMemo(() => chartGeometry(points, width, height, invertY), [points, width, height, invertY]);
+  const scales = useMemo(() => chartGeometry(points, width, height, invertY, extraY), [points, width, height, invertY, extraY]);
   const { sx, sy, y0, y1, plot, floor, lane, xTicks, yTicks, positioned } = scales;
   const active = positioned.find((p) => p.point === selected);
   const hasActive = active !== undefined;

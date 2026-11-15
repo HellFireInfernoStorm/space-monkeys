@@ -4,6 +4,7 @@ import { getPhotometry, type Band, type PhotometryResult } from "../api";
 import {
   CHART_HEIGHT,
   summarise, verdict, magnitudePoints, toAbMag, WISE_BANDS,
+  binCount, binWidth, correctedPoints, visitMeans, changeVerdict, NOISE_FLOOR, SIGNAL_THRESHOLD, MIN_POINTS_PER_VISIT,
   APERTURE_RADIUS_PIXELS, BACKGROUND_RADII_PIXELS, PIXEL_SCALE_ARCSEC,
   pointDetails,
   selectChartPoint,
@@ -23,6 +24,7 @@ import type { ViewState } from "../urlState";
 
 // The tool itself (docs/RESOURCES.md). It is a browser application: a plain HTTP request for
 // this address answers 404, but it opens in a browser.
+const CORRECTION_UNAVAILABLE = "Corrected view needs a clearer spectrum: at least 3 exposures where the binned spectrum reaches S/N 5.";
 const SPECTROPHOTOMETRY_TOOL = "https://irsa.ipac.caltech.edu/applications/spherex/tool-spectrophotometry";
 
 interface Props {
@@ -94,7 +96,7 @@ export default function PhotometryPanel({ view, onChange, bands }: Props) {
         </>
       )}
       {state.status === "error" && <p className="notice error">Could not measure: {state.message}</p>}
-      {state.status === "ready" && <Body data={state.data} binned={view.bin} unit={view.unit} onChange={onChange} bands={bands} />}
+      {state.status === "ready" && <Body data={state.data} binned={view.bin} unit={view.unit} lc={view.lc} onChange={onChange} bands={bands} />}
 
     </div>
   );
@@ -104,6 +106,7 @@ function Body({
   data,
   binned,
   unit,
+  lc,
   onChange,
   bands,
 }: {
@@ -111,6 +114,7 @@ function Body({
   data: PhotometryResult;
   binned: boolean;
   unit: ViewState["unit"];
+  lc: ViewState["lc"];
   onChange: (change: Partial<ViewState>) => void;
 }) {
   const [selections, setSelections] = useState<ChartSelections>({});
@@ -129,10 +133,20 @@ function Body({
   const ab = unit === "ab";
   const displayedSpectrum = useMemo(() => ab ? magnitudePoints(spectrum) : spectrum, [spectrum, ab]);
   const displayedBins = useMemo(() => (ab ? magnitudePoints(bins) : bins).filter((p) => p.y !== null), [bins, ab]);
-  const lightCurve = useMemo(() => {
-    const points = toPlotPoints(data.points, data.flux_unit, (p) => p.mjd);
-    return ab ? magnitudePoints(points) : points;
-  }, [data, ab]);
+  // Flux-space light curve: the correction always divides fluxes, never magnitudes.
+  const fluxCurve = useMemo(() => toPlotPoints(data.points, data.flux_unit, (p) => p.mjd), [data]);
+  const lightCurve = useMemo(() => ab ? magnitudePoints(fluxCurve) : fluxCurve, [fluxCurve, ab]);
+  const corrected = useMemo(
+    () => correctedPoints(fluxCurve, bins, binWidth(spectrum, binCount(summary.snrMeasured))),
+    [fluxCurve, bins, spectrum, summary.snrMeasured],
+  );
+  const visits = useMemo(() => visitMeans(corrected), [corrected]);
+  // Offered only when the whole set has signal and enough exposures fall where the binned spectrum is clear.
+  const correctable = summary.combinedSnr !== undefined && summary.combinedSnr >= SIGNAL_THRESHOLD
+    && corrected.filter((p) => p.y !== null).length >= MIN_POINTS_PER_VISIT;
+  const correctedY = useMemo(() => [1 - NOISE_FLOOR, 1 + NOISE_FLOOR, ...visits.flatMap((v) => [v.r - v.err, v.r + v.err])], [visits]);
+  const showCorrected = correctable && lc === "rel";
+  const change = changeVerdict(visits, { warned: !!data.warnings?.length, mock: data.mode === "mock", available: correctable });
   const meanMag = summary.mean && toAbMag(summary.mean.y, summary.mean.err);
   const meanText = !summary.mean ? "—" : ab
     ? meanMag ? `${meanMag.mag.toFixed(2)} ± ${meanMag.err.toFixed(2)} AB mag` : "—"
@@ -182,6 +196,7 @@ function Body({
         <div className="phot-tile"><span>Dates</span><strong className="phot-dates">{summary.firstMjd === undefined ? "—" : mjdToDay(summary.firstMjd)} – {summary.lastMjd === undefined ? "—" : mjdToDay(summary.lastMjd)}</strong><small>{summary.visits.length} {summary.visits.length === 1 ? "visit" : "visits"}</small></div>
         {summary.mean && <div className="phot-tile"><span>Mean flux</span><strong>{meanText}</strong><small>weighted, whole range</small></div>}
         <div className="phot-tile"><span>Brightest at</span><strong>{summary.brightest === undefined ? "—" : `${summary.brightest.toFixed(2)} µm`}</strong><small>{summary.brightest === undefined ? "signal too weak" : "weighted bin"}</small></div>
+        <div className={`phot-tile change-tile ${change.tone}`} title={`Changed? ${change.value}: ${change.detail}`}><span>Changed?</span><strong>{change.value}</strong><small>{change.detail}</small></div>
       </div>
       {summary.snrMeasured > 0 && summary.snrMeasured < measured && <p className="hint">Mean flux, combined and typical single-exposure S/N, Brightest at and the binned line use {summary.snrMeasured} of {measured} measured exposures with positive errors.</p>}
       <p className={`phot-verdict ${signal.tone}`}><span aria-hidden="true" />{signal.text}</p>
@@ -220,15 +235,41 @@ function Body({
             </g>} />
         </figure>
         <figure>
-          <div className="chart-heading"><h3>Light curve</h3><span>Brightness against time</span></div>
-          <Chart {...chartSelection("lightCurve")} points={lightCurve} invertY={ab} laneLabel={laneLabel} xLabel="Date (UTC)" yLabel={yLabel} xFormat={mjdToDay}
-            title={ab ? "Light curve: AB magnitude against time" : "Light curve: flux against time"} colour={byWavelength} tooltip={pointTooltip} />
+          <div className="chart-heading"><h3>Light curve</h3><span>Brightness against time</span>
+            <div className="phot-units">{(["raw", "rel"] as const).map((value) => <button key={value} type="button"
+              aria-pressed={(showCorrected ? "rel" : "raw") === value} disabled={value === "rel" && !correctable}
+              title={value === "rel" && !correctable ? CORRECTION_UNAVAILABLE : undefined}
+              onClick={() => onChange({ lc: value })}>{value === "raw" ? "Raw" : "Corrected"}</button>)}</div>
+          </div>
+          {!correctable && <p className="hint">{CORRECTION_UNAVAILABLE}</p>}
+          {showCorrected ? (
+            <Chart {...chartSelection("lightCurve")} points={corrected} pointOpacity={0.4} extraY={correctedY} xLabel="Date (UTC)"
+              yLabel="Relative to normal" xFormat={mjdToDay} title="Light curve: brightness relative to normal for each wavelength, against time"
+              colour={byWavelength} tooltip={pointTooltip}
+              underlay={({ sy, plot }) => <g className="noise-band">
+                <rect x={plot.left} width={plot.width} y={sy(1 + NOISE_FLOOR)} height={sy(1 - NOISE_FLOOR) - sy(1 + NOISE_FLOOR)} />
+                <line x1={plot.left} x2={plot.left + plot.width} y1={sy(1)} y2={sy(1)} />
+                <text x={plot.left + plot.width - 4} y={Math.max(plot.top + 11, sy(1 + NOISE_FLOOR) - 4)} textAnchor="end">±3.8% scatter of a steady check star</text>
+              </g>}
+              overlay={({ sx, sy }) => <g className="visit-overlay" aria-hidden="true">
+                {visits.map((v) => <g key={v.start} className={v.count < MIN_POINTS_PER_VISIT ? "few" : undefined}>
+                  <line x1={sx(v.mjd)} x2={sx(v.mjd)} y1={sy(v.r - v.err)} y2={sy(v.r + v.err)} className="visit-error" />
+                  <line x1={sx(v.mjd) - 5} x2={sx(v.mjd) + 5} y1={sy(v.r - v.err)} y2={sy(v.r - v.err)} className="visit-cap" />
+                  <line x1={sx(v.mjd) - 5} x2={sx(v.mjd) + 5} y1={sy(v.r + v.err)} y2={sy(v.r + v.err)} className="visit-cap" />
+                  <circle cx={sx(v.mjd)} cy={sy(v.r)} r={6} />
+                </g>)}
+              </g>} />
+          ) : (
+            <Chart {...chartSelection("lightCurve")} points={lightCurve} invertY={ab} laneLabel={laneLabel} xLabel="Date (UTC)" yLabel={yLabel} xFormat={mjdToDay}
+              title={ab ? "Light curve: AB magnitude against time" : "Light curve: flux against time"} colour={byWavelength} tooltip={pointTooltip} />
+          )}
         </figure>
       </div>
       <p className="hint">
         Each exposure sees this point at a different wavelength, so in a wide wavelength range the light curve
         mixes colour with change. Narrow the range to compare like with like.
       </p>
+      {showCorrected && <p className="hint">Corrected: each exposure is divided by the binned spectrum at its wavelength, so colour is removed and 1.0 means usual brightness.</p>}
       <p className="hint error-caveat">The error bars cover background noise only: for bright sources the scatter between exposures is larger (3.8% for a 0.14 Jy check star), so treat smaller changes as not significant.</p>
       <details className="phot-method"><summary>How this is measured</summary>
       <ApertureDiagram />
@@ -257,6 +298,8 @@ function Body({
       <p className="hint">S/N here is the aperture flux divided by its background-noise error. It overstates the significance for bright sources (see the error-bar note).</p>
       <p className="hint">The binned line is the inverse-variance weighted mean of the points in equal-width wavelength bins, with its ±1σ error as the shaded band.</p>
       <p className="hint">AB magnitude = −2.5 log10(flux / 3631 Jy) (Oke &amp; Gunn 1983).</p>
+      <p className="hint">Corrected light curve: each exposure's flux is divided by the binned spectrum at its wavelength (linear between bins, used only where the spectrum's S/N is at least 5). Exposures are grouped into visits more than 60 days apart and averaged with inverse-variance weights. Each visit's error includes the 3.8% exposure-to-exposure scatter of a steady check star, not reduced by averaging.</p>
+      <p className="hint">Changed? compares the visit averages: a difference of at least 5 times the combined error is reported as a change. Not judged when the API warns about the aperture or the data. Now: {change.value}, {change.detail}.</p>
       </details>
     </>
   );
