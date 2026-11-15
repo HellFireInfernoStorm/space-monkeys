@@ -32,7 +32,7 @@ from .sampling import sample_evenly
 from .targets import TARGETS, parallax_offset, position_at_mjd
 
 # Bump when the stacking changes, so old cached stacks are not reused.
-STACK_VERSION = 11
+STACK_VERSION = 12
 
 _lock = threading.Lock()
 
@@ -231,8 +231,9 @@ def _compute(settings: Settings, req: StackRequest) -> tuple[dict, dict[str, np.
     built = stacking.build(inputs, n, PIXEL_SCALE_ARCSEC, req.has_motion)
     if fitted_neighbours:
         notes.append(
-            "A known field star is included in the target's two-source motion-fit model; "
-            "its catalogue position uncertainty is not included in the bootstrap errors."
+            f"A known field star ({', '.join(sorted(fitted_neighbours))}) is included in the target's "
+            "two-source motion-fit model; its catalogue position uncertainty is not included in the "
+            "bootstrap errors."
         )
 
     def describe(stack: stacking.Stack | None) -> m.StackImage | None:

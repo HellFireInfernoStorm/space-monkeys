@@ -26,11 +26,17 @@ Required WISE/NEOWISE acknowledgement (layer 4; on the project page and in the s
 
 ## Space agency partner and other data
 
-The approximate fixed field-neighbour position used for WISE 0855 (RA 133.7582, Dec -7.2412) was supplied in the team's [live-check issue #4](https://github.com/HellFireInfernoStorm/space-monkeys/issues/4). Its underlying catalogue identifier, position uncertainty and licence are **unknown**; [question #6](https://github.com/HellFireInfernoStorm/space-monkeys/issues/6) requests them. The fit attributes the supplied position to that issue and does not treat the bootstrap error as a complete error budget.
+The fixed field star next to WISE 0855 is **Gaia DR3 5756956644387831296** (answer to [question #6](https://github.com/HellFireInfernoStorm/space-monkeys/issues/6), read from the ESA Gaia archive on 2026-11-15): RA 133.75818250, Dec -7.24115591 (ICRS, epoch 2016.0), position errors 0.04 and 0.03 mas, proper motion -6.19, +1.93 mas/yr, G = 16.31. `targets.py` uses this position and names the star in the warnings; it replaces the rounded position (RA 133.7582, Dec -7.2412) first found in [issue #4](https://github.com/HellFireInfernoStorm/space-monkeys/issues/4). Credit and terms: the Gaia DR3 row below.
+
+Required Gaia DR3 acknowledgement (the field star's position; on the project page, and in the site footer once the front end adds it). Text from the Gaia DR3 credit and citation instructions (https://gea.esac.esa.int/archive/documentation/GDR3/Miscellaneous/sec_credit_and_citation_instructions/), read 2026-11-15 from the Internet Archive copy because the Gaia archive did not respond:
+
+> This work has made use of data from the European Space Agency (ESA) mission Gaia (https://www.cosmos.esa.int/gaia), processed by the Gaia Data Processing and Analysis Consortium (DPAC, https://www.cosmos.esa.int/web/gaia/dpac/consortium). Funding for the DPAC has been provided by national institutions, in particular the institutions participating in the Gaia Multilateral Agreement.
+
+The same page asks users to cite the Gaia mission paper (Gaia Collaboration et al. 2016b, "The Gaia mission") and the Gaia DR3 release paper (Gaia Collaboration et al. 2023j, "Gaia DR3: Summary of the contents and survey properties").
 
 | Resource | How we use it | Link | Credit and terms |
 | --- | --- | --- | --- |
-| Gaia Data Release 3 (European Space Agency) | Positions and proper motions of the test targets (through SIMBAD); planned catalogue overlay | https://www.cosmos.esa.int/web/gaia/dr3 | Gaia acknowledgement to be added when the overlay is built |
+| Gaia Data Release 3 (European Space Agency) | Positions and proper motions of the test targets (through SIMBAD); the position of the field star next to WISE 0855 (from the ESA Gaia archive); planned catalogue overlay | https://www.cosmos.esa.int/web/gaia/dr3 | CC BY-NC 3.0 IGO (https://www.cosmos.esa.int/web/gaia-users/license, read 2026-11-15; commercial use falls under the ESA archive terms). Acknowledgement and papers to cite: above the table. **Not yet on the project page or the site footer** |
 | SIMBAD astronomical database (CDS, Strasbourg) | Catalogue values for the five test targets, queried 2026-11-14 | https://simbad.cds.unistra.fr/simbad/ | "This research has made use of the SIMBAD database, operated at CDS, Strasbourg, France." |
 | NASA/IPAC Extragalactic Database (NED), name lookup for "M42" | Position of the Orion Nebula, where the sky map opens before a position is chosen (`DEFAULT_SKY_CENTRE` in `frontend/src/skyMaps.ts`), read 2026-11-15 | https://ned.ipac.caltech.edu/ | Acknowledgement: "This research has made use of the NASA/IPAC Extragalactic Database (NED), which is funded by the National Aeronautics and Space Administration and operated by the California Institute of Technology." |
 | Kirkpatrick et al. 2021, ApJS 253, 7 | Position, proper motion and parallax of WISE 0855 (through SIMBAD) | bibcode 2021ApJS..253....7K | Citation |

@@ -104,7 +104,7 @@ def test_known_neighbour_in_the_aperture_is_found_along_the_motion():
     found = phot.neighbours_in_aperture(t.ra, t.dec, t.pmra, t.pmdec, t.epoch, t.parallax, [60801.0, 61160.0])
     assert len(found) == 1
     source, closest, farthest = found[0]
-    assert source == t.neighbours[0].source
+    assert source == t.neighbours[0].source == "Gaia DR3 5756956644387831296"
     assert 3.0 < closest < farthest < 12.0
     # Far from it (the 2000 position, two arcminutes away), nothing is found.
     assert phot.neighbours_in_aperture(t.ra, t.dec, 0, 0, 2000, 0, [60801.0]) == []
