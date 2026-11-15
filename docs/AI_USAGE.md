@@ -48,6 +48,8 @@ Rules that apply to everything listed here:
 
 | 2026-11-15 | Thisal | OpenAI Codex | Revised the visual direction after user feedback: light document-like surfaces, serif wordmark and section headings, flat measurement groups, conventional blue controls and chart marks adapted for white backgrounds; retained the workbench layout | `frontend/src/styles.css`; frontend checks and browser review in PR #40 | Not yet |
 
+| 2026-11-15 | Thisal | OpenAI Codex | Restored dark mode at the user’s request, removed serif typography, squared panel and control edges, retained flat measurement groups, and adjusted charts, warnings and focus colors for dark surfaces | `frontend/src/styles.css`; checks and preview in PR #40 | Not yet |
+
 ## Draft statement for the project page
 
 Keep this current; copy it to the project page at submission.
