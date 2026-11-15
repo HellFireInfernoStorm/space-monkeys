@@ -20,6 +20,13 @@ declare module "aladin-lite" {
   export interface AladinInstance {
     gotoRaDec(ra: number, dec: number): void;
     setBaseImageLayer(survey: AladinHiPS | string): void;
+    setFrame(frame: string): void;
+    getFov(): [number, number];
+    setFoV(degrees: number): void;
+    world2pix(ra: number, dec: number, frame?: string): [number, number] | undefined;
+    pix2world(x: number, y: number, frame?: string): [number, number];
+    on(event: "click", callback: (point: { ra: number; dec: number; x: number; y: number; isDragging: boolean }) => void): void;
+    on(event: "zoomChanged" | "positionChanged" | "resizeChanged", callback: () => void): void;
   }
 
   export interface AladinApi {
@@ -27,6 +34,7 @@ declare module "aladin-lite" {
     init: Promise<unknown>;
     aladin(element: HTMLElement, options: Record<string, unknown>): AladinInstance;
     HiPS(address: string, options?: AladinHiPSOptions): AladinHiPS;
+    coo(ra: number, dec: number, precision: number): { format(style: "s"): string };
   }
 
   const A: AladinApi;

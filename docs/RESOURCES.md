@@ -87,4 +87,6 @@ Front end:
 
 ## Images, fonts, icons, text
 
-None yet. The site uses system fonts and no icon set.
+The site uses system fonts and no icon set. Layout controls use plain Unicode characters.
+
+The issue #10 screenshots in `docs/screenshots/issue-10/` show our own interface and mock frames, plus the existing Aladin Lite/AllWISE sky map (credits and terms above). The live Barnard and WISE validation screenshots also show SPHEREx DR1/QR3 data (credits above). These are validation screenshots, not new image assets used by the site.

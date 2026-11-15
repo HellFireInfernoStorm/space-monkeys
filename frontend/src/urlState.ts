@@ -6,6 +6,8 @@ export type ViewMode = "blink" | "diff" | "stack";
 export type SkyLayer = "wise" | "spherex";
 export type WiseBand = "W1" | "W2";
 export type CompareMode = "side" | "blink";
+export type CoordinateFrame = "ICRS" | "ICRSd" | "Galactic";
+export type WorkbenchTab = "sky" | "spectrum";
 
 export interface ViewState {
   /** Right Ascension in degrees (ICRS) at `epoch`. Null until a position is chosen. */
@@ -34,6 +36,8 @@ export interface ViewState {
   track: boolean;
   /** Background survey in the wide-field sky map. */
   sky: SkyLayer;
+  frame: CoordinateFrame;
+  tab: WorkbenchTab;
   /** Label of the chosen target, for display only. */
   name: string;
   /** Show the spectrum and light-curve panel (layer 3). */
@@ -66,6 +70,8 @@ export const DEFAULT_VIEW: ViewState = {
   mode: "blink",
   track: false,
   sky: "wise",
+  frame: "ICRSd",
+  tab: "sky",
   name: "",
   phot: false,
   pra: null,
@@ -118,6 +124,11 @@ export function parseView(search: string): ViewState {
     mode: mode === "diff" || mode === "stack" ? mode : "blink",
     track: p.get("track") === "1",
     sky: sky === "spherex" ? "spherex" : "wise",
+    frame: p.get("frame") === "ICRS" || p.get("frame") === "Galactic"
+      ? p.get("frame") as CoordinateFrame : "ICRSd",
+    // Old measurement links should still open their spectrum panel.
+    tab: p.get("tab") === "spectrum" || (!p.has("tab") && p.get("phot") === "1")
+      ? "spectrum" : "sky",
     name: (p.get("name") ?? "").slice(0, 80),
     phot: p.get("phot") === "1",
     pra: hasPoint ? pra : null,
@@ -146,6 +157,9 @@ export function serializeView(view: ViewState): string {
   if (view.mode !== DEFAULT_VIEW.mode) p.set("mode", view.mode);
   if (view.track) p.set("track", "1");
   if (view.sky !== DEFAULT_VIEW.sky) p.set("sky", view.sky);
+  if (view.frame !== DEFAULT_VIEW.frame) p.set("frame", view.frame);
+  // Explicit sky preserves a measured target while looking at the map.
+  if (view.tab !== DEFAULT_VIEW.tab || view.phot) p.set("tab", view.tab);
   if (view.name) p.set("name", view.name);
   if (view.phot) p.set("phot", "1");
   if (view.pra !== null && view.pdec !== null) {

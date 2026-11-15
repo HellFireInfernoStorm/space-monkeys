@@ -17,6 +17,7 @@ import {
 } from "./api";
 import AladinPanel from "./components/AladinPanel";
 import BlinkPlayer from "./components/BlinkPlayer";
+import ControlsDrawer from "./components/ControlsDrawer";
 import PhotometryPanel from "./components/PhotometryPanel";
 import WiseCompare, { type SpherexImage } from "./components/WiseCompare";
 import StackView from "./components/StackView";
@@ -24,7 +25,8 @@ import TargetPicker from "./components/TargetPicker";
 import ViewForm from "./components/ViewForm";
 import { isNewView, parseView, serializeView, type ViewState } from "./urlState";
 import { framePixels } from "./wiseCompare";
-import { WISE_EPOCH, wiseViewUrl } from "./wiseview";
+import { wiseViewUrl } from "./wiseview";
+import { viewForTypedPosition } from "./targetView";
 
 const ACKNOWLEDGEMENT =
   "This publication makes use of data products from the Spectro-Photometer for the History of the " +
@@ -41,12 +43,16 @@ type FramesState =
 
 export default function App() {
   const [view, setView] = useState<ViewState>(() => parseView(window.location.search));
+  const [skyVisited, setSkyVisited] = useState(() => view.tab === "sky");
   const [health, setHealth] = useState<Health | null>(null);
   const [bands, setBands] = useState<Band[]>([]);
   const [targets, setTargets] = useState<Target[]>([]);
   const [startError, setStartError] = useState<string | null>(null);
   const [frames, setFrames] = useState<FramesState>({ status: "idle" });
   const [stack, setStack] = useState<StackResult | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(true);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const tabButtons = useRef<Array<HTMLButtonElement | null>>([]);
   const [shownFrame, setShownFrame] = useState<Frame | null>(null);
 
   const update = useCallback((change: Partial<ViewState>) => {
@@ -58,7 +64,12 @@ export default function App() {
       return next;
     });
   }, []);
-  const pick = useCallback((pra: number, pdec: number) => update({ phot: true, pra, pdec }), [update]);
+  const pick = useCallback((pra: number, pdec: number) => update({ phot: true, pra, pdec, tab: "spectrum" }), [update]);
+
+  // Initialise WebGL only with a visible, sized container. Once opened, keep the map mounted.
+  useEffect(() => {
+    if (view.tab === "sky") setSkyVisited(true);
+  }, [view.tab]);
 
   // Keep the address bar in step with the view, so the link can always be copied.
   // A new target, position, range or mode is a new history entry, so Back returns to the
@@ -165,35 +176,42 @@ export default function App() {
   return (
     <div className="page">
       <header className="top">
-        <div>
-          <h1>Sky Workbench</h1>
-          <p className="tagline">
-            Watch the infrared sky change: SPHEREx images over time for any position.
-          </p>
+        <button type="button" ref={menuButton} className="menu-button"
+          aria-label={drawerOpen ? "Hide controls" : "Show controls"}
+          aria-expanded={drawerOpen} aria-controls="controls-drawer"
+          onClick={() => setDrawerOpen((open) => !open)}>☰ <span>Menu</span></button>
+        <h1>Sky Workbench</h1>
+        <div className="view-summary">
+          <span className="summary-position">{ra !== null && dec !== null
+            ? `RA ${ra.toFixed(5)}°, Dec ${dec.toFixed(5)}°` : "No position yet"}</span>
+          <span>{wlmin === null && wlmax === null ? "All wavelengths"
+            : wlmin === null ? `≤ ${wlmax} µm` : wlmax === null ? `≥ ${wlmin} µm` : `${wlmin}–${wlmax} µm`}</span>
+          {mode && (
+            <span className={`badge badge-${mode}`} title="Which data the back end is serving">
+              {mode === "mock" ? "Mock data (synthetic, not real sky)" : "Live data"}
+            </span>
+          )}
         </div>
-        {mode && (
-          <span className={`badge badge-${mode}`} title="Which data the back end is serving">
-            {mode === "mock" ? "Mock data (synthetic, not real sky)" : "Live data"}
-          </span>
-        )}
       </header>
+
+      <ControlsDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} trigger={menuButton}>
+        <h2>Target</h2>
+        <TargetPicker targets={targets} view={view} onPick={(change) => { update(change); setDrawerOpen(false); }} />
+        <h2>Position and view</h2>
+        <ViewForm
+          key={serializeView({ ...view, speed: 2, mode: "blink", sky: "wise", frame: "ICRSd", tab: "sky", track: false })}
+          view={view} bands={bands}
+          onApply={(change) => {
+            update(change);
+            if ("ra" in change) setDrawerOpen(false);
+          }}
+        />
+      </ControlsDrawer>
 
       {startError && <p className="notice error">{startError}</p>}
 
       <main className="layout">
-        <section className="panel controls">
-          <h2>Target</h2>
-          <TargetPicker targets={targets} view={view} onPick={update} />
-          <h2>Position and view</h2>
-          <ViewForm
-            key={serializeView({ ...view, speed: 2, mode: "blink", sky: "wise", track: false })}
-            view={view}
-            bands={bands}
-            onApply={update}
-          />
-        </section>
-
-        <section className="panel">
+        <section className="panel frames-panel">
           <h2>
             {stackMode
               ? view.name
@@ -236,53 +254,53 @@ export default function App() {
         </section>
 
 
-        <section className="panel">
-          <h2>Wider view</h2>
-          {mapRa !== null && mapDec !== null ? (
-            <>
-              <AladinPanel ra={mapRa} dec={mapDec} sky={view.sky} onSky={(sky) => update({ sky })} />
-              <p className="links">
-                <a
-                  href={wiseViewUrl(
-                    ra !== null && dec !== null ? { ra, dec, pmra, pmdec, epoch } : { ra: mapRa, dec: mapDec },
-                    Math.max(size, 176),
-                  )}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Compare with WISE images from 2010 onward in WiseView (centred where the object was in{" "}
-                  {WISE_EPOCH})
-                </a>
-              </p>
-            </>
-          ) : (
-            <p className="hint">The sky map appears once a position is chosen.</p>
-          )}
-        </section>
-
-        {ra !== null && dec !== null && (
-          <section className="panel full-width">
-            <h2>Spectrum and light curve</h2>
-            {view.phot ? (
+        <section className="panel workbench-panel">
+          <div className="workbench-tabs" role="tablist" aria-label="Sky and measurements">
+            {(["sky", "spectrum"] as const).map((tab, index) => (
+              <button type="button" key={tab} role="tab" id={`tab-${tab}`}
+                ref={(element) => { tabButtons.current[index] = element; }}
+                aria-controls={`panel-${tab}`} aria-selected={view.tab === tab}
+                tabIndex={view.tab === tab ? 0 : -1}
+                onClick={() => update({ tab })}
+                onKeyDown={(event) => {
+                  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+                  event.preventDefault();
+                  const next = event.key === "Home" ? 0 : event.key === "End" ? 1 : 1 - index;
+                  update({ tab: next === 0 ? "sky" : "spectrum" });
+                  tabButtons.current[next]?.focus();
+                }}
+              >{tab === "sky" ? "Sky map" : "Spectrum & light curve"}</button>
+            ))}
+          </div>
+          <div id="panel-sky" role="tabpanel" aria-labelledby="tab-sky" hidden={view.tab !== "sky"}
+            className="sky-tab" tabIndex={0}>
+            {mapRa !== null && mapDec !== null ? skyVisited && (
+              <AladinPanel ra={mapRa} dec={mapDec} sky={view.sky} frame={view.frame}
+                onChange={update}
+                onPosition={(newRa, newDec) => update(viewForTypedPosition(view, newRa, newDec, {}))}
+                wiseUrl={wiseViewUrl(
+                  ra !== null && dec !== null ? { ra, dec, pmra, pmdec, epoch } : { ra: mapRa, dec: mapDec },
+                  Math.max(size, 176),
+                )}
+              />
+            ) : <p className="hint tab-hint">The sky map appears once a position is chosen.</p>}
+          </div>
+          <div id="panel-spectrum" role="tabpanel" aria-labelledby="tab-spectrum" hidden={view.tab !== "spectrum"}
+            className="spectrum-tab" tabIndex={0}>
+            {ra !== null && dec !== null ? view.phot ? (
               <>
                 <PhotometryPanel view={view} onChange={update} />
-                <button type="button" onClick={() => update({ phot: false, pra: null, pdec: null })}>
-                  Close
-                </button>
+                <button type="button" onClick={() => update({ phot: false, pra: null, pdec: null })}>Close</button>
               </>
             ) : (
               <>
-                <p className="hint">
-                  Measure the brightness in every exposure: against wavelength for a spectrum, against time for a
-                  light curve. Click a point in the frames, or measure the target itself.
-                </p>
-                <button type="button" className="primary" onClick={() => update({ phot: true })}>
-                  Measure {view.name || "this position"}
-                </button>
+                <p className="hint">Measure the brightness in every exposure: against wavelength for a spectrum,
+                  against time for a light curve. Click a point in the frames, or measure the target itself.</p>
+                <button type="button" className="primary" onClick={() => update({ phot: true })}>Measure this target</button>
               </>
-            )}
-          </section>
-        )}
+            ) : <p className="hint">Pick a target or enter a position to measure its brightness.</p>}
+          </div>
+        </section>
 
         {ra !== null && dec !== null && (
           <section className="panel full-width">
