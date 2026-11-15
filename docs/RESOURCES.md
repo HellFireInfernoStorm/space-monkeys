@@ -97,6 +97,8 @@ Front end:
 
 ## Images, fonts, icons, text
 
+Plate-solving verification (#22): Gaia DR3 `gaiadr3.gaia_source` reference-star positions and proper motions, queried from the ESA Gaia Archive TAP service. Source: https://www.cosmos.esa.int/web/gaia/dr3 and https://www.cosmos.esa.int/web/gaia-users/credits . Licence and exact DR3 acknowledgement **unconfirmed**, tracked in [#27](https://github.com/HellFireInfernoStorm/space-monkeys/issues/27). No catalogue dump is committed. Existing Astropy (BSD-3-Clause) is used for distortion-aware WCS and epoch propagation; reference: https://docs.astropy.org/en/stable/coordinates/apply_space_motion.html . No new dependency.
+
 The site uses system fonts and no icon set. Layout controls use plain Unicode characters.
 
 The issue #10 screenshots in `docs/screenshots/issue-10/` show our own interface and mock frames, plus the existing Aladin Lite/AllWISE sky map (credits and terms above). The live Barnard and WISE validation screenshots also show SPHEREx DR1/QR3 data (credits above). These are validation screenshots, not new image assets used by the site.

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { type Frame, type FrameList } from "../api";
+import { type AlignmentResult, type Frame, type FrameList } from "../api";
+import AlignmentPanel, { MatchOverlay } from "./AlignmentPanel";
 import { colourSpread, imageAddress, REFERENCE_LABEL } from "../blink";
 import { clickToSky } from "../photometry";
 import { framePixels } from "../wiseCompare";
@@ -8,6 +9,7 @@ import { LIMITS, type ViewMode, type ViewState } from "../urlState";
 import ModeToggle from "./ModeToggle";
 
 interface Props {
+  showMatches: boolean;
   list: FrameList;
   speed: number;
   mode: ViewMode;
@@ -37,10 +39,11 @@ function targetSpot(frame: Frame, extentArcsec: number): { left: number; top: nu
 }
 
 /** Shows the frames one after another (blink), or each one minus the first (difference). */
-export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPick }: Props) {
+export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPick, showMatches }: Props) {
   const frames = list.frames;
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [alignment, setAlignment] = useState<AlignmentResult | null>(null);
 
   useEffect(() => {
     if (!playing || frames.length < 2) return;
@@ -92,6 +95,9 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPi
         </p>
       )}
 
+      <AlignmentPanel frame={current} extent={pixels * list.pixel_scale} showMatches={showMatches}
+        onMatches={(matches) => onChange({ matches })} onResult={setAlignment} />
+      {mode === "diff" && <p className="hint">Star matches refer to this exposure, not detections in the difference image. The reference exposure is not independently checked here.</p>}
       <div
         className={onPick ? "stage pickable" : "stage"}
         aria-label={`Frame ${index + 1} of ${frames.length}`}
@@ -118,6 +124,8 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPi
             draggable={false}
           />
         ))}
+        {showMatches && alignment && alignment.exposure_id === current.exposure_id &&
+          <MatchOverlay result={alignment} frame={current} extent={pixels * list.pixel_scale} />}
         {spotVisible && (
           <span
             className="reticle"

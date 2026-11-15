@@ -739,3 +739,27 @@ body:has(.sky-map.expanded) { overflow: hidden; }
 @container (max-width: 760px) {
   .map-cube-slider { left: 12px; right: 12px; width: auto; transform: none; bottom: 128px; }
 }
+/* Independent alignment evidence stays visible immediately above the exposure. */
+.alignment-panel { border: 1px solid var(--muted, #718096); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.alignment-panel p { margin: 8px 0; }
+.alignment-toggle { display: inline-flex; align-items: center; gap: 8px; margin: 8px; }
+.alignment-table { overflow-x: auto; max-height: 260px; }
+.alignment-table table { font-size: .8rem; border-collapse: collapse; width: 100%; }
+.alignment-table th, .alignment-table td { padding: 6px; text-align: left; white-space: nowrap; }
+.alignment-compass { font-size: .8rem; overflow-wrap: anywhere; }
+.match-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.match-overlay g { fill: none; stroke: #ffe077; stroke-width: .35; }
+.match-overlay circle { stroke: #7ef9ff; }
+.match-overlay .rejected { stroke-dasharray: 1 1; }
+
+@media (max-width: 1099px) {
+  .page { min-width: 0; }
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .top { grid-template-columns: auto 1fr; gap: 8px; }
+  .view-summary { grid-column: 1 / -1; justify-content: flex-start; }
+  .summary-position { white-space: normal; }
+  .frames-panel { height: auto; overflow: visible; scrollbar-gutter: auto; }
+  .workbench-panel { height: 680px; }
+  .transport { flex-wrap: wrap; }
+  .alignment-panel { overflow-wrap: anywhere; }
+}

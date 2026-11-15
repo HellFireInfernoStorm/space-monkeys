@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     # IRSA Simple Image Access service.
     sia_url: str = "https://irsa.ipac.caltech.edu/SIA"
 
+    # Independent astrometric check; catalogue names and endpoints stay here.
+    astrometry_tap_url: str = "https://gea.esac.esa.int/tap-server/tap/sync"
+    astrometry_catalogue: str = "gaiadr3.gaia_source"
+    astrometry_catalogue_url: str = "https://www.cosmos.esa.int/web/gaia/dr3"
+    astrometry_timeout_s: float = 30.0
+    astrometry_io_timeout_s: float = 10.0
+
     # Collections searched together. A new data release is one more name here.
     collections: Annotated[list[str], NoDecode] = [
         "spherex_dr1",
