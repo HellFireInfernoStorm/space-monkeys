@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
-import { type Frame, type FrameList } from "../api";
+import { type AlignmentResult, type Frame, type FrameList } from "../api";
+import AlignmentPanel, { MatchOverlay } from "./AlignmentPanel";
 import { colourSpread, imageAddress, playbackShortcut, REFERENCE_LABEL } from "../blink";
 import { clickToSky } from "../photometry";
 import { framePixels } from "../wiseCompare";
@@ -8,6 +9,7 @@ import { LIMITS, type ViewMode, type ViewState } from "../urlState";
 import ModeToggle from "./ModeToggle";
 
 interface Props {
+  showMatches: boolean;
   list: FrameList;
   speed: number;
   mode: ViewMode;
@@ -41,10 +43,11 @@ function targetSpot(frame: Frame, extentArcsec: number): { left: number; top: nu
 }
 
 /** Shows the frames one after another (blink), or each one minus the first (difference). */
-export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPick, requestedFrame, onRequestResult }: Props) {
+export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPick, showMatches, requestedFrame, onRequestResult }: Props) {
   const frames = list.frames;
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [alignment, setAlignment] = useState<AlignmentResult | null>(null);
   const player = useRef<HTMLDivElement>(null);
   const hasShortcuts = frames.length > 1;
 
@@ -163,6 +166,9 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPi
         </p>
       )}
 
+      <AlignmentPanel frame={current} extent={pixels * list.pixel_scale} showMatches={showMatches} mode={list.mode}
+        onMatches={(matches) => onChange({ matches })} onResult={setAlignment} />
+      {mode === "diff" && <p className="hint">Star matches refer to this exposure, not detections in the difference image. The reference exposure is not independently checked here.</p>}
       <div
         className={onPick ? "stage pickable" : "stage"}
         aria-label={`Frame ${index + 1} of ${frames.length}`}
@@ -189,6 +195,8 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPi
             draggable={false}
           />
         ))}
+        {showMatches && alignment && alignment.exposure_id === current.exposure_id &&
+          <MatchOverlay result={alignment} frame={current} extent={pixels * list.pixel_scale} />}
         {spotVisible && (
           <span
             className="reticle"
@@ -200,6 +208,9 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPi
           <span className="stage-label">{REFERENCE_LABEL}</span>
         )}
         <span className="compass">N up, E left</span>
+        <span className="angular-scale" style={{ width: "20%" }}>
+          {(pixels * list.pixel_scale / 5).toFixed(0)}″
+        </span>
       </div>
       {hasShortcuts && (
         <p className="hint">Space to play or pause · ← / → to step</p>

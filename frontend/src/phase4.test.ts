@@ -168,7 +168,7 @@ describe("frame player, phase 4", () => {
     const root = createRoot(container);
     const results: Array<[string, boolean]> = [];
     const show = (requestedFrame: { id: string; nonce: number } | null) => createElement(BlinkPlayer, {
-      list, speed: 2, mode: "blink", onChange: () => {}, requestedFrame,
+      list, speed: 2, mode: "blink", onChange: () => {}, showMatches: false, requestedFrame,
       onRequestResult: (request: { id: string }, found: boolean) => results.push([request.id, found]),
     });
     await act(async () => root.render(show(null)));

@@ -13,6 +13,8 @@ export type CoordinateFrame = "ICRS" | "ICRSd" | "Galactic";
 export type WorkbenchTab = "sky" | "spectrum";
 
 export interface ViewState {
+  /** Show independently matched reference stars on exposure images. */
+  matches: boolean;
   /** Right Ascension in degrees (ICRS) at `epoch`. Null until a position is chosen. */
   ra: number | null;
   /** Declination in degrees (ICRS) at `epoch`. */
@@ -69,6 +71,7 @@ export interface ViewState {
 }
 
 export const DEFAULT_VIEW: ViewState = {
+  matches: true,
   ra: null,
   dec: null,
   size: 120,
@@ -130,6 +133,7 @@ export function parseView(search: string): ViewState {
   const mode = p.get("mode");
   const sky = p.get("sky");
   return {
+    matches: p.get("matches") !== "0",
     ra: hasPosition ? ra : null,
     dec: hasPosition ? dec : null,
     size: numberIn(p.get("size"), ...LIMITS.size) ?? DEFAULT_VIEW.size,
@@ -164,6 +168,7 @@ export function parseView(search: string): ViewState {
 /** Write the view as a query string (without the leading "?"). Defaults are left out. */
 export function serializeView(view: ViewState): string {
   const p = new URLSearchParams();
+  if (!view.matches) p.set("matches", "0");
   if (view.ra !== null && view.dec !== null) {
     p.set("ra", trim(view.ra, 7));
     p.set("dec", trim(view.dec, 7));
