@@ -77,8 +77,6 @@ interface Props {
   frame: CoordinateFrame;
   /** False while no position is chosen: the map shows a starting place, with no marker. */
   centred: boolean;
-  /** Field width in degrees when the map first opens. */
-  startFov: number;
   /** Null hides the WiseView link (no position chosen yet). */
   wiseUrl: string | null;
   onChange: (change: Partial<ViewState>) => void;
@@ -86,13 +84,15 @@ interface Props {
 }
 
 /** A wide-field sky map centred on the position, for context around the small frames. */
-export default function AladinPanel({ ra, dec, sky, wlmin, wlmax, skyf, frame, centred, startFov, wiseUrl, onChange, onPosition }: Props) {
+export default function AladinPanel({ ra, dec, sky, wlmin, wlmax, skyf, frame, centred, wiseUrl, onChange, onPosition }: Props) {
   const [clicked, setClicked] = useState<Point | null>(null);
   const clickedRef = useRef<Point | null>(null);
   const [currentPixel, setCurrentPixel] = useState<ScreenPoint>(null);
   const [clickedPixel, setClickedPixel] = useState<ScreenPoint>(null);
   const [coordinates, setCoordinates] = useState("");
-  const [fov, setFov] = useState(startFov);
+  // Opening width: wide on the starting place, the usual width on a chosen position.
+  const openingFov = useRef(centred ? MAP_FOV_DEG : DEFAULT_SKY_CENTRE.fov).current;
+  const [fov, setFov] = useState(openingFov);
   const [expanded, setExpanded] = useState(false);
   const expandButton = useRef<HTMLButtonElement>(null);
   const holder = useRef<HTMLDivElement>(null);
@@ -108,8 +108,6 @@ export default function AladinPanel({ ra, dec, sky, wlmin, wlmax, skyf, frame, c
   // so later changes do not rebuild it.
   const latest = useRef({ ra, dec, sky, frame });
   latest.current = { ra, dec, sky, frame };
-  // The width the map opened with; `startFov` changes once a position is chosen.
-  const openingFov = useRef(startFov).current;
 
   useEffect(() => {
     let cancelled = false;
@@ -199,15 +197,16 @@ export default function AladinPanel({ ra, dec, sky, wlmin, wlmax, skyf, frame, c
     }
   }, [ready, ra, dec]);
 
-  // The first chosen position zooms from the wide starting view to the usual one,
-  // unless the user has zoomed in or out since the map opened.
+  // Choosing a position zooms from the wide starting view to the usual width; going back to
+  // no position (Back) widens again. Either way only if the user has not zoomed since.
   const wasCentred = useRef(centred);
   useEffect(() => {
-    if (!ready || !map.current || wasCentred.current || !centred) return;
-    wasCentred.current = true;
+    if (!ready || !map.current || wasCentred.current === centred) return;
+    wasCentred.current = centred;
     const aladin = map.current.aladin;
-    if (Math.abs(aladin.getFov()[0] - openingFov) < 0.01) aladin.setFoV(MAP_FOV_DEG);
-  }, [ready, centred, openingFov]);
+    const [from, to] = centred ? [DEFAULT_SKY_CENTRE.fov, MAP_FOV_DEG] : [MAP_FOV_DEG, DEFAULT_SKY_CENTRE.fov];
+    if (Math.abs(aladin.getFov()[0] - from) < 0.01) aladin.setFoV(to);
+  }, [ready, centred]);
 
   useEffect(() => {
     if (!ready || !map.current) return;
@@ -302,7 +301,8 @@ export default function AladinPanel({ ra, dec, sky, wlmin, wlmax, skyf, frame, c
             aria-describedby="expand-help" aria-pressed={expanded} onClick={() => setExpanded((value) => !value)}>⛶</button>
           <span className="tooltip" role="tooltip" id="expand-help">{EXPAND_HELP}</span>
         </span>
-        {!centred && (
+        {/* Hidden while a clicked point's pop-up is open, so it never covers the pop-up. */}
+        {!centred && !clicked && (
           <p className="map-hint" role="status">
             Showing the {DEFAULT_SKY_CENTRE.name}. Drag to look around; click a spot and press
             “Show frames here” to see its exposures.

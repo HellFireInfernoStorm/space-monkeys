@@ -23,7 +23,7 @@ import WiseCompare, { type SpherexImage } from "./components/WiseCompare";
 import StackView from "./components/StackView";
 import TargetPicker from "./components/TargetPicker";
 import ViewForm from "./components/ViewForm";
-import { DEFAULT_SKY_CENTRE, MAP_FOV_DEG } from "./skyMaps";
+import { DEFAULT_SKY_CENTRE } from "./skyMaps";
 import { applyChange, isNewView, parseView, serializeView, type ViewState } from "./urlState";
 import { framePixels } from "./wiseCompare";
 import { wiseViewUrl } from "./wiseview";
@@ -274,7 +274,6 @@ export default function App() {
             {skyVisited && (
               <AladinPanel ra={mapRa ?? DEFAULT_SKY_CENTRE.ra} dec={mapDec ?? DEFAULT_SKY_CENTRE.dec}
                 centred={mapRa !== null && mapDec !== null}
-                startFov={mapRa !== null && mapDec !== null ? MAP_FOV_DEG : DEFAULT_SKY_CENTRE.fov}
                 sky={view.sky} frame={view.frame}
                 wlmin={wlmin} wlmax={wlmax} skyf={view.skyf}
                 onChange={update}
