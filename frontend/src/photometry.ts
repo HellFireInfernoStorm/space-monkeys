@@ -1,9 +1,14 @@
 // Layer 3: pure helpers for the spectrum and light-curve panel. No React, so they are easy to test.
 
-import type { PhotometryPoint } from "./api";
+import type { Band, PhotometryPoint } from "./api";
 
 /** One point ready to plot, flux in millijansky. A null flux means "could not be measured". */
 export interface PlotPoint {
+  id?: string;
+  mjd?: number;
+  detector?: number;
+  reason?: string | null;
+  bandpass?: number;
   x: number;
   y: number | null;
   err: number | null;
@@ -54,6 +59,11 @@ export function toPlotPoints(
   return points.map((p) => {
     const usable = isUsable(p);
     return {
+      id: p.exposure_id,
+      mjd: p.mjd,
+      detector: p.det_id,
+      reason: p.reason,
+      bandpass: p.lambda_width / 2,
       x: x(p),
       y: usable ? (p.flux as number) * factor : null,
       err: usable && p.flux_err !== null && p.flux_err !== undefined ? p.flux_err * factor : null,
@@ -183,4 +193,48 @@ const MJD_OF_UNIX_EPOCH = 40587;
 /** MJD to a calendar day, "2025-05-14". */
 export function mjdToDay(mjd: number): string {
   return new Date((mjd - MJD_OF_UNIX_EPOCH) * 86_400_000).toISOString().slice(0, 10);
+}
+
+
+/** Clip API bands to the axis, splitting adjacent overlaps at their midpoint. */
+export function bandStrips(bands: Band[], x0: number, x1: number) {
+  const sorted = [...bands].sort((a, b) => a.wl_min_um - b.wl_min_um);
+  return sorted.map((band, i) => {
+    const prev = sorted[i - 1];
+    const next = sorted[i + 1];
+    const left = prev && prev.wl_max_um > band.wl_min_um
+      ? (prev.wl_max_um + band.wl_min_um) / 2 : band.wl_min_um;
+    const right = next && band.wl_max_um > next.wl_min_um
+      ? (band.wl_max_um + next.wl_min_um) / 2 : band.wl_max_um;
+    return { band: band.band, left: Math.max(x0, left), right: Math.min(x1, right) };
+  }).filter((band) => band.right > band.left);
+}
+
+/** Pixel-space search; equal distances keep the first point in input order. */
+export function nearestPoint<T extends { px: number; py: number }>(points: T[], px: number, py: number, maxDistance = 24): T | undefined {
+  let nearest: T | undefined;
+  let distance = maxDistance ** 2;
+  for (const point of points) {
+    const d = (point.px - px) ** 2 + (point.py - py) ** 2;
+    if (d <= distance && (!nearest || d < distance)) {
+      nearest = point;
+      distance = d;
+    }
+  }
+  return nearest;
+}
+
+/** All chart geometry uses CSS pixels, including the separate missing-value lane. */
+export function chartGeometry(points: PlotPoint[], width: number, height = 240) {
+  const lane = points.some((p) => p.y === null) ? 18 : 0;
+  const plot = { left: 64, top: 22, width: Math.max(1, width - 108), height: height - 66 - lane };
+  const [x0, x1] = extent(points.map((p) => p.x));
+  const [y0, y1] = extent(points.filter((p) => p.y !== null).flatMap((p) => [p.y! - (p.err ?? 0), p.y! + (p.err ?? 0)]));
+  const sx = (x: number) => plot.left + (x - x0) / (x1 - x0) * plot.width;
+  const sy = (y: number) => plot.top + plot.height - (y - y0) / (y1 - y0) * plot.height;
+  const floor = plot.top + plot.height;
+  return { sx, sy, x0, x1, y0, y1, plot, floor, lane,
+    xTicks: ticks(x0, x1, Math.max(1, Math.floor(plot.width / 100))), yTicks: ticks(y0, y1, 5),
+    positioned: points.map((point) => ({ point, px: sx(point.x), py: point.y === null ? floor + 10 : sy(point.y) })),
+  };
 }

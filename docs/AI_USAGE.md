@@ -28,6 +28,8 @@ Rules that apply to everything listed here:
 | 2026-11-15 | Thisal | OpenAI Codex | Addressed PR #11 review: restored focus after leaving expanded map with Esc; corrected the initial 30-arcminute field after canvas resize and kept drawer scrollbar space stable; checked both desktop sizes, zoom preservation and spectrum-first links, then reran frontend checks | `frontend/src/components/AladinPanel.tsx`, `frontend/src/styles.css`, validation notes and review screenshots | Not yet |
 | 2026-11-15 | Chetha | Claude Code (Anthropic) | Diagnosed the IRSA 502 outage, found that a deep collection answering with no rows stopped the saved-search fallback, wrote the fix and its tests, and opened issue #13 | `backend/app/live_frames.py`, `backend/tests/test_live_frames.py` and issue #13 | Not yet |
 
+| 2026-11-15 | Thisal | OpenAI Codex | Implemented issue #19 Phase 1 chart layout, responsive SVG, linked hover and keyboard tooltips, missing-value lanes, API band strips and helper tests | Frontend chart components, photometry helpers/tests, stylesheet and architecture notes | Not yet |
+
 ## Draft statement for the project page
 
 Keep this current; copy it to the project page at submission.

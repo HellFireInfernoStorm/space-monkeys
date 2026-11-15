@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import type { PhotometryPoint } from "./api";
 import {
+  bandStrips,
+  chartGeometry,
+  nearestPoint,
   binCount,
   binPoints,
   clickToSky,
@@ -168,5 +171,53 @@ describe("links in warnings", () => {
   it("labels GitHub issues by number and other links by host", () => {
     expect(linkLabel("https://github.com/HellFireInfernoStorm/space-monkeys/issues/4")).toBe("issue #4");
     expect(linkLabel("https://irsa.ipac.caltech.edu/Missions/spherex.html")).toBe("irsa.ipac.caltech.edu");
+  });
+});
+
+
+describe("responsive chart geometry", () => {
+  it("keeps errors and negative values inside the plot and missing values in their lane", () => {
+    const points = [{ x: 1, y: -2, err: 3 }, { x: 2, y: null, err: null }];
+    const g = chartGeometry(points, 700);
+    expect(g.y0).toBeLessThan(-5);
+    expect(g.y1).toBeGreaterThan(1);
+    expect(g.positioned[0].py).toBeLessThan(g.floor);
+    expect(g.positioned[1].py).toBeGreaterThan(g.floor);
+    expect(g.lane).toBe(18);
+    expect(chartGeometry(points, 400).xTicks.length).toBeLessThan(g.xTicks.length);
+  });
+  it("survives hidden, single-point and all-unmeasured charts", () => {
+    for (const points of [[{ x: 1, y: 2, err: 0 }], [{ x: 1, y: null, err: null }], []]) {
+      const g = chartGeometry(points, 0);
+      expect(Number.isFinite(g.sx(1))).toBe(true);
+      expect(Number.isFinite(g.sy(0))).toBe(true);
+      expect(g.x1).toBeGreaterThan(g.x0);
+      expect(g.y1).toBeGreaterThan(g.y0);
+    }
+  });
+  it("finds the nearest pixel position within the radius, keeping the first tie", () => {
+    const points = [{ px: 10, py: 10 }, { px: 12, py: 10 }];
+    expect(nearestPoint(points, 11, 10)).toBe(points[0]);
+    expect(nearestPoint(points, 12, 10)).toBe(points[1]);
+    expect(nearestPoint(points, 100, 100)).toBeUndefined();
+    expect(nearestPoint(points, 10, 34)).toBe(points[0]);
+    expect(nearestPoint([], 0, 0)).toBeUndefined();
+  });
+  it("clips API bands and splits overlaps without changing the input", () => {
+    const bands = [{ band: 2, wl_min_um: 1.1, wl_max_um: 1.65 }, { band: 1, wl_min_um: 0.75, wl_max_um: 1.12 }];
+    expect(bandStrips(bands, 1, 1.5)).toEqual([
+      { band: 1, left: 1, right: 1.11 }, { band: 2, left: 1.11, right: 1.5 },
+    ]);
+    expect(bands[0].band).toBe(2);
+    expect(bandStrips([], 0, 5)).toEqual([]);
+    expect(bandStrips(bands, 3, 5)).toEqual([]);
+  });
+  it("carries exposure identity and tooltip fields into both chart views", () => {
+    const p = point({ usable: false, reason: "saturated" });
+    for (const x of [(p: PhotometryPoint) => p.wavelength, (p: PhotometryPoint) => p.mjd]) {
+      expect(toPlotPoints([p], "uJy", x)[0]).toMatchObject({
+        id: "e", mjd: 60800, detector: 6, reason: "saturated", bandpass: 0.0175, y: null,
+      });
+    }
   });
 });
