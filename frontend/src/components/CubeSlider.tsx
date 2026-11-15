@@ -24,7 +24,8 @@ export default function CubeSlider({ cube, frame, onCommit }: {
   const latest = useRef({ frame, onCommit });
   latest.current = { frame, onCommit };
 
-  useEffect(() => { setPending(frame); }, [frame]);
+  // A frame set from outside (a new wavelength range, Back) wins over a drag still settling.
+  useEffect(() => { window.clearTimeout(timer.current); setPending(frame); }, [frame]);
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
   function commit(next: number) {
