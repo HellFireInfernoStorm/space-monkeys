@@ -207,9 +207,11 @@ def native_stars(settings, exposure, ra, dec):
         raise ValueError("Exposure has no mirror location")
     kwargs = {}
     if exposure.cloud_url.startswith("https://"):
+        import aiohttp
+
         kwargs = {"use_fsspec": True, "fsspec_kwargs": {
             "block_size": 131072, "cache_type": "bytes",
-            "client_kwargs": {"timeout": __import__("aiohttp").ClientTimeout(
+            "client_kwargs": {"timeout": aiohttp.ClientTimeout(
                 total=settings.astrometry_io_timeout_s)},
         }}
     with fits.open(exposure.cloud_url, lazy_load_hdus=True, **kwargs) as hdus:
@@ -261,8 +263,12 @@ def solve(settings, exposure_id, ra, dec, target_ra, target_dec):
             east, north, peaks = mock._sources(ra, dec, result.field_arcsec/2, exposure)
             keep = peaks > 2
             east, north = east[keep], north[keep]
-            sky = np.column_stack(tangent_to_sky(ra, dec, east, north))
-            measured = np.column_stack(tangent_to_sky(ra, dec, east+0.4, north-0.2))
+            # Centroid markers sit on the actual drawn source positions; the mock
+            # reference catalogue has a small deliberately injected offset.
+            sky = np.column_stack(tangent_to_sky(ra, dec, east-0.4, north+0.2))
+            measured = np.column_stack(tangent_to_sky(ra, dec, east, north))
+            if exposure.detector == 6:
+                sky, measured = sky[:3], measured[:3]  # reproducible sparse-field demonstration
             ids = [f"synthetic-{i}" for i in range(len(sky))]
             result.catalogue = "Synthetic demonstration — not Gaia"
             result.catalogue_url = ""
@@ -285,7 +291,7 @@ def solve(settings, exposure_id, ra, dec, target_ra, target_dec):
         result.elapsed_s = round(time.monotonic()-started, 3)
         if settings.mode == "mock":
             result.provenance = "mock"
-            result.reason = "Mock demonstration: synthetic matches and offsets, not real measurements."
+            result.reason = "Mock demonstration (not real measurements). " + result.reason
         cache.put_json("alignment", key, result.model_dump())
         return result
     except (TimeoutError, OSError, ValueError, KeyError, ImportError) as error:

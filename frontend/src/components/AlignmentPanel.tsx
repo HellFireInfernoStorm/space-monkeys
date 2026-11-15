@@ -3,6 +3,7 @@ import { getAlignment, type AlignmentResult, type Frame } from "../api";
 import { alignmentLabel, alignmentSpot } from "../alignment";
 
 interface Props {
+  mode: "mock" | "live";
   frame: Frame;
   extent: number;
   showMatches: boolean;
@@ -11,7 +12,7 @@ interface Props {
 }
 
 /** Explicit checks avoid querying catalogues on every automatic blink transition. */
-export default function AlignmentPanel({ frame, extent, showMatches, onMatches, onResult }: Props) {
+export default function AlignmentPanel({ frame, extent, showMatches, onMatches, onResult, mode }: Props) {
   const [state, setState] = useState<{ key: string; result: AlignmentResult | null; loading: boolean; error: string }>({
     key: "", result: null, loading: false, error: "",
   });
@@ -46,27 +47,28 @@ export default function AlignmentPanel({ frame, extent, showMatches, onMatches, 
   });
   return <section className="alignment-panel" aria-label="Sky alignment and plate solving">
     <strong>Sky alignment / Plate solving</strong>
-    <p role="status">{loading ? "Checking star matches… archive coordinates remain active" : alignmentLabel(result)}</p>
-    <p className="hint">We match stars in this image to known sky positions to check where it points.</p>
+    <p role="status">{loading ? "Checking star matches… archive coordinates remain active" :
+      !result && mode === "mock" ? "Mock demonstration — not checked" : alignmentLabel(result)}</p>
+    {!result && <p className="hint">We match stars in this image to known sky positions to check where it points.</p>}
     <button type="button" disabled={loading} onClick={run}>{loading ? "Checking…" : "Check this frame"}</button>
     <label className="alignment-toggle"><input type="checkbox" checked={showMatches}
       onChange={(e) => onMatches(e.target.checked)} /> Show star matches</label>
     {error && <p role="alert">{error}. Showing unverified archive coordinates.</p>}
     {result && <>
-      <p>{result.reason}</p>
+      {(result.provenance === "archive" || (result.matched ?? 0) - (result.rejected ?? 0) < 8) && <p>{result.reason}</p>}
       <p>{(result.matched ?? 0) - (result.rejected ?? 0)} consistent reference stars · {result.rejected} rejected
         {result.rms_arcsec != null && <> · RMS offset {result.rms_arcsec.toFixed(2)}″ ({result.rms_pixels?.toFixed(2)} pixels)</>}
       </p>
       <p className="hint">+ catalogue prediction · ○ detected star · line = offset at true scale · dashed = rejected match.
         Target reticle is a predicted moving object, excluded from the fit.</p>
-      <p className="hint">{visible.length} matches in this crop (up to 20 shown); the check uses a larger field ({Math.round(result.field_arcsec)}″ wide).</p>
+      <p className="hint">{visible.length} matches in this crop (up to 20 shown); native check patch: {Math.round(result.field_arcsec)}″ per side before detector-edge clipping.</p>
       <details><summary>Star matches and alignment details</summary>
         <p>{result.catalogue} · MJD {result.mjd?.toFixed(5) ?? "unknown"} · {result.solver_version} · {result.elapsed_s?.toFixed(2)} s</p>
         {result.catalogue_url && <a href={result.catalogue_url} target="_blank" rel="noreferrer">Reference catalogue and credits</a>}
         <p>No correction applied. These are archive coordinates; the translation fit is diagnostic.</p>
         {result.offset_east_arcsec != null && <p>Detected minus catalogue: {result.offset_east_arcsec.toFixed(2)}″ east,
           {" "}{result.offset_north_arcsec?.toFixed(2)}″ north. Leave-one-out fit RMS: {result.fit_rms_arcsec?.toFixed(2)}″.</p>}
-        <div className="alignment-table"><table><caption>Independent reference-star matches (ICRS degrees)</caption>
+        <div className="alignment-table" tabIndex={0} role="region" aria-label="Scrollable reference-star table"><table><caption>Independent reference-star matches (ICRS degrees)</caption>
           <thead><tr><th>Source</th><th>Catalogue RA, Dec</th><th>Detected RA, Dec</th><th>Offset</th><th>Fit</th></tr></thead>
           <tbody>{(result.matches ?? []).map((match) => <tr key={match.source_id}>
             <td>{match.source_id}</td><td>{match.catalogue_ra.toFixed(6)}, {match.catalogue_dec.toFixed(6)}</td>
@@ -88,7 +90,7 @@ export function MatchOverlay({ result, frame, extent }: { result: AlignmentResul
     {(result.matches ?? []).filter((match) => {
       return alignmentSpot(match.catalogue_ra, match.catalogue_dec, frame, extent).inside &&
         alignmentSpot(match.measured_ra, match.measured_dec, frame, extent).inside;
-    }).slice(0, 20).map((match) => {
+    }).filter((_, index, all) => index % Math.ceil(all.length / 20) === 0).map((match) => {
       const cat = alignmentSpot(match.catalogue_ra, match.catalogue_dec, frame, extent);
       const obs = alignmentSpot(match.measured_ra, match.measured_dec, frame, extent);
       if (!cat.inside || !obs.inside) return null;

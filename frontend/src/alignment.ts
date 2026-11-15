@@ -14,10 +14,12 @@ export function alignmentSpot(ra: number, dec: number, frame: Frame, extent: num
 
 export function alignmentLabel(result: AlignmentResult | null): string {
   if (!result) return "Archive coordinates — not independently verified";
-  if (result.mode === "mock") return "Mock demonstration — synthetic star matches";
-  if (result.state === "timeout") return "Timed out — archive coordinates unverified";
-  if (result.state === "busy") return "Check busy — archive coordinates unverified";
-  if (result.state === "failed") return "Check unavailable — archive coordinates unverified";
+  const prefix = result.mode === "mock" ? "Mock demonstration — " : "";
+  if (result.state === "timeout") return prefix + "Timed out — archive coordinates unverified";
+  if (result.state === "busy") return prefix + "Check busy — archive coordinates unverified";
+  if (result.state === "failed") return prefix + "Check unavailable — archive coordinates unverified";
+  if (result.mode === "mock") return (result.matched ?? 0) - (result.rejected ?? 0) < 8
+    ? "Mock demonstration — insufficient reference stars" : "Mock demonstration — synthetic star matches";
   return result.provenance === "verified"
     ? "Verified against catalogue" : "Archive coordinates — verification rejected";
 }

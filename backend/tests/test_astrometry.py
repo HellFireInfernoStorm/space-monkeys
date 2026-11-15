@@ -3,7 +3,6 @@
 import asyncio
 import io
 import threading
-import time
 
 import numpy as np
 import pytest
@@ -11,7 +10,7 @@ import pytest
 from app import astrometry as a
 from app import live_frames, mock
 from app.config import Settings
-from app.resample import tangent_to_sky
+from app.resample import sky_to_tangent, tangent_to_sky
 
 
 def settings(tmp_path, **kw):
@@ -53,9 +52,9 @@ def test_bad_solutions_do_not_verify(tmp_path, kind):
     if kind == "few":
         p = p[:7]
     if kind == "cluster":
-        p = p / 20
+        p = np.array([(x, y) for x in (0, 8, 16, 24) for y in (0, 8, 16)], dtype=float)
     if kind == "line":
-        p[:, 1] = p[:, 0] * 0.001
+        p = np.column_stack([np.arange(12) * 20, np.zeros(12)])
     obs = p + [0.7, -0.4]
     if kind == "offset":
         obs = p + [4, 0]  # matches, but fails archive verification
@@ -78,6 +77,19 @@ def test_outliers_are_reported_not_silently_fitted(tmp_path):
     assert r.rejected == 1
     assert not r.matches[-1].inlier
     assert r.offset_east_arcsec == pytest.approx(0.7, abs=1e-6)
+
+
+def test_unrelated_random_fields_never_verify(tmp_path):
+    rng = np.random.default_rng(20261115)
+    for _ in range(100):
+        cat = rng.uniform(-500, 500, (500, 2))
+        obs = rng.uniform(-500, 500, (150, 2))
+        assert assess(tmp_path, cat, obs).provenance == "archive"
+
+
+def test_blank_noise_does_not_create_reference_detections():
+    image = np.random.default_rng(42).normal(size=(161, 161))
+    assert len(a.detect(image, np.zeros(image.shape, dtype=np.int64))) == 0
 
 
 def star_image():
@@ -122,9 +134,18 @@ def test_mock_is_deterministic_and_never_calls_network(tmp_path, monkeypatch):
     second = a.solve(s, e.exposure_id, 150, 20, 150, 20)
     assert first == second
     assert first.provenance == "mock"
-    assert "synthetic" in first.reason
+    assert "Mock demonstration" in first.reason
     assert first.catalogue_url == ""
     assert not first.correction_applied
+
+
+def test_mock_sparse_example_is_explicit(tmp_path):
+    s = Settings(mode="mock", cache_dir=tmp_path, _env_file=None)
+    e = next(e for e in mock.all_exposures() if e.detector == 6)
+    r = a.solve(s, e.exposure_id, 150, 20, 150, 20)
+    assert r.provenance == "mock"
+    assert r.rms_arcsec is None
+    assert "need at least 8" in r.reason
 
 
 def test_unknown_exposure_is_404(client):
@@ -153,17 +174,21 @@ def test_api_mock_contract(client):
 
 def test_timeout_returns_without_waiting_for_reader(tmp_path, monkeypatch):
     finished = threading.Event()
+    release = threading.Event()
 
     def slow(*args):
-        time.sleep(0.08)
+        release.wait(2)
         finished.set()
 
     monkeypatch.setattr(a, "solve", slow)
     async def run():
-        r = await a.check(settings(tmp_path, astrometry_timeout_s=0.01), "test", 1, 2, 1, 2)
-        assert r.state == "timeout"
-        assert r.mjd is None
-        assert not finished.is_set()
+        try:
+            r = await a.check(settings(tmp_path, astrometry_timeout_s=0.01), "test", 1, 2, 1, 2)
+            assert r.state == "timeout"
+            assert r.mjd is None
+            assert not finished.is_set()
+        finally:
+            release.set()
     asyncio.run(run())
     assert finished.is_set()  # event-loop shutdown reaps the thread
 
@@ -224,7 +249,7 @@ def test_native_pixels_rotated_mirrored_distorted_and_cropped(tmp_path):
     expected = np.column_stack(w.all_pix2world([20.2, 60.1, 85.1], [30.1, 70.2, 15.2], 0))
     assert len(coords) == 3
     for row in expected:
-        distances = np.column_stack(__import__("app.resample", fromlist=["sky_to_tangent"]).sky_to_tangent(
+        distances = np.column_stack(sky_to_tangent(
             *row, coords[:, 0], coords[:, 1]))
         assert np.min(np.linalg.norm(distances, axis=1)) < 0.4
 

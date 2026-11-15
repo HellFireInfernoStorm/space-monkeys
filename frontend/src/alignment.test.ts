@@ -37,8 +37,10 @@ describe("visible independent alignment", () => {
     expect(alignmentLabel(null)).toContain("not independently verified");
     expect(alignmentLabel(result)).toBe("Verified against catalogue");
     expect(alignmentLabel({ ...result, mode: "mock" })).toContain("Mock demonstration");
+    expect(alignmentLabel({ ...result, mode: "mock", matched: 3 })).toContain("insufficient");
     for (const state of ["failed", "timeout", "busy"] as const) {
       expect(alignmentLabel({ ...result, state })).toContain("unverified");
+      expect(alignmentLabel({ ...result, state, mode: "mock" })).toContain("unverified");
     }
   });
   it("draws true matches and never overlays another exposure", () => {
@@ -47,6 +49,9 @@ describe("visible independent alignment", () => {
     expect(svg).toContain("<path");
     expect(renderToStaticMarkup(createElement(MatchOverlay, {
       result, frame: { ...frame, exposure_id: "other" }, extent: 120,
+    }))).toBe("");
+    expect(renderToStaticMarkup(createElement(MatchOverlay, {
+      result, frame: { ...frame, center_ra: 1 }, extent: 120,
     }))).toBe("");
   });
 });

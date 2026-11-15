@@ -1,6 +1,6 @@
 """Reproducible real-data check, never part of the offline test suite.
 
-Run from backend/: python scripts/check_alignment.py --target barnard
+Run from backend/: python scripts/check_alignment.py --target barnard --output .cache/alignment.json
 Results include rejections; an insufficient-reference result is not a detection.
 """
 

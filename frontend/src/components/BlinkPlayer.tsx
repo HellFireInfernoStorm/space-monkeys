@@ -95,7 +95,7 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPi
         </p>
       )}
 
-      <AlignmentPanel frame={current} extent={pixels * list.pixel_scale} showMatches={showMatches}
+      <AlignmentPanel frame={current} extent={pixels * list.pixel_scale} showMatches={showMatches} mode={list.mode}
         onMatches={(matches) => onChange({ matches })} onResult={setAlignment} />
       {mode === "diff" && <p className="hint">Star matches refer to this exposure, not detections in the difference image. The reference exposure is not independently checked here.</p>}
       <div
@@ -137,6 +137,9 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPi
           <span className="stage-label">{REFERENCE_LABEL}</span>
         )}
         <span className="compass">N up, E left</span>
+        <span className="angular-scale" style={{ width: "20%" }}>
+          {(pixels * list.pixel_scale / 5).toFixed(0)}″
+        </span>
       </div>
 
       <dl className="facts">

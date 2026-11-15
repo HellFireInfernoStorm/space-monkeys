@@ -102,3 +102,5 @@ Plate-solving verification (#22): Gaia DR3 `gaiadr3.gaia_source` reference-star 
 The site uses system fonts and no icon set. Layout controls use plain Unicode characters.
 
 The issue #10 screenshots in `docs/screenshots/issue-10/` show our own interface and mock frames, plus the existing Aladin Lite/AllWISE sky map (credits and terms above). The live Barnard and WISE validation screenshots also show SPHEREx DR1/QR3 data (credits above). These are validation screenshots, not new image assets used by the site.
+
+The issue #22 screenshots in `docs/screenshots/issue-22/` show our own interface and synthetic SPHEREx-like frames, plus the same existing Aladin Lite/AllWISE sky map where visible. Credits and terms are the existing ones above; our own interface is Apache 2.0. These are test evidence, not new application images or a redistributed Gaia catalogue.

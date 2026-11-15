@@ -751,6 +751,8 @@ body:has(.sky-map.expanded) { overflow: hidden; }
 .match-overlay g { fill: none; stroke: #ffe077; stroke-width: .35; }
 .match-overlay circle { stroke: #7ef9ff; }
 .match-overlay .rejected { stroke-dasharray: 1 1; }
+.angular-scale { position: absolute; right: 12px; bottom: 12px; border-bottom: 2px solid white;
+  text-align: center; color: white; background: #000a; font-size: .75rem; pointer-events: none; }
 
 @media (max-width: 1099px) {
   .page { min-width: 0; }

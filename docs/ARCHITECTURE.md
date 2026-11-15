@@ -165,3 +165,11 @@ Planned: DigitalOcean App Platform, one app with two components, in a region nea
 ## Adding a new data release
 
 Add its collection name to `collections` in `backend/app/config.py` (or set `SM_COLLECTIONS` in the hosting dashboard). Nothing else should need to change. If something else does, that is a bug: fix the place that hard-coded the old name.
+
+## Independent alignment check (issue #22, first deliverable)
+
+`app/astrometry.py` implements `/api/alignment`, an explicit per-exposure check separate from frame loading. It detects clean original-pixel sources and compares them to epoch-propagated reference positions. It never changes archive WCS or spectral lookup. A median translation is diagnostic only; no refined image is served. Catalogue and TAP address live in config; the default is Gaia DR3, with licence/acknowledgement pending #27.
+
+Two native readers may run concurrently. The async route returns after `SM_ASTROMETRY_TIMEOUT_S` (default 30 seconds); timed-out readers retain their slot until exit. Network I/O uses `SM_ASTROMETRY_IO_TIMEOUT_S` (default 10 seconds per operation). Completed diagnostics are cached one day by solver version, immutable exposure URL (including processing version), catalogue service, displayed centre and excluded target. Failures are not cached. Existing science caches are untouched.
+
+`AlignmentPanel` always appears above blink/difference frames; “Check this frame” requests the check. Stale asynchronous responses are excluded. `matches=0` is URL state. Stack and WISE panels retain explicitly unverified archive provenance. A responsive layout below 1100 pixels avoids clipping the evidence. See `PLATE_SOLVING_VALIDATION.md` for tests, limits and remaining work.
