@@ -99,8 +99,13 @@ Front end:
 
 ## Images, fonts, icons, text
 
+Plate-solving verification (#22): Gaia DR3 `gaiadr3.gaia_source` reference-star positions and proper motions, queried from the ESA Gaia Archive TAP service. Source: https://www.cosmos.esa.int/web/gaia/dr3 and https://www.cosmos.esa.int/web/gaia-users/credits . Licence and exact DR3 acknowledgement **unconfirmed**, tracked in [#27](https://github.com/HellFireInfernoStorm/space-monkeys/issues/27). No catalogue dump is committed. Existing Astropy (BSD-3-Clause) is used for distortion-aware WCS and epoch propagation; reference: https://docs.astropy.org/en/stable/coordinates/apply_space_motion.html . No new dependency.
+
+Re-review evidence for #27 (2026-11-15): the correct ESA Gaia Data License address is https://www.cosmos.esa.int/web/gaia-users/license ; it and the ESA credits page returned HTTP 451 through the research tool, so no licence is inferred. Gaia's DPAC partner AIP publishes a DR3-specific attribution section at https://gaia.aip.de/cms/credit/#gaia-data-release-3 . This supplies an attribution reference, not verified text of the ESA data licence. Owner confirmation and the required product acknowledgement remain pending before merge/deployment.
+
 The site uses system fonts and no icon set. Layout controls use plain Unicode characters.
 
 The issue #10 screenshots in `docs/screenshots/issue-10/` show our own interface and mock frames, plus the existing Aladin Lite/AllWISE sky map (credits and terms above). The live Barnard and WISE validation screenshots also show SPHEREx DR1/QR3 data (credits above). These are validation screenshots, not new image assets used by the site.
 
+The issue #22 screenshots in `docs/screenshots/issue-22/` show our own interface and synthetic SPHEREx-like frames, plus the same existing Aladin Lite/AllWISE sky map where visible. Credits and terms are the existing ones above; our own interface is Apache 2.0. These are test evidence, not new application images or a redistributed Gaia catalogue.
 The issue #30 screenshots in `docs/screenshots/spectrum-phase2/` show our own interface with synthetic frames or existing SPHEREx data (credited above). The aperture view is an independently drawn, labelled SVG diagram, not a sky image.

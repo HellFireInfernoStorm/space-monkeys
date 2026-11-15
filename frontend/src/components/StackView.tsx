@@ -61,6 +61,7 @@ function Panel({
 }) {
   return (
     <figure className="stack-panel">
+      <p className="hint">Archive coordinates — constituent exposures have not been independently verified here.</p>
       <div
         className={onClick ? "stage small pickable" : "stage small"}
         onClick={onClick}

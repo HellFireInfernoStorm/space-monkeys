@@ -286,3 +286,13 @@ Code: `backend/app/wise.py`. The AllWISE Atlas image (WISE observations of 2010,
 - A brightness change between two exposures at different wavelengths is not variability (section 1).
 - Our layer 3 brightness numbers are quick aperture estimates. IRSA's Spectrophotometry Tool is the precise method; we say so in the interface and use it as our cross-check.
 - Quick Release data has earlier calibration than Data Release data. Small offsets between the two are expected.
+
+## 10. Independent astrometric verification (issue #22)
+
+The diagnostic compares original-detector centroids with epoch-propagated Gaia DR3 positions. [Astropy space-motion propagation](https://docs.astropy.org/en/stable/coordinates/apply_space_motion.html) handles the spherical transform. Missing proper motions are excluded, not assumed zero. The query selects RUWE below 1.4, parallax below 10 mas and G magnitude below 18: conservative engineering filters awaiting validation in our infrared fields. No observer-parallax or radial-velocity correction is fitted; this check does not claim milliarcsecond accuracy.
+
+Our engineering gates require eight unambiguous matches, a one-native-pixel matching radius, a 0.35-pixel translation-outlier cutoff, adequate 2D coverage and at most 0.5 native pixel RMS both before correction and in leave-one-out translation residuals. Detection requires a seven-MAD-sigma local maximum and a complete clean 5×5 footprint, rejecting close competing peaks. The science target and neighbours within three pixels are excluded. These are not published SPHEREx accuracy specifications; real matching must validate them before release.
+
+“Verified” means archive-coordinate agreement passed these checks, not that a new WCS was applied. Translation is diagnostic. Catalogue markers alone do not verify an image. Real matching was not completed on 2026-11-15 because catalogue connections timed out; see `PLATE_SOLVING_VALIDATION.md`. Mock numbers remain synthetic. Existing wavelength matching and science products retain their original behavior.
+
+The absolute catalogue-to-detection offset and the distance from the median offset are distinct. Inlier selection uses the latter; the match table labels both explicitly. The API retains `residual_arcsec` as a legacy name for the absolute offset and adds `offset_arcsec` and `fit_residual_arcsec`. A separate `quality_passed` flag prevents synthetic provenance from hiding geometry or RMS rejection. The Gaia query uses the native patch's nominal half-diagonal plus one matching-radius margin (about 706 arcseconds), reducing unrelated sources outside the detector patch; this remains a header-seeded check with conservative limits, not a complete survey catalogue search.
