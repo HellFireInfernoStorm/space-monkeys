@@ -385,6 +385,36 @@ def test_frame_search_recovers_after_outage_without_cached_empty_result(offline_
     assert len(calls) == 2
 
 
+def _partial_outage(settings):
+    """Every collection fails except the last, which answers with no rows (as a deep field does)."""
+    return [], [f"Search of {c} failed: 502 Proxy Error" for c in settings.collections[:-1]]
+
+
+def test_partial_outage_falls_back_to_the_saved_search(offline_live, monkeypatch):
+    client, settings, *_ = offline_live
+    params = {"ra": STAR_RA, "dec": STAR_DEC}
+    assert client.get("/api/frames", params=params).json()["returned"] == 3  # saves the search
+
+    monkeypatch.setattr(settings, "search_cache_hours", -1.0)  # the saved search is no longer fresh
+    monkeypatch.setattr(live, "search_exposures", lambda s, *args: _partial_outage(s))
+    response = client.get("/api/frames", params=params)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["returned"] == 3
+    assert "showing the last saved search result" in body["warnings"][0]
+    assert any("502 Proxy Error" in w for w in body["warnings"])
+
+
+def test_partial_outage_without_a_saved_search_is_empty_with_warnings(offline_live, monkeypatch):
+    client, settings, *_ = offline_live
+    monkeypatch.setattr(live, "search_exposures", lambda s, *args: _partial_outage(s))
+    response = client.get("/api/frames", params={"ra": 10, "dec": 20})
+    assert response.status_code == 200  # one collection did answer, so this is not a total failure
+    body = response.json()
+    assert body["returned"] == 0
+    assert len(body["warnings"]) == len(settings.collections) - 1
+
+
 # --- layer 2: stacks in live mode ---------------------------------------------------------
 
 
