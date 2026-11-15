@@ -271,6 +271,7 @@ export default function App() {
             className="sky-tab" tabIndex={0}>
             {mapRa !== null && mapDec !== null ? skyVisited && (
               <AladinPanel ra={mapRa} dec={mapDec} sky={view.sky} frame={view.frame}
+                wlmin={wlmin} wlmax={wlmax} skyf={view.skyf}
                 onChange={update}
                 onPosition={(newRa, newDec) => update(viewForTypedPosition(view, newRa, newDec, {}))}
                 wiseUrl={wiseViewUrl(
