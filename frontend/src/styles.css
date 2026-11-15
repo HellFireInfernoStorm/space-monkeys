@@ -706,7 +706,9 @@ body:has(.sky-map.expanded) { overflow: hidden; }
 .map-options li:focus { background: var(--bg); outline: none; }
 /* One explanation at a time: the active option's, beside that option. Hovering an option
    makes it the active one (MapDropdown), so mouse and keyboard never show two. */
-.option-help { left: calc(100% + 12px); top: 0; pointer-events: none; }
+.option-help { left: calc(100% + 12px); top: 0; width: var(--help-width, 270px); pointer-events: none; }
+/* MapDropdown flips the explanations to the left when the map has no room on the right. */
+.map-options.help-left .option-help { left: auto; right: calc(100% + 12px); }
 .map-options li:focus > .option-help { display: block; }
 .map-marker { position: absolute; width: 22px; height: 22px; border: 2px solid #ffd24a; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 0 1px #000; pointer-events: none; z-index: 1; }
 .map-marker.clicked { border-color: #fff; border-style: dashed; }
