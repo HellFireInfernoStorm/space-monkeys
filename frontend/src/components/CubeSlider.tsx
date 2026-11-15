@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 
 import { frameLabel, snapFrame, stepFrame, type CubeInfo } from "../hipsCube";
+import { settler } from "../settle";
 
 // Aladin Lite draws a new frame before its tiles arrive, so switching on every step of a
 // drag flashes. While the value moves only the label changes; the frame follows once it rests.
@@ -20,20 +21,19 @@ export default function CubeSlider({ cube, frame, onCommit }: {
 }) {
   const id = useId();
   const [pending, setPending] = useState(frame);
-  const timer = useRef<number | undefined>(undefined);
   const latest = useRef({ frame, onCommit });
   latest.current = { frame, onCommit };
-
-  // A frame set from outside (a new wavelength range, Back) wins over a drag still settling.
-  useEffect(() => { window.clearTimeout(timer.current); setPending(frame); }, [frame]);
-  useEffect(() => () => window.clearTimeout(timer.current), []);
-
   function commit(next: number) {
     if (next !== latest.current.frame) latest.current.onCommit(next);
   }
+  const settle = useRef(settler<number>(SETTLE_MS, (next) => commit(next))).current;
+
+  // A frame set from outside (a new wavelength range, Back) wins over a drag still settling.
+  useEffect(() => { settle.cancel(); setPending(frame); }, [frame, settle]);
+  useEffect(() => settle.cancel, [settle]);
 
   function commitNow(next: number) {
-    window.clearTimeout(timer.current);
+    settle.cancel();
     setPending(next);
     commit(next);
   }
@@ -42,8 +42,7 @@ export default function CubeSlider({ cube, frame, onCommit }: {
     // The native range keys and drags move one step at a time; skip blank frames in that direction.
     const next = snapFrame(cube, value, value < pending ? -1 : 1);
     setPending(next);
-    window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => commit(next), SETTLE_MS);
+    settle.schedule(next);
   }
 
   const label = frameLabel(cube, pending);
