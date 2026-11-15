@@ -167,9 +167,8 @@ function Body({
       </>
     );
   }
-  const wavelengths = data.points.map((p) => p.wavelength);
-  const wlLo = Math.min(...wavelengths);
-  const wlHi = Math.max(...wavelengths);
+  const wlLo = summary.wlMin!;
+  const wlHi = summary.wlMax!;
   const byWavelength = (p: PlotPoint) => wavelengthColour(p.wavelength ?? p.x, wlLo, wlHi);
   const unmeasured = spectrum.length - measured;
 
@@ -182,7 +181,7 @@ function Body({
       <div className="phot-tiles">
         <div className="phot-tile"><span>Measured</span><strong>{measured} of {data.returned}</strong><small>{data.capped ? `of ${data.returned} returned; ${data.total.toLocaleString("en-US")} match, spread evenly over time` : "exposures"}</small></div>
         <div className="phot-tile"><span>Wavelengths</span><strong>{wlLo.toFixed(2)}–{wlHi.toFixed(2)} µm</strong><small className="ramp-legend">{wlLo.toFixed(2)} µm <span className="ramp" style={{ background: WAVELENGTH_GRADIENT }} /> {wlHi.toFixed(2)} µm</small></div>
-        <div className="phot-tile"><span>Dates</span><strong className="phot-dates">{summary.firstMjd === undefined ? "—" : mjdToDay(summary.firstMjd)} – {summary.lastMjd === undefined ? "—" : mjdToDay(summary.lastMjd)}</strong><small>{summary.visits.length} visits</small></div>
+        <div className="phot-tile"><span>Dates</span><strong className="phot-dates">{summary.firstMjd === undefined ? "—" : mjdToDay(summary.firstMjd)} – {summary.lastMjd === undefined ? "—" : mjdToDay(summary.lastMjd)}</strong><small>{summary.visits.length} {summary.visits.length === 1 ? "visit" : "visits"}</small></div>
         {summary.mean && <div className="phot-tile"><span>Mean flux</span><strong>{meanText}</strong><small>weighted, whole range</small></div>}
         <div className="phot-tile"><span>Brightest at</span><strong>{summary.brightest === undefined ? "—" : `${summary.brightest.toFixed(2)} µm`}</strong><small>{summary.brightest === undefined ? "signal too weak" : "binned"}</small></div>
       </div>

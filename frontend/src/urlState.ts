@@ -56,8 +56,9 @@ export interface ViewState {
    */
   pra: number | null;
   pdec: number | null;
-  /** Show the spectrum as weighted averages in wavelength bins. */
+  /** Overlay inverse-variance wavelength bins on the raw spectrum. */
   bin: boolean;
+  /** Display units for both photometry charts; measurements stay in flux space. */
   unit: "mjy" | "ab";
   /** Layer 4: compare with this WISE band (2010). Null hides the comparison. */
   wise: WiseBand | null;

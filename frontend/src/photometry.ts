@@ -2,7 +2,7 @@
 
 import type { Band, PhotometryPoint } from "./api";
 
-/** One point ready to plot, flux in millijansky. A null flux means "could not be measured". */
+/** One point ready to plot, in mJy or AB magnitude. Null means no value in the chosen unit. */
 export interface PlotPoint {
   id?: string;
   mjd?: number;
