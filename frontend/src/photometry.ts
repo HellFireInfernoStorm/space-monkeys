@@ -480,6 +480,18 @@ export function visitMeans(corrected: PlotPoint[], gapDays = 60, floor = NOISE_F
   });
 }
 
+// backend/app/photometry.py: the one purely informational photometry note. The unmeasured points
+// already show in the "Not measured" lane with their reasons.
+const INFORMATIONAL_NOTE = /^\d+ of \d+ point\(s\) have no flux: /;
+
+/**
+ * API warnings that make the numbers less trustworthy: a field star in the aperture, a failed search,
+ * unreadable exposures, or anything not known to be informational. Used to withhold the change verdict.
+ */
+export function cautionWarnings(warnings: string[] | null | undefined): string[] {
+  return (warnings ?? []).filter((w) => !INFORMATIONAL_NOTE.test(w));
+}
+
 export interface ChangeVerdict { tone: "change" | "unclear" | "steady" | "unjudged"; value: string; detail: string }
 
 /** Plain answer to "did the aperture's brightness change between visits?", or why it is not judged. */

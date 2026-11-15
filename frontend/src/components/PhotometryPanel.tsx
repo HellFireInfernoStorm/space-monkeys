@@ -4,7 +4,7 @@ import { getPhotometry, type Band, type PhotometryResult } from "../api";
 import {
   CHART_HEIGHT,
   summarise, verdict, magnitudePoints, toAbMag, WISE_BANDS,
-  binCount, binWidth, correctedPoints, visitMeans, changeVerdict, NOISE_FLOOR, SIGNAL_THRESHOLD, MIN_POINTS_PER_VISIT,
+  binCount, binWidth, cautionWarnings, correctedPoints, visitMeans, changeVerdict, NOISE_FLOOR, SIGNAL_THRESHOLD, MIN_POINTS_PER_VISIT,
   APERTURE_RADIUS_PIXELS, BACKGROUND_RADII_PIXELS, PIXEL_SCALE_ARCSEC,
   pointDetails,
   selectChartPoint,
@@ -127,7 +127,8 @@ function Body({
   });
   const spectrum = useMemo(() => toPlotPoints(data.points, data.flux_unit, (p) => p.wavelength, { bandpass: true }), [data]);
   const summary = useMemo(() => summarise(spectrum), [spectrum]);
-  const signal = verdict(summary, { mock: data.mode === "mock", warned: !!data.warnings?.length });
+  const cautioned = cautionWarnings(data.warnings).length > 0;
+  const signal = verdict(summary, { mock: data.mode === "mock", warned: cautioned });
   const measured = summary.measured;
   const bins = summary.bins;
   const ab = unit === "ab";
@@ -146,7 +147,7 @@ function Body({
     && corrected.filter((p) => p.y !== null).length >= MIN_POINTS_PER_VISIT;
   const correctedY = useMemo(() => [1 - NOISE_FLOOR, 1 + NOISE_FLOOR, ...visits.flatMap((v) => [v.r - v.err, v.r + v.err])], [visits]);
   const showCorrected = correctable && lc === "rel";
-  const change = changeVerdict(visits, { warned: !!data.warnings?.length, mock: data.mode === "mock", available: correctable });
+  const change = changeVerdict(visits, { warned: cautioned, mock: data.mode === "mock", available: correctable });
   const meanMag = summary.mean && toAbMag(summary.mean.y, summary.mean.err);
   const meanText = !summary.mean ? "—" : ab
     ? meanMag ? `${meanMag.mag.toFixed(2)} ± ${meanMag.err.toFixed(2)} AB mag` : "—"

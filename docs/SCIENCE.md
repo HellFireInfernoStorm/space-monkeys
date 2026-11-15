@@ -268,6 +268,45 @@ Code: `backend/app/photometry.py`. Each exposure covering a point gives one samp
 
 **AB display units.** AB magnitude = −2.5 log10(flux / 3631 Jy); the propagated error is (2.5 / ln 10) × flux error / flux, defined only for positive flux. Source: [Oke & Gunn (1983), ApJ 266, 713](https://articles.adsabs.harvard.edu/pdf/1983ApJ...266..713O). Flux summaries are averaged before conversion.
 
+### Colour-corrected light curve (layer 3, phase 3)
+
+**Why.** Each exposure sees the point at a different wavelength (section 1), so a raw light curve mixes the object's colour with any real change. The corrected light curve divides the colour out.
+
+**Method.** The code is in `frontend/src/photometry.ts` (`spectrumAt`, `correctedPoints`, `visitMeans`, `changeVerdict`).
+
+1. The spectrum S(λ) is the binned spectrum the tab draws: inverse-variance weighted means in equal-width wavelength bins (about four exposures per bin).
+2. S at an exposure's wavelength comes from linear interpolation between bin centres, taking the larger of the two bins' errors. Beyond the outermost bin centres the end bin's value is used for up to one bin width. Nothing is used across a gap of more than two bin widths between centres, where S ≤ 0, or where S/N < 5 (section 6). Such exposures are shown as "Not corrected", with no value.
+3. Each exposure's ratio r = f / S has error sqrt(σ_f² + (r σ_S)²) / S. A ratio of 1 means the usual brightness at that wavelength.
+4. Exposures are grouped into visits wherever consecutive exposures are more than 60 days apart. The ratios in each visit are averaged with inverse-variance weights.
+5. Each visit's error is the formal error of that mean combined in quadrature with 3.8 %, the exposure-to-exposure scatter of the steady 2MASS check star above.
+6. **Changed?** compares every pair of visits that each have at least 3 corrected exposures: z = |r_a − r_b| / sqrt(err_a² + err_b²). z ≥ 5 is reported as a change and 3 ≤ z < 5 as unclear. Below 3 it reports "No sign", with the smallest change the data could have shown (5 × the smallest combined error).
+7. It is not judged at all when the API sends a warning other than the count of unmeasured points: a field star in the aperture, a failed archive search, or unreadable exposures. It is also not judged when fewer than 3 exposures can be corrected.
+
+The tab offers the corrected view only when the combined S/N is at least 5 and at least 3 exposures can be corrected.
+
+**Assumptions.**
+
+- **The 3.8 % floor is not reduced by averaging.** We do not know whether that scatter comes from calibration that would average out. Not reducing it makes a reported change harder to reach, so it is the conservative choice. With a floor of 3.8 % per visit, two visits cannot show a change smaller than about 27 %.
+- **The 60-day gap is a display convention** (section 7, "Visit grouping in the interface"): SPHEREx visits last up to about a month and are months apart.
+- The thresholds are the detection threshold of section 6 (5) and 3 for "unclear". They were set before the validation below and not changed after it.
+
+**Limits.**
+
+- The result is relative to the object's own average over all visits, not an absolute calibration.
+- Each exposure is part of the spectrum it is divided by, and a changing object blurs its own spectrum. Both pull ratios toward 1, so the method under-reports change.
+- A field star in the aperture changes its share as the object moves (WISE 0855, above). That is why any such warning withholds the verdict.
+
+**Validation (2026-11-15, live, local; the same code and cached API results as the interface, seen in headless-Chrome screenshots).**
+
+| Target, range | Measured, corrected | Visit averages (exposures) | Verdict | Expected |
+| --- | --- | --- | --- | --- |
+| 2MASS check star (RA 76.97773, Dec +30.37557), 1.6–1.8 µm | 9 of 19, 9 | 1.017 (3), 0.986 (4), 1.011 (2) | No sign; a change above 27 % would show | No sign (steady star). Raw fluxes span 129.8 to 146.6 mJy, mostly colour |
+| Epsilon Indi B, 4.4–5.0 µm | 59 of 96, 59 | 0.987 (14), 1.026 (15), 0.999 (7), 1.012 (23) | No sign; a change above 27 % would show | Isolated source (section 6). Raw fluxes span 16.8 to 31.3 mJy because of its deep spectral dip near 4.5 µm; the correction removes it |
+| WISE 0855, 4.4–5.0 µm | 22 of 46, 12 | 0.941 (4), 0.949 (8) | Not judged (field-star warning) | Not judged: differences between visits are not evidence of change (above) |
+| RW Aurigae, 0.746–1.117 µm | 13 of 56, 13 | 0.775 (9), 1.102 (2), 1.649 (2) | Not judged: the later visits have only 2 exposures each | A young variable star. The visit averages differ by far more than their errors, but the rule of 3 exposures per visit was not relaxed to make it report a change |
+
+R Draconis was not checked: every aperture is saturated at the shortest wavelengths (above), so nothing can be corrected.
+
 ## 8. WISE comparison (layer 4)
 
 The spectrum interface marks WISE W1 at 3.4 µm and W2 at 4.6 µm, matching `backend/app/wise.py`; these are centre markers, not sourced filter edges.
@@ -286,3 +325,4 @@ Code: `backend/app/wise.py`. The AllWISE Atlas image (WISE observations of 2010,
 - A brightness change between two exposures at different wavelengths is not variability (section 1).
 - Our layer 3 brightness numbers are quick aperture estimates. IRSA's Spectrophotometry Tool is the precise method; we say so in the interface and use it as our cross-check.
 - Quick Release data has earlier calibration than Data Release data. Small offsets between the two are expected.
+- A "Yes" in Changed? means the visit averages in our aperture differ by at least 5 times the combined error; it is not a classification of the object as variable.

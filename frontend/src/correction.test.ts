@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   binPoints,
   binWidth,
+  cautionWarnings,
   changeVerdict,
   chartGeometry,
   correctedPoints,
@@ -178,5 +179,23 @@ describe("chartGeometry extraY", () => {
     const { y0, y1 } = chartGeometry(points, 400, 220, false, [1 - NOISE_FLOOR, 1 + NOISE_FLOOR]);
     expect(y0).toBeLessThan(1 - NOISE_FLOOR);
     expect(y1).toBeGreaterThan(1 + NOISE_FLOOR);
+  });
+});
+
+describe("cautionWarnings", () => {
+  // Exact texts from backend/app/photometry.py and backend/app/live.py.
+  const unmeasured = "10 of 19 point(s) have no flux: the aperture holds flagged or missing pixels (for example a saturated star core, a cosmic ray or the detector edge).";
+  const neighbour = "A known field star is 3.9 to 11.2 arcseconds from the measured position, inside the 18.5-arcsecond aperture: these fluxes include its light, and its share changes as the object moves. They do not measure the object alone, and differences between visits are not evidence of a brightness change. The Stack view fits the object and the star separately. Source: https://github.com/HellFireInfernoStorm/space-monkeys/issues/4";
+  const failed = "Search of spherex_qr3 failed: HTTPError: 502";
+  const unread = "2 exposure(s) could not be read and were skipped.";
+
+  it("ignores only the informational count of unmeasured points", () => {
+    expect(cautionWarnings([unmeasured])).toEqual([]);
+    expect(cautionWarnings([neighbour, unmeasured, failed, unread])).toEqual([neighbour, failed, unread]);
+  });
+
+  it("treats unknown warnings as reasons for caution", () => {
+    expect(cautionWarnings(["Something new"])).toEqual(["Something new"]);
+    expect(cautionWarnings(undefined)).toEqual([]);
   });
 });
