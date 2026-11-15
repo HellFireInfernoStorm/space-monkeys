@@ -166,9 +166,11 @@ def exposures(
     if pmra or pmdec:
         search_ra, search_dec = propagate(ra, dec, pmra, pmdec, epoch, settings.search_epoch_year)
     try:
-        found, warnings = live.search_exposures(settings, search_ra, search_dec, radius)
+        found, warnings = live_frames.search(settings, search_ra, search_dec, radius)
     except live.LiveDependencyMissing as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
+    except live_frames.SearchFailed as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
     picked_live = sample_evenly(found, cap)
     items = []
     for e in picked_live:

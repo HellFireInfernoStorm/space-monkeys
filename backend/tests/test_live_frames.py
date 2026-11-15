@@ -7,6 +7,8 @@ mix-up of the two axes would show.
 """
 
 import math
+import threading
+import time
 import warnings
 
 import numpy as np
@@ -446,3 +448,78 @@ def test_live_stack_cap(offline_live, monkeypatch):
     body = live_client.get("/api/stack", params={"ra": STAR_RA, "dec": STAR_DEC}).json()
     assert body["returned"] == 2 and body["total"] == 3 and body["capped"] is True
     assert body["static"] is None  # no proper motion: one stack only
+
+
+# --- the shared search: one archive request per position, combined failures ---------------
+
+
+def test_failed_combined_search_is_a_clear_error(offline_live, monkeypatch):
+    client, *_ = offline_live
+
+    def failing(settings, *args):
+        raise live.ArchiveSearchFailed("Search of spherex_dr1, spherex_qr3 failed: DALServiceError: 502")
+
+    monkeypatch.setattr(live, "search_exposures", failing)
+    response = client.get("/api/frames", params={"ra": 10, "dec": 20})
+    assert response.status_code == 502
+    assert "502" in response.json()["detail"]
+
+
+def test_failed_combined_search_falls_back_to_the_saved_search(offline_live, monkeypatch):
+    client, settings, *_ = offline_live
+    params = {"ra": STAR_RA, "dec": STAR_DEC}
+    assert client.get("/api/frames", params=params).json()["returned"] == 3  # saves the search
+
+    def failing(settings, *args):
+        raise live.ArchiveSearchFailed("Search of spherex_dr1 failed: DALServiceError: 502")
+
+    monkeypatch.setattr(settings, "search_cache_hours", -1.0)
+    monkeypatch.setattr(live, "search_exposures", failing)
+    body = client.get("/api/frames", params=params).json()
+    assert body["returned"] == 3
+    assert "showing the last saved search result" in body["warnings"][0]
+
+
+def test_exposures_endpoint_uses_the_saved_search(offline_live):
+    client, _settings, searches, _reads = offline_live
+    params = {"ra": STAR_RA, "dec": STAR_DEC}
+    first = client.get("/api/exposures", params=params).json()
+    second = client.get("/api/exposures", params=params).json()
+    assert first["total"] == second["total"] == 3
+    assert len(searches) == 1
+    client.get("/api/frames", params=params)  # same position and radius: no new search
+    assert len(searches) == 1
+
+
+def test_exposures_endpoint_reports_a_failed_search(offline_live, monkeypatch):
+    client, *_ = offline_live
+
+    def failing(settings, *args):
+        raise live.ArchiveSearchFailed("Search of spherex_dr1 failed: DALServiceError: 502")
+
+    monkeypatch.setattr(live, "search_exposures", failing)
+    assert client.get("/api/exposures", params={"ra": 10, "dec": 20}).status_code == 502
+
+
+def test_concurrent_requests_for_one_position_share_one_search(offline_live, monkeypatch):
+    _client, settings, *_ = offline_live
+    original = live.search_exposures
+    calls = []
+
+    def slow(settings, *args):
+        calls.append(1)
+        time.sleep(0.3)
+        return original(settings, *args)
+
+    monkeypatch.setattr(live, "search_exposures", slow)
+    results = []
+    threads = [
+        threading.Thread(target=lambda: results.append(live_frames.search(settings, 1.0, 2.0, 0.005)))
+        for _ in range(4)
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(calls) == 1
+    assert [len(found) for found, _ in results] == [3, 3, 3, 3]

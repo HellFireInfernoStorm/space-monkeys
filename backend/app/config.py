@@ -55,8 +55,12 @@ class Settings(BaseSettings):
     max_probes: int = 400
     # Parallel byte-range readers against the AWS mirror (32 was measured to work).
     s3_concurrency: int = 16
-    # Parallel requests to IRSA itself (it rejects about 8 or more at once).
-    irsa_concurrency: int = 4
+    # IRSA search requests. All collections go in one request. A search took about 22 s on
+    # 2026-11-15; the timeout is the longest wait for the next bytes of the answer, in seconds.
+    # Retries cover IRSA's short 502 and 503 spells, with a growing pause (backoff) between tries.
+    irsa_timeout_s: float = 90.0
+    irsa_retries: int = 2
+    irsa_backoff_s: float = 2.0
     # Search results are kept on disk this long. New data arrives at most weekly.
     search_cache_hours: float = 12.0
 

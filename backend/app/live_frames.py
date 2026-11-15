@@ -16,6 +16,7 @@ if the search result has expired.
 """
 
 import math
+import threading
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
@@ -84,32 +85,53 @@ def find_exposure(settings: Settings, exposure_id: str) -> LiveExposure:
     return LiveExposure(**data)
 
 
+_search_locks: dict[str, threading.Lock] = {}
+_search_locks_guard = threading.Lock()
+
+
+def _search_lock(key: str) -> threading.Lock:
+    """One lock per search, so requests for the same position wait for one archive search."""
+    with _search_locks_guard:
+        return _search_locks.setdefault(key, threading.Lock())
+
+
 def search(settings: Settings, ra: float, dec: float, radius: float) -> tuple[list[LiveExposure], list[str]]:
     """Exposures covering a position, from the disk cache when fresh enough.
 
-    When the search finds nothing and any collection failed, the last saved result is used
-    if there is one. "Any", not "every": the deep collections cover only small fields, so
-    during an outage one of them often answers successfully with no rows, and requiring
-    every collection to fail would skip the saved result almost always.
+    Requests for the same position share one archive search: the first one searches, the
+    others wait for it and then read its saved result.
 
-    Raises SearchFailed when every collection failed and nothing usable is cached.
+    When the search finds nothing and it failed (or any collection failed), the last saved
+    result is used if there is one. "Any", not "every": the deep collections cover only
+    small fields, so during an outage one of them often answers with no rows.
+
+    Raises SearchFailed when the whole search failed and nothing usable is cached.
     """
     cache = _cache(settings)
     key = make_key(f"{ra:.4f}", f"{dec:.4f}", f"{radius:.5f}", ",".join(settings.collections))
-    fresh = cache.get_json("search", key, max_age_s=settings.search_cache_hours * 3600.0)
+    max_age_s = settings.search_cache_hours * 3600.0
+    fresh = cache.get_json("search", key, max_age_s=max_age_s)
     if fresh is not None:
         return [LiveExposure(**e) for e in fresh], []
 
-    found, problems = live.search_exposures(settings, ra, dec, radius)
-    if not found and problems:
-        stale = cache.get_json("search", key)
-        if stale:
-            note = "The archive search failed; showing the last saved search result."
-            return [LiveExposure(**e) for e in stale], [note, *problems]
-        if len(problems) >= len(settings.collections):
-            raise SearchFailed("The SPHEREx archive search failed. " + " ".join(problems)[:400])
-    if not problems:
-        cache.put_json("search", key, [asdict(e) for e in found])
+    with _search_lock(key):
+        fresh = cache.get_json("search", key, max_age_s=max_age_s)  # saved while we waited?
+        if fresh is not None:
+            return [LiveExposure(**e) for e in fresh], []
+        try:
+            found, problems = live.search_exposures(settings, ra, dec, radius)
+            total_failure = len(problems) >= len(settings.collections)
+        except live.ArchiveSearchFailed as error:
+            found, problems, total_failure = [], [str(error)], True
+        if not found and problems:
+            stale = cache.get_json("search", key)
+            if stale:
+                note = "The archive search failed; showing the last saved search result."
+                return [LiveExposure(**e) for e in stale], [note, *problems]
+            if total_failure:
+                raise SearchFailed("The SPHEREx archive search failed. " + " ".join(problems)[:400])
+        if not problems:
+            cache.put_json("search", key, [asdict(e) for e in found])
     for exposure in found:
         remember_exposure(settings, exposure)
     return found, problems
