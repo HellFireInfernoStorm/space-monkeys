@@ -84,6 +84,7 @@ Back end:
 | PyVO (`live` extra) | Archive search | BSD 3-Clause |
 | fsspec (`live` extra) | Byte-range reads over HTTP (`astropy.io.fits.open(..., use_fsspec=True)`) | BSD-3-Clause, read from the installed package metadata (fsspec 2026.9.0) on 2026-11-14 |
 | aiohttp (`live` extra) | The HTTP client fsspec uses for those reads | Apache-2.0 AND MIT, read from the installed package metadata (aiohttp 3.14.5) on 2026-11-14 |
+| Requests and urllib3 (`live` extra; already installed with PyVO) | Timeout and retries for the archive search (issue #38) | Apache-2.0 (Requests 2.34.2) and MIT (urllib3 2.8.0), read from the installed package metadata on 2026-11-15 |
 | pytest, HTTPX, Ruff (`dev` extra) | Tests and lint | MIT; BSD 3-Clause; MIT |
 
 Front end:
