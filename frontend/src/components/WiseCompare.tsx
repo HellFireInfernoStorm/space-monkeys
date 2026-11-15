@@ -183,6 +183,7 @@ export default function WiseCompare({ view, spherex, onChange }: Props) {
           from a few seconds to a minute, depending on the field size and the connection; after that it is saved.
         </p>
       )}
+      <p className="hint">Archive coordinates — this comparison has not been independently plate solved.</p>
       {state.status === "error" && <p className="notice error">Could not load the WISE image: {state.message}</p>}
       {state.status === "ready" &&
         (state.data.warnings ?? []).map((warning) => (

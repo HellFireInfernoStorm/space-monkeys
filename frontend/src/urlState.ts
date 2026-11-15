@@ -13,6 +13,8 @@ export type CoordinateFrame = "ICRS" | "ICRSd" | "Galactic";
 export type WorkbenchTab = "sky" | "spectrum";
 
 export interface ViewState {
+  /** Show independently matched reference stars on exposure images. */
+  matches: boolean;
   /** Right Ascension in degrees (ICRS) at `epoch`. Null until a position is chosen. */
   ra: number | null;
   /** Declination in degrees (ICRS) at `epoch`. */
@@ -60,6 +62,8 @@ export interface ViewState {
   bin: boolean;
   /** Display units for both photometry charts; measurements stay in flux space. */
   unit: "mjy" | "ab";
+  /** Light curve relative to the object's own spectrum ("rel"), or raw flux. "rel" falls back to raw when the spectrum is too uncertain. */
+  lc: "rel" | "raw";
   /** Layer 4: compare with this WISE band (2010). Null hides the comparison. */
   wise: WiseBand | null;
   /** Layer 4: the two images side by side, or blinking between them. */
@@ -67,6 +71,7 @@ export interface ViewState {
 }
 
 export const DEFAULT_VIEW: ViewState = {
+  matches: true,
   ra: null,
   dec: null,
   size: 120,
@@ -89,6 +94,7 @@ export const DEFAULT_VIEW: ViewState = {
   pdec: null,
   bin: true,
   unit: "mjy",
+  lc: "rel",
   wise: null,
   cmp: "side",
 };
@@ -127,6 +133,7 @@ export function parseView(search: string): ViewState {
   const mode = p.get("mode");
   const sky = p.get("sky");
   return {
+    matches: p.get("matches") !== "0",
     ra: hasPosition ? ra : null,
     dec: hasPosition ? dec : null,
     size: numberIn(p.get("size"), ...LIMITS.size) ?? DEFAULT_VIEW.size,
@@ -152,6 +159,7 @@ export function parseView(search: string): ViewState {
     pdec: hasPoint ? pdec : null,
     bin: p.get("bin") !== "0",
     unit: p.get("unit") === "ab" ? "ab" : "mjy",
+    lc: p.get("lc") === "raw" ? "raw" : "rel",
     wise: p.get("wise") === "W1" || p.get("wise") === "W2" ? (p.get("wise") as WiseBand) : null,
     cmp: p.get("cmp") === "blink" ? "blink" : "side",
   };
@@ -160,6 +168,7 @@ export function parseView(search: string): ViewState {
 /** Write the view as a query string (without the leading "?"). Defaults are left out. */
 export function serializeView(view: ViewState): string {
   const p = new URLSearchParams();
+  if (!view.matches) p.set("matches", "0");
   if (view.ra !== null && view.dec !== null) {
     p.set("ra", trim(view.ra, 7));
     p.set("dec", trim(view.dec, 7));
@@ -187,13 +196,14 @@ export function serializeView(view: ViewState): string {
   }
   if (!view.bin) p.set("bin", "0");
   if (view.unit === "ab") p.set("unit", "ab");
+  if (view.lc === "raw") p.set("lc", "raw");
   if (view.wise) p.set("wise", view.wise);
   if (view.cmp !== DEFAULT_VIEW.cmp) p.set("cmp", view.cmp);
   return p.toString();
 }
 
 /** Settings that change continuously while watching; every other change is a new view. */
-const CONTINUOUS: ReadonlyArray<keyof ViewState> = ["speed", "sky", "skyf", "bin", "unit", "cmp"];
+const CONTINUOUS: ReadonlyArray<keyof ViewState> = ["speed", "sky", "skyf", "bin", "unit", "lc", "cmp"];
 
 /**
  * Whether going from one view to the next deserves its own entry in the browser history

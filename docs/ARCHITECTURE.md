@@ -165,3 +165,13 @@ Planned: DigitalOcean App Platform, one app with two components, in a region nea
 ## Adding a new data release
 
 Add its collection name to `collections` in `backend/app/config.py` (or set `SM_COLLECTIONS` in the hosting dashboard). Nothing else should need to change. If something else does, that is a bug: fix the place that hard-coded the old name.
+
+## Independent alignment check (issue #22, first deliverable)
+
+`app/astrometry.py` implements `/api/alignment`, an explicit per-exposure check separate from frame loading. It detects clean original-pixel sources and compares them to epoch-propagated reference positions. It never changes archive WCS or spectral lookup. A median translation is diagnostic only; no refined image is served. Catalogue and TAP address live in config; the default is Gaia DR3, with licence/acknowledgement pending #27.
+
+Two native readers may run concurrently. The async route returns after `SM_ASTROMETRY_TIMEOUT_S` (default 30 seconds); timed-out readers retain their slot until exit. Network I/O uses `SM_ASTROMETRY_IO_TIMEOUT_S` (default 10 seconds per operation). Completed diagnostics are cached one day by solver version, immutable exposure URL (including processing version), catalogue service, displayed centre and excluded target. Failures are not cached. Existing science caches are untouched.
+
+`AlignmentPanel` always appears above blink/difference frames; “Check this frame” requests the check. Stale asynchronous responses are excluded. `matches=0` is URL state. Stack and WISE panels retain explicitly unverified archive provenance. The reference table handles its own arrow/Space scrolling and prevents document-level playback shortcuts from consuming those keys. This PR does not change the page-wide responsive layout. See `PLATE_SOLVING_VALIDATION.md` for tests, limits and remaining work.
+
+Cached alignment results are returned before acquiring a native-reader slot. Mirror HTTP/transport errors use the structured failed-check path. The nominal reference cone is the patch half-diagonal plus a one-pixel matching margin, rather than the full patch width; the 500-source safety cap still rejects oversized catalogues. Solver cache version v3 invalidates older diagnostics. `quality_passed` reports the outcome of all gates independently of mock/live provenance. Matches expose `offset_arcsec` (absolute catalogue-to-centroid separation) and `fit_residual_arcsec` (distance from the median offset used to classify inliers). The legacy `residual_arcsec` field keeps its original total-offset meaning for compatibility.
