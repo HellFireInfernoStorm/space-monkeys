@@ -225,7 +225,7 @@ export function nearestPoint<T extends { px: number; py: number }>(points: T[], 
 }
 
 /** All chart geometry uses CSS pixels, including the separate missing-value lane. */
-export function chartGeometry(points: PlotPoint[], width: number, height = 240) {
+export function chartGeometry(points: PlotPoint[], width: number, height = 220) {
   const lane = points.some((p) => p.y === null) ? 18 : 0;
   const plot = { left: 64, top: 22, width: Math.max(1, width - 108), height: height - 66 - lane };
   const [x0, x1] = extent(points.map((p) => p.x));

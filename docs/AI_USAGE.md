@@ -30,6 +30,8 @@ Rules that apply to everything listed here:
 
 | 2026-11-15 | Thisal | OpenAI Codex | Implemented issue #19 Phase 1 chart layout, responsive SVG, linked hover and keyboard tooltips, missing-value lanes, API band strips and helper tests | Frontend chart components, photometry helpers/tests, stylesheet and architecture notes | Not yet |
 
+| 2026-11-15 | Thisal | OpenAI Codex | Verified Phase 1 in mock and live browser previews, adjusted chart height to fit the desktop tab, and recorded screenshots and remaining manual-check limits | `docs/SPECTRUM_PHASE1_VALIDATION.md`, `docs/screenshots/spectrum-phase1/`, chart layout | Not yet |
+
 ## Draft statement for the project page
 
 Keep this current; copy it to the project page at submission.

@@ -27,7 +27,7 @@ export default function Chart({ points, title, xLabel, yLabel, xFormat, colour, 
   const selected = selectedIndex === undefined ? undefined : points[selectedIndex];
   const [cardSize, setCardSize] = useState({ width: 220, height: 140 });
   const clip = useId();
-  const height = 240;
+  const height = 220;
   useEffect(() => {
     const observer = new ResizeObserver(([entry]) => setWidth(Math.floor(entry.contentRect.width)));
     observer.observe(wrapper.current!);

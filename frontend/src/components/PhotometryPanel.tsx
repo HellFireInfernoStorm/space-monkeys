@@ -141,7 +141,7 @@ function Body({
   const byWavelength = (p: PlotPoint) => wavelengthColour(p.wavelength ?? p.x, wlLo, wlHi);
   const measured = spectrum.filter((p) => p.y !== null).length;
   const unmeasured = spectrum.length - measured;
-  const shown = binned ? [...binPoints(spectrum, binCount(measured)), ...spectrum.filter((p) => p.y === null)] : spectrum;
+  const shown = binned ? [...binPoints(spectrum, binCount(measured)).map((p) => ({ ...p, label: `${p.x.toFixed(3)} µm, ${p.y!.toPrecision(3)} ± ${(p.err ?? 0).toPrecision(2)} mJy` })), ...spectrum.filter((p) => p.y === null)] : spectrum;
 
   return (
     <>
