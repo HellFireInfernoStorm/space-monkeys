@@ -701,11 +701,13 @@ body:has(.sky-map.expanded) { overflow: hidden; }
 .tooltip-anchor:hover > .tooltip, .tooltip-anchor:focus-within > .tooltip { display: block; }
 .tooltip-anchor:has(button.info-button) .tooltip { left: auto; right: 0; }
 .map-options { position: absolute; top: calc(100% + 5px); left: 0; margin: 0; padding: 4px; list-style: none; min-width: 220px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 4px 16px #0008; }
-.map-options li { padding: 8px; cursor: pointer; border-radius: 4px; }
+.map-options li { position: relative; padding: 8px; cursor: pointer; border-radius: 4px; }
 .map-options li[aria-selected="true"] { color: var(--accent); }
-.map-options li:hover, .map-options li:focus { background: var(--bg); }
-.option-help { left: 0; top: calc(100% + 8px); pointer-events: none; }
-.map-options li:hover > .option-help, .map-options li:focus > .option-help { display: block; }
+.map-options li:focus { background: var(--bg); outline: none; }
+/* One explanation at a time: the active option's, beside that option. Hovering an option
+   makes it the active one (MapDropdown), so mouse and keyboard never show two. */
+.option-help { left: calc(100% + 12px); top: 0; pointer-events: none; }
+.map-options li:focus > .option-help { display: block; }
 .map-marker { position: absolute; width: 22px; height: 22px; border: 2px solid #ffd24a; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 0 1px #000; pointer-events: none; z-index: 1; }
 .map-marker.clicked { border-color: #fff; border-style: dashed; }
 .map-popup { position: absolute; width: 270px; padding: 12px; background: var(--panel); border: 1px solid var(--accent); border-radius: 8px; box-shadow: 0 4px 16px #0008; z-index: 2; }

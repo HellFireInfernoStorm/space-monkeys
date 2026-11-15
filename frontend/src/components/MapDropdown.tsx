@@ -66,7 +66,7 @@ export default function MapDropdown<T extends string>({ label, value, options, o
           {options.map((option, index) => (
             <li key={option.value} role="option" aria-selected={value === option.value}
               tabIndex={active === index ? 0 : -1} aria-describedby={`${id}-${index}-help`}
-              onFocus={() => setActive(index)} onClick={() => { onChange(option.value); close(); }}>
+              onFocus={() => setActive(index)} onMouseEnter={() => setActive(index)} onClick={() => { onChange(option.value); close(); }}>
               {option.label}
               <span role="tooltip" id={`${id}-${index}-help`} className="option-help">{option.help}</span>
             </li>
