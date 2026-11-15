@@ -9,7 +9,7 @@ Options:
     --only barnard wise-0855    warm only these target ids
     --size 120                  image width in arcseconds (the site's default is 120)
     --no-diff                   skip difference images
-    --retry-wait 60             seconds to wait before retrying what failed (0: no retry)
+    --retry-wait 90             seconds to wait before retrying what failed (0: no retry)
 
 It runs the same code as the API (/api/frames, then every /api/frame.png, plain and
 difference; then /api/stack and every /api/stack.png for the targets in STACKS; then
@@ -18,9 +18,10 @@ in `SM_CACHE_DIR` or the default `backend/.cache`. Run it again at any time: wha
 already is not fetched again.
 
 A step fails when it raises an error or when its archive search failed (including when a
-saved search stood in for it). Failed steps are tried once more after `--retry-wait`
-seconds; what still fails is listed at the end, and the exit code is 1. Run it while IRSA
-answers (issue #38), so the demo targets work during IRSA's outages.
+saved search stood in for it; `photometry.search_incomplete` decides). Failed steps are
+tried once more after `--retry-wait` seconds (longer than the API's IRSA cooldown, 60 s);
+what still fails is listed at the end, and the exit code is 1. Run it while IRSA answers
+(issue #38), so the demo targets work during IRSA's outages.
 """
 
 import argparse
@@ -141,11 +142,6 @@ def warm_photometry(settings: Settings, target, wl_min: float, wl_max: float):
     return result.warnings
 
 
-def search_failed(warnings) -> bool:
-    """True if the step's archive search failed, even if a saved search stood in for it."""
-    return any("search failed" in w or ("Search of " in w and " failed:" in w) for w in warnings)
-
-
 def run(label: str, step) -> bool:
     """Run one step; True if it worked."""
     try:
@@ -153,7 +149,8 @@ def run(label: str, step) -> bool:
     except Exception as error:  # noqa: BLE001 - one step must not stop the rest
         print(f"{label}: failed: {type(error).__name__}: {error}")
         return False
-    return not search_failed(warnings or [])
+    # The same test the API uses before it saves a result (a failed or replaced search).
+    return not phot.search_incomplete(list(warnings or []))
 
 
 def main() -> int:
@@ -162,7 +159,7 @@ def main() -> int:
     parser.add_argument("--size", type=float, default=120.0, help="image width, arcseconds")
     parser.add_argument("--no-diff", action="store_true", help="skip difference images")
     parser.add_argument(
-        "--retry-wait", type=float, default=60.0, help="seconds before retrying failed steps (0: no retry)"
+        "--retry-wait", type=float, default=90.0, help="seconds before retrying failed steps (0: no retry)"
     )
     args = parser.parse_args()
 

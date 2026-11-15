@@ -10,6 +10,8 @@ without them.
 import json
 import math
 import re
+import threading
+import time
 from dataclasses import dataclass
 
 from .config import Settings
@@ -73,46 +75,97 @@ def _require_pyvo():
     return pyvo
 
 
+_sessions: dict[tuple[float, int, float], object] = {}
+_sessions_lock = threading.Lock()
+
+
 def _irsa_session(settings: Settings):
-    """An HTTP session for IRSA with a timeout and retries on its short outages.
+    """The shared HTTP session for IRSA: PyVO's user agent, a timeout, and retries on short outages.
 
     Retries: up to `irsa_retries` more tries on connection errors and on HTTP 429, 500,
-    502, 503 and 504, with a pause of `irsa_backoff_s`, then twice that, and so on. A stalled
-    answer counts once at most, so one search waits at most about two timeouts.
+    502, 503 and 504, with a pause of `irsa_backoff_s`, then twice that (at most 30 s). A
+    stalled answer counts once at most, so one search waits at most about two timeouts.
+    The archive's Retry-After header is ignored: it may ask for hours, and the caller holds
+    a lock meanwhile. One session per setting combination is kept and reused (connection
+    reuse); requests sessions can be shared between threads for these reads.
     """
-    import requests
+    import pyvo.utils.http
     from requests.adapters import HTTPAdapter
     from urllib3.util.retry import Retry
 
-    timeout = (10.0, settings.irsa_timeout_s)  # (connect, wait for the next bytes)
-
-    class _TimeoutAdapter(HTTPAdapter):
-        def send(self, request, **kwargs):
-            if kwargs.get("timeout") is None:
-                kwargs["timeout"] = timeout
-            return super().send(request, **kwargs)
-
     retries = max(0, settings.irsa_retries)
-    retry = Retry(
-        total=retries,
-        connect=retries,
-        read=min(1, retries),
-        status=retries,
-        backoff_factor=settings.irsa_backoff_s,
-        status_forcelist=(429, 500, 502, 503, 504),
-        allowed_methods=("GET", "POST"),  # searches only read, so repeating them is safe
-        respect_retry_after_header=True,
-        raise_on_status=False,  # after the last try, pyvo reports the archive's own error
-    )
-    session = requests.Session()
-    adapter = _TimeoutAdapter(max_retries=retry)
-    session.mount("https://", adapter)
-    session.mount("http://", adapter)
-    return session
+    config = (float(settings.irsa_timeout_s), retries, float(settings.irsa_backoff_s))
+    with _sessions_lock:
+        session = _sessions.get(config)
+        if session is not None:
+            return session
+
+        timeout = (10.0, config[0])  # (connect, wait for the next bytes)
+
+        class _TimeoutAdapter(HTTPAdapter):
+            def send(self, request, **kwargs):
+                if kwargs.get("timeout") is None:
+                    kwargs["timeout"] = timeout
+                return super().send(request, **kwargs)
+
+        retry = Retry(
+            total=retries,
+            connect=retries,
+            read=min(1, retries),
+            status=retries,
+            backoff_factor=config[2],
+            backoff_max=30.0,
+            status_forcelist=(429, 500, 502, 503, 504),
+            allowed_methods=("GET", "POST"),  # searches only read, so repeating them is safe
+            respect_retry_after_header=False,
+            raise_on_status=False,  # after the last try, pyvo reports the archive's own error
+        )
+        session = pyvo.utils.http.create_session()  # keeps PyVO's User-Agent
+        adapter = _TimeoutAdapter(max_retries=retry)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+        _sessions[config] = session
+        return session
 
 
 class ArchiveSearchFailed(RuntimeError):
-    """The archive search request failed after its retries."""
+    """The archive search request failed after its retries, or IRSA is in its cooldown."""
+
+
+# After an outage-like failure, searches fail at once until this time (time.monotonic()).
+_down_until = 0.0
+_down_lock = threading.Lock()
+
+
+def reset_cooldown() -> None:
+    global _down_until
+    with _down_lock:
+        _down_until = 0.0
+
+
+def _status_code(error: BaseException) -> int | None:
+    code = getattr(error, "code", None)
+    if isinstance(code, int):
+        return code
+    response = getattr(error, "response", None)
+    status = getattr(response, "status_code", None)
+    return status if isinstance(status, int) else None
+
+
+def is_outage(error: BaseException) -> bool:
+    """True if the failure says IRSA is down or overloaded (no answer, HTTP 429 or 5xx),
+    not that our request was wrong (other 4xx answers)."""
+    import requests
+
+    seen: BaseException | None = error
+    while seen is not None:
+        status = _status_code(seen)
+        if status is not None:
+            return status == 429 or status >= 500
+        if isinstance(seen, (requests.exceptions.RequestException, TimeoutError, ConnectionError)):
+            return True
+        seen = seen.__cause__ or seen.__context__
+    return False
 
 
 def _rows_to_exposures(table, collections: list[str]) -> list[LiveExposure]:
@@ -120,6 +173,7 @@ def _rows_to_exposures(table, collections: list[str]) -> list[LiveExposure]:
     once, from the collection listed first in the settings."""
     names = set(table.colnames)
     rank = {c: i for i, c in enumerate(collections)}
+    by_lower = {c.lower(): c for c in collections}
     best: dict[str, tuple[int, LiveExposure]] = {}
     for row in table:
         bandpass = _text(row["energy_bandpassname"]) or ""
@@ -129,7 +183,10 @@ def _rows_to_exposures(table, collections: list[str]) -> list[LiveExposure]:
         em_min, em_max = _number(row["em_min"]), _number(row["em_max"])
         if match is None or obs_id is None or None in (t_min, t_max, em_min, em_max):
             continue  # not a detector image we know how to use
-        collection = (_text(row["obs_collection"]) if "obs_collection" in names else None) or collections[0]
+        # The archive labels rows with the collection names it was asked for (checked on
+        # 2026-11-15); compare without case to be safe. Unknown labels rank last.
+        label = _text(row["obs_collection"]) if "obs_collection" in names else None
+        collection = by_lower.get(label.lower(), label) if label else collections[0]
         detector = int(match.group(1))
         exposure = LiveExposure(
             exposure_id=f"{obs_id}-D{detector}",
@@ -159,19 +216,30 @@ def search_exposures(
     One SIA request names every collection (measured on 2026-11-15: the same rows as one
     request per collection, in the same time). The service's capabilities are not fetched
     first (`check_baseurl=False`), so a search is one request, retried on IRSA's short
-    outages. Raises ArchiveSearchFailed when the request still fails. The second value is
+    outages. Raises ArchiveSearchFailed when the request still fails; after an outage-like
+    failure, searches fail at once for `irsa_cooldown_s` seconds. The second value is
     for warnings and is empty here; callers and tests also use it for partial failures.
     """
+    global _down_until
     pyvo = _require_pyvo()
     collections = list(settings.collections)
+    wait = _down_until - time.monotonic()
+    if wait > 0:
+        raise ArchiveSearchFailed(
+            f"Search of {', '.join(collections)} failed: IRSA did not answer a search in the last "
+            f"{settings.irsa_cooldown_s:.0f} s, so it is not asked again for {wait:.0f} s."
+        )
     try:
-        with _irsa_session(settings) as session:
-            service = pyvo.dal.SIA2Service(settings.sia_url, session=session, check_baseurl=False)
-            wanted = collections if len(collections) > 1 else collections[0]
-            table = service.search(pos=(ra, dec, radius), collection=wanted).to_table()
+        service = pyvo.dal.SIA2Service(settings.sia_url, session=_irsa_session(settings), check_baseurl=False)
+        wanted = collections if len(collections) > 1 else collections[0]
+        table = service.search(pos=(ra, dec, radius), collection=wanted).to_table()
+        found = _rows_to_exposures(table, collections)  # inside: a malformed answer is a failure too
     except Exception as error:  # noqa: BLE001 - reported to the caller as one clear failure
+        if settings.irsa_cooldown_s > 0 and is_outage(error):
+            with _down_lock:
+                _down_until = time.monotonic() + settings.irsa_cooldown_s
         raise ArchiveSearchFailed(
             f"Search of {', '.join(collections)} failed: {type(error).__name__}: {error}"[:400]
         ) from error
-    found = _rows_to_exposures(table, collections)
+    reset_cooldown()
     return sorted(found, key=lambda e: e.mjd), []

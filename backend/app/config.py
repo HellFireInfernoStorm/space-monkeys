@@ -68,6 +68,13 @@ class Settings(BaseSettings):
     irsa_timeout_s: float = 90.0
     irsa_retries: int = 2
     irsa_backoff_s: float = 2.0
+    # After a search fails because IRSA is down (no answer, or HTTP 429 or 5xx), searches fail
+    # at once for this many seconds instead of waiting on IRSA again. 0 turns it off.
+    irsa_cooldown_s: float = 60.0
+    # When the search fails and this position has no saved search, use the saved search of the
+    # nearest position within this many degrees (same radius and collections), with a warning.
+    # Exposures that miss this position are dropped when their wavelength is checked. 0: off.
+    nearby_search_deg: float = 0.1
     # Search results are kept on disk this long. New data arrives at most weekly.
     search_cache_hours: float = 12.0
 
