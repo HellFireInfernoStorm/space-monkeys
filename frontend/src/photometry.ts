@@ -486,16 +486,20 @@ export function visitMeans(corrected: PlotPoint[], gapDays = 60, floor = NOISE_F
   });
 }
 
-// backend/app/photometry.py: the one purely informational photometry note. The unmeasured points
-// already show in the "Not measured" lane with their reasons.
-const INFORMATIONAL_NOTE = /^\d+ of \d+ point\(s\) have no flux: /;
+// backend/app/photometry.py: the purely informational photometry notes. The unmeasured points
+// already show in the "Not measured" lane with their reasons, and the sampling note says the
+// exposures were spread evenly over time (the Measured tile says so too).
+const INFORMATIONAL_NOTES = [
+  /^\d+ of \d+ point\(s\) have no flux: /,
+  /^Measured \d+ of \d+ matching exposures, spread evenly over time\.$/,
+];
 
 /**
  * API warnings that make the numbers less trustworthy: a field star in the aperture, a failed search,
  * unreadable exposures, or anything not known to be informational. Used to withhold the change verdict.
  */
 export function cautionWarnings(warnings: string[] | null | undefined): string[] {
-  return (warnings ?? []).filter((w) => !INFORMATIONAL_NOTE.test(w));
+  return (warnings ?? []).filter((w) => !INFORMATIONAL_NOTES.some((note) => note.test(w)));
 }
 
 export interface ChangeVerdict { tone: "change" | "unclear" | "steady" | "unjudged"; value: string; detail: string }
@@ -524,8 +528,12 @@ export function changeVerdict(visits: VisitMean[], { warned, mock, available }: 
   if (largest.z >= CHANGE_THRESHOLD) {
     return { tone: "change", value: "Yes", detail: `visits differ by ${delta}% (${largest.z.toFixed(1)} times the combined error)${suffix}` };
   }
-  if (largest.z >= HINT_THRESHOLD) return { tone: "unclear", value: "Unclear", detail: `visits differ by ${delta}%; not significant${suffix}` };
-  return { tone: "steady", value: "No sign", detail: `a change above ${Math.round(CHANGE_THRESHOLD * tightest * 100)}% would show${suffix}` };
+  // A visit too small to compare is still drawn, so a quiet verdict must say it was left out.
+  const left = visits.length - qualifying.length;
+  const leftOut = left ? `; ${left} ${left === 1 ? "visit" : "visits"} with fewer than ${MIN_POINTS_PER_VISIT} exposures not compared` : "";
+  if (largest.z >= HINT_THRESHOLD) return { tone: "unclear", value: "Unclear", detail: `visits differ by ${delta}%; not significant${leftOut}${suffix}` };
+  // A limit on the visit averages, not on the object: self-dilution makes real changes look smaller.
+  return { tone: "steady", value: "No sign", detail: `visits agree; a change under ${Math.round(CHANGE_THRESHOLD * tightest * 100)}% could not be seen${leftOut}${suffix}` };
 }
 
 /** Below this many pixels a drag across the spectrum is a click, not a new range. */

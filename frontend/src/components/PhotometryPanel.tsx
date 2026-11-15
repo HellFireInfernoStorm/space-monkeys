@@ -23,9 +23,9 @@ import Chart from "./Chart";
 import { csvFileName, photometryCsv } from "../export";
 import type { ViewState } from "../urlState";
 
+const CORRECTION_UNAVAILABLE = "Corrected view needs a clearer spectrum: at least 3 exposures where the binned spectrum reaches S/N 5.";
 // The tool itself (docs/RESOURCES.md). It is a browser application: a plain HTTP request for
 // this address answers 404, but it opens in a browser.
-const CORRECTION_UNAVAILABLE = "Corrected view needs a clearer spectrum: at least 3 exposures where the binned spectrum reaches S/N 5.";
 const SPECTROPHOTOMETRY_TOOL = "https://irsa.ipac.caltech.edu/applications/spherex/tool-spectrophotometry";
 
 interface Props {
