@@ -46,6 +46,8 @@ The contract is `docs/openapi.json`, generated from the code. Browse it at `http
 | `GET /api/stack` | Layer 2: many exposures added together. One typical single exposure, the tracked stack, the fixed-grid stack, one stack per visit, and the measured versus predicted motion | yes | yes |
 | `GET /api/stack.png` | One image of a stack set as PNG (`kind` = `single`, `tracked`, `static` or `epoch`, and `index` for epochs) | yes | yes |
 | `GET /api/photometry` | Layer 3: quick-look brightness per exposure at a point, serving both the spectrum and the light curve. With proper motion (and optional `parallax`), each exposure is measured where the object was on that date | yes | yes |
+| `GET /api/wise` | Layer 4: an AllWISE image (W1 or W2, 2010) of the same field as the SPHEREx view, with its dates, tile and source file | yes | yes |
+| `GET /api/wise.png` | That image as PNG | yes | yes |
 
 Planned, not in the contract yet:
 
@@ -100,6 +102,16 @@ Code: `backend/app/photometry.py`. `scripts/check_accuracy.py` uses the same `me
 4. **Unusable points.** Any empty aperture pixel (flagged, missing or off the detector), an aperture too near the patch edge, or too few background pixels gives `usable` false, `flux` and `flux_err` null (never a partial sum) and a `reason`, with the names of the problem flags. `flags` is the bitwise OR of the aperture pixels' flags. Empty annulus pixels are left out of the background.
 5. **Cache.** The result is kept for `search_cache_hours`, keyed by the request, `PHOTOMETRY_VERSION`, the grid version and the collections. Empty results and results with search-failure warnings are not stored.
 
+### WISE comparison (layer 4)
+
+Code: `backend/app/wise.py`; front end `components/WiseCompare.tsx` and `src/wiseCompare.ts`.
+
+1. **Tile.** AllWISE Atlas tiles (4095 x 4095 pixels of 1.375 arcseconds, about 1.56 degrees) on IRSA's AWS mirror (`settings.wise_bucket_url`, `settings.wise_atlas_prefix`). IRSA's search service is not used: folders are named after tile centres (`13/1342/1342m076_ac51`), so the server lists the RA folders around the position (cached for good; the archive is fixed) and takes the tile whose centre is nearest, if the position lies inside it.
+2. **Reading.** Two range requests: the header (first 28,800 bytes, parsed up to the END card), then the contiguous rows of the patch. Astropy's `section` would fetch row by row; measured for a 300-arcsecond field: 74 s that way, 10 to 60 s this way depending on the connection. Then 0.05 s from the cache.
+3. **Grid.** Bilinear resampling through the tile's WCS onto the requested centre and width, north up, east left, at 1.375 arcseconds, so the WISE image covers exactly the SPHEREx image's field. NaN (blank) where the field crosses the tile edge; `coverage` says how much has data, with a warning.
+4. **Dates.** From the tile header: `DATEOBS1`, `DATEOBS2` (earliest and latest frame) and `MIDOBS`. The front end moves the target to `mjd_mid` with its proper motion to mark its 2010 position.
+5. **Front end.** The panel compares the frame on screen (the middle frame when following the object), or in Stack mode the fixed-grid stack, with the WISE image of the same centre and width, side by side or blinking (`wise`, `cmp` in the URL). It marks the target on the SPHEREx date and on the WISE date, offers to widen the view when one is outside, and offers 4.4 to 5.0 micrometres with W2.
+
 ### Cache
 
 - Folder: `settings.cache_dir` (environment variable `SM_CACHE_DIR`), default `backend/.cache`, git-ignored. Safe to delete.
@@ -117,7 +129,7 @@ Code: `backend/app/photometry.py`. `scripts/check_accuracy.py` uses the same `me
 
 ## The front end
 
-- `src/urlState.ts` is the single source of view state. Parameters: `ra`, `dec`, `size` (arcseconds), `wlmin`, `wlmax`, `pmra`, `pmdec`, `epoch`, `speed` (frames per second), `mode` (`blink`, `diff` or `stack`), `track` (`1` to re-centre every frame on the moving object; left out when off), `sky` (background survey in the wide-field sky map: `wise` by default, or `spherex`), `name`, `phot` (`1` shows the spectrum and light-curve panel), `pra` and `pdec` (a clicked point to measure; left out, the panel measures the target along its motion), `bin` (`1` for the binned spectrum). A link with these parameters reproduces the view, which also makes the tool embeddable in a frame.
+- `src/urlState.ts` is the single source of view state. Parameters: `ra`, `dec`, `size` (arcseconds), `wlmin`, `wlmax`, `pmra`, `pmdec`, `epoch`, `speed` (frames per second), `mode` (`blink`, `diff` or `stack`), `track` (`1` to re-centre every frame on the moving object; left out when off), `sky` (background survey in the wide-field sky map: `wise` by default, or `spherex`), `name`, `phot` (`1` shows the spectrum and light-curve panel), `pra` and `pdec` (a clicked point to measure; left out, the panel measures the target along its motion), `bin` (`1` for the binned spectrum), `wise` (`W1` or `W2` shows the WISE comparison), `cmp` (`blink` to blink the two images; side by side when left out). A link with these parameters reproduces the view, which also makes the tool embeddable in a frame.
 - `src/api.ts` is the only file that calls the back end. Its types come from `src/api-types.ts`, generated from the contract with `npm run gen:api`.
 - `BlinkPlayer` preloads every frame image and switches which one is visible, so playback does not flicker. In difference mode the first frame is the reference: it is shown as a plain image labelled "Reference frame: the others are shown minus this one", and every other frame minus it. Its pure helpers are in `src/blink.ts`.
 - `StackView` (`mode=stack`) shows one exposure beside the tracked stack, the fixed-grid stack, a blink of the per-visit stacks with markers at the predicted positions, and the motion table. In this mode the page does not load the frame list. Its pure helpers are in `src/stackView.ts`. `ModeToggle` switches between the three modes.

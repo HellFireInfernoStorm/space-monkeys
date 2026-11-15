@@ -220,6 +220,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/wise": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Wise Meta
+         * @description Layer 4: an AllWISE image (2010) of the same field as the SPHEREx view, with its dates.
+         *
+         *     Same centre and width as the SPHEREx image, north up and east left, at the WISE pixel
+         *     scale (1.375 arcseconds), so field stars line up and anything that moved since 2010 is
+         *     in a different place. A first request for a field reads the image from the archive's
+         *     AWS mirror (a few seconds); then it is cached.
+         */
+        get: operations["wise_meta_api_wise_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/wise.png": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Wise Png
+         * @description The image of `/api/wise` as a PNG.
+         */
+        get: operations["wise_png_api_wise_png_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -810,6 +855,101 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /**
+         * WiseImage
+         * @description Layer 4: a WISE-era image of the same field as the SPHEREx view, north up, east left.
+         */
+        WiseImage: {
+            /**
+             * Band
+             * @enum {string}
+             */
+            band: "W1" | "W2";
+            /**
+             * Coverage
+             * @description Fraction of the field with data (below 1 at a tile edge)
+             */
+            coverage: number;
+            /**
+             * Date End
+             * @description UTC date and time of the latest frame
+             */
+            date_end: string;
+            /**
+             * Date Mid
+             * @description UTC date and time of the middle frame
+             */
+            date_mid: string;
+            /**
+             * Date Start
+             * @description UTC date and time of the earliest frame in this part of the sky
+             */
+            date_start: string;
+            /** Dec */
+            dec: number;
+            /**
+             * Image Url
+             * @description Address of the PNG, relative to the API root
+             */
+            image_url: string;
+            /**
+             * Mjd Mid
+             * @description `date_mid` as MJD, for moving a position to the WISE date
+             */
+            mjd_mid: number;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "mock" | "live";
+            /**
+             * Pixel Scale
+             * @description Arcseconds per pixel of the returned image
+             */
+            pixel_scale: number;
+            /**
+             * Pixels
+             * @description Width of the image in pixels
+             */
+            pixels: number;
+            /**
+             * Ra
+             * @description Centre, degrees, ICRS
+             */
+            ra: number;
+            /**
+             * Size
+             * @description Width on the sky, arcseconds (as requested)
+             */
+            size: number;
+            /**
+             * Source
+             * @description Address of the file the image was read from
+             */
+            source: string;
+            /**
+             * Survey
+             * @description Image set, e.g. 'AllWISE Atlas'
+             */
+            survey: string;
+            /**
+             * Tile
+             * @description Atlas tile the image was cut from
+             */
+            tile: string;
+            /**
+             * Unit
+             * @description Pixel unit of the image
+             */
+            unit: string;
+            /** Warnings */
+            warnings?: string[];
+            /**
+             * Wavelength Um
+             * @description Effective wavelength of the band, micrometres
+             */
+            wavelength_um: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -1187,6 +1327,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TargetList"];
+                };
+            };
+        };
+    };
+    wise_meta_api_wise_get: {
+        parameters: {
+            query: {
+                /** @description Right Ascension, degrees, ICRS, at `epoch` */
+                ra: number;
+                /** @description Declination, degrees, ICRS, at `epoch` */
+                dec: number;
+                /** @description Width of the image on the sky, arcseconds */
+                size?: number;
+                /** @description WISE band: W1 (3.4 micrometres) or W2 (4.6) */
+                band?: "W1" | "W2";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WiseImage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    wise_png_api_wise_png_get: {
+        parameters: {
+            query: {
+                /** @description Right Ascension, degrees, ICRS, at `epoch` */
+                ra: number;
+                /** @description Declination, degrees, ICRS, at `epoch` */
+                dec: number;
+                /** @description Width of the image on the sky, arcseconds */
+                size?: number;
+                /** @description WISE band: W1 (3.4 micrometres) or W2 (4.6) */
+                band?: "W1" | "W2";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Greyscale PNG */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

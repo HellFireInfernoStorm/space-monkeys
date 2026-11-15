@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { type Frame, type FrameList } from "../api";
 import { colourSpread, imageAddress, REFERENCE_LABEL } from "../blink";
 import { clickToSky } from "../photometry";
+import { framePixels } from "../wiseCompare";
 import { LIMITS, type ViewMode, type ViewState } from "../urlState";
 import ModeToggle from "./ModeToggle";
 
@@ -66,8 +67,8 @@ export default function BlinkPlayer({ list, speed, mode, onChange, onFrame, onPi
   const current = frames[Math.min(index, frames.length - 1)];
   const { shortest, longest, warn: mixedColours } = colourSpread(frames);
 
-  // The server draws round(size / pixel_scale) pixels, limited to 8..96.
-  const pixels = Math.min(96, Math.max(8, Math.round(list.size / list.pixel_scale)));
+  // The server draws an odd number of pixels, 8 to 95 (patch_pixels in backend/app/mock.py).
+  const pixels = framePixels(list.size, list.pixel_scale);
   const spot = targetSpot(current, pixels * list.pixel_scale);
   const spotVisible = spot.left > 0 && spot.left < 1 && spot.top > 0 && spot.top < 1;
 

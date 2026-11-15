@@ -41,7 +41,7 @@ For each: the object is found from its name, real SPHEREx frames load, and the e
 - [ ] Layer 1: wavelength-matched blink and difference images
 - [ ] Layer 2: motion-tracked stacking, with WISE 0855
 - [x] Layer 3: click a point for spectrum and light curve, cross-checked once against IRSA's Spectrophotometry Tool (2026-11-15, checked locally in live mode, not on a deployed site. 2MASS check star: our 9 measured exposures are 1.007 to 1.041 times the tool's values, median 1.021; refusals agree in 18 of 19 exposures (`docs/SCIENCE.md`, section 7). Spectrum, light curve, binning and link restore seen in headless-Chrome screenshots; clicking with a real mouse not tested.)
-- [ ] Layer 4: WISE-era versus SPHEREx comparison (at least the link to WiseView)
+- [x] Layer 4: WISE-era versus SPHEREx comparison (at least the link to WiseView) (2026-11-15, checked locally in live mode, not on a deployed site: AllWISE W2 beside the WISE 0855 SPHEREx stack at 300 arcseconds, seen in headless-Chrome screenshots; 7 of the 8 brightest field stars within 3.2 arcseconds; WISE 0855 found 1.4 arcseconds from its predicted 2010 position (`docs/SCIENCE.md`, section 8). The WiseView link is kept.)
 - [ ] Layer 5: automatic flags on moved or changed sources
 
 ## E. Submission

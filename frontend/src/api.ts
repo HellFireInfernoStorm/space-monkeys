@@ -16,6 +16,7 @@ export type StackImage = Schemas["StackImage"];
 export type MotionPoint = Schemas["MotionPoint"];
 export type PhotometryResult = Schemas["PhotometryResult"];
 export type PhotometryPoint = Schemas["PhotometryPoint"];
+export type WiseImage = Schemas["WiseImage"];
 
 const BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
@@ -116,6 +117,17 @@ export interface PhotometryQuery extends PositionQuery {
 
 export const getPhotometry = (query: PhotometryQuery, signal?: AbortSignal) =>
   get<PhotometryResult>("/api/photometry", { ...query }, signal);
+
+export interface WiseQuery {
+  ra: number;
+  dec: number;
+  /** Width on the sky, arcseconds: the SPHEREx image's, so both cover the same field. */
+  size: number;
+  band: "W1" | "W2";
+}
+
+export const getWise = (query: WiseQuery, signal?: AbortSignal) =>
+  get<WiseImage>("/api/wise", { ...query }, signal);
 
 export const getExposures =(query: PositionQuery, signal?: AbortSignal) =>
   get<ExposureList>("/api/exposures", { ...query }, signal);

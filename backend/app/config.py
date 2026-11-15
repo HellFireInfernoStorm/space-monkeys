@@ -33,6 +33,11 @@ class Settings(BaseSettings):
         "spherex_qr3_deep",
     ]
 
+    # AllWISE Atlas images (layer 4), from IRSA's public mirror on AWS. Tiles are found by
+    # listing this prefix, so IRSA's own search service is not needed.
+    wise_bucket_url: str = "https://nasa-irsa-wise.s3.us-west-2.amazonaws.com"
+    wise_atlas_prefix: str = "wise/allwise/images/p3am_cdd"
+
     search_radius_deg: float = 0.005
     # For objects with proper motion, the archive is searched at the position for this
     # date (decimal year, roughly the middle of the survey so far). Image footprints are

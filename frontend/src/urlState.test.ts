@@ -28,6 +28,8 @@ describe("urlState", () => {
       pra: 133.802411,
       pdec: -7.245112,
       bin: true,
+      wise: "W2",
+      cmp: "blink",
     };
     expect(parseView("?" + serializeView(view))).toEqual(view);
   });
@@ -51,6 +53,9 @@ describe("urlState", () => {
       { phot: true },
       { pra: 76.97773, pdec: 30.37557 },
       { bin: true },
+      { wise: "W1" },
+      { wise: "W2" },
+      { cmp: "blink" },
     ];
     for (const change of changes) {
       const view = { ...DEFAULT_VIEW, ...change };
@@ -61,6 +66,10 @@ describe("urlState", () => {
   it("ignores values that are out of range or not numbers", () => {
     const view = parseView("?ra=400&dec=20&size=5&speed=fast&mode=sideways&epoch=1500&sky=moon&plx=-3");
     expect(view).toEqual(DEFAULT_VIEW);
+  });
+
+  it("accepts only known WISE bands and comparison modes", () => {
+    expect(parseView("?wise=W3&cmp=sideways")).toMatchObject({ wise: null, cmp: "side" });
   });
 
   it("needs both coordinates of a measured point, in range", () => {

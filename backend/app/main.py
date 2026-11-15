@@ -5,13 +5,13 @@ Interactive documentation:    http://localhost:8000/docs
 """
 
 from dataclasses import asdict
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import urlencode
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import __version__, live, live_frames, mock, stack_service
+from . import __version__, live, live_frames, mock, stack_service, wise
 from . import models as m
 from . import photometry as phot
 from .bands import BANDS
@@ -371,6 +371,53 @@ def stack_png(
     if png is None:
         raise HTTPException(status_code=404, detail=f"This stack set has no '{kind}' image number {index}.")
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "public, max-age=300"})
+
+
+WiseBand = Annotated[Literal["W1", "W2"], Query(description="WISE band: W1 (3.4 micrometres) or W2 (4.6)")]
+
+
+def _wise_call(settings: Settings, ra: float, dec: float, size: float, band: str) -> wise.WiseImage:
+    try:
+        return wise.wise_image(settings, ra, dec, size, band)
+    except (live.LiveDependencyMissing, ImportError) as error:
+        raise HTTPException(status_code=503, detail=_missing_extra(error)) from error
+    except wise.NoTile as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except (OSError, KeyError) as error:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not read the AllWISE image from the archive mirror ({type(error).__name__}).",
+        ) from error
+
+
+@app.get("/api/wise", response_model=m.WiseImage, tags=["data"])
+def wise_meta(
+    settings: SettingsDep, ra: Ra, dec: Dec, size: Size = 120.0, band: WiseBand = "W2"
+) -> m.WiseImage:
+    """Layer 4: an AllWISE image (2010) of the same field as the SPHEREx view, with its dates.
+
+    Same centre and width as the SPHEREx image, north up and east left, at the WISE pixel
+    scale (1.375 arcseconds), so field stars line up and anything that moved since 2010 is
+    in a different place. A first request for a field reads the image from the archive's
+    AWS mirror (a few seconds); then it is cached.
+    """
+    return _wise_call(settings, ra, dec, size, band).meta
+
+
+@app.get(
+    "/api/wise.png",
+    tags=["data"],
+    response_class=Response,
+    responses={200: {"content": {"image/png": {}}, "description": "Greyscale PNG"}},
+)
+def wise_png(settings: SettingsDep, ra: Ra, dec: Dec, size: Size = 120.0, band: WiseBand = "W2") -> Response:
+    """The image of `/api/wise` as a PNG."""
+    result = _wise_call(settings, ra, dec, size, band)
+    return Response(
+        content=wise.wise_png(result.image),
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
 
 
 @app.get("/api/photometry", response_model=m.PhotometryResult, tags=["data"])
