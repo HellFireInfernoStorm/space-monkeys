@@ -7,9 +7,11 @@ import {
   clickToSky,
   extent,
   isUsable,
+  linkLabel,
   milliJanskyFactor,
   mjdToDay,
   pointLabel,
+  splitLinks,
   ticks,
   toPlotPoints,
   wavelengthColour,
@@ -150,5 +152,21 @@ describe("plot helpers", () => {
   it("formats MJD as a calendar day", () => {
     expect(mjdToDay(60000)).toBe("2023-02-25");
     expect(mjdToDay(60800)).toBe("2025-05-05");
+  });
+});
+
+describe("links in warnings", () => {
+  it("splits out web addresses, leaving trailing punctuation as text", () => {
+    expect(splitLinks("See https://github.com/a/b/issues/4. Done")).toEqual([
+      { text: "See " },
+      { text: "https://github.com/a/b/issues/4", href: "https://github.com/a/b/issues/4" },
+      { text: ". Done" },
+    ]);
+    expect(splitLinks("no links here")).toEqual([{ text: "no links here" }]);
+  });
+
+  it("labels GitHub issues by number and other links by host", () => {
+    expect(linkLabel("https://github.com/HellFireInfernoStorm/space-monkeys/issues/4")).toBe("issue #4");
+    expect(linkLabel("https://irsa.ipac.caltech.edu/Missions/spherex.html")).toBe("irsa.ipac.caltech.edu");
   });
 });

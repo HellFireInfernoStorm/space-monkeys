@@ -5,7 +5,9 @@ import {
   binCount,
   binPoints,
   extent,
+  linkLabel,
   mjdToDay,
+  splitLinks,
   type PlotPoint,
   ticks,
   toPlotPoints,
@@ -194,7 +196,15 @@ function Body({
 }) {
   const warnings = (data.warnings ?? []).map((warning) => (
     <p key={warning} className="notice">
-      {warning}
+      {splitLinks(warning).map((part, i) =>
+        part.href ? (
+          <a key={i} href={part.href} target="_blank" rel="noreferrer">
+            {linkLabel(part.href)}
+          </a>
+        ) : (
+          <span key={i}>{part.text}</span>
+        ),
+      )}
     </p>
   ));
   if (data.points.length === 0) {

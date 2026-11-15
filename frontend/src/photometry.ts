@@ -153,6 +153,31 @@ export function ticks(lo: number, hi: number, count = 5): number[] {
   return out;
 }
 
+/** Split text into plain parts and web addresses, so addresses can be shown as links. */
+export function splitLinks(text: string): Array<{ text: string; href?: string }> {
+  const parts: Array<{ text: string; href?: string }> = [];
+  let last = 0;
+  for (const match of text.matchAll(/https?:\/\/[^\s)]+[^\s).,;]/g)) {
+    const at = match.index ?? 0;
+    if (at > last) parts.push({ text: text.slice(last, at) });
+    parts.push({ text: match[0], href: match[0] });
+    last = at + match[0].length;
+  }
+  if (last < text.length) parts.push({ text: text.slice(last) });
+  return parts;
+}
+
+/** A short label for a link: "issue #4" for a GitHub issue, else the host name. */
+export function linkLabel(href: string): string {
+  const issue = href.match(/github\.com\/[^/]+\/[^/]+\/issues\/(\d+)/);
+  if (issue) return `issue #${issue[1]}`;
+  try {
+    return new URL(href).host;
+  } catch {
+    return href;
+  }
+}
+
 const MJD_OF_UNIX_EPOCH = 40587;
 
 /** MJD to a calendar day, "2025-05-14". */

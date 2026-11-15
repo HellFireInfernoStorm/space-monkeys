@@ -43,7 +43,7 @@ MIN_SKY_PIXELS = 20
 # centred on the same point, so the two share the disk cache.
 PATCH_SIZE_ARCSEC = 120.0
 # Bump when the measurement changes, so old cached results are not reused.
-PHOTOMETRY_VERSION = 4
+PHOTOMETRY_VERSION = 5
 
 # The same unit as mock mode, so the two answer alike. 1 Jy = 1e6 uJy.
 FLUX_UNIT = "uJy"
@@ -277,7 +277,8 @@ def _measure_all(
             f"A known field star is {closest:.1f} to {farthest:.1f} arcseconds from the measured position, "
             f"inside the 18.5-arcsecond aperture: these fluxes include its light, and its share changes as "
             f"the object moves. They do not measure the object alone, and differences between visits are "
-            f"not evidence of a brightness change. Source: {source}"
+            f"not evidence of a brightness change. The Stack view fits the object and the star separately. "
+            f"Source: {source}"
         )
     unmeasured = sum(1 for p in points if not p.usable)
     if unmeasured:

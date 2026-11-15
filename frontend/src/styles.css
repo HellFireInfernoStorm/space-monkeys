@@ -553,3 +553,15 @@ button.link {
   height: 8px;
   border-radius: 4px;
 }
+
+.ramp-legend {
+  white-space: nowrap;
+}
+
+/* The plots shrink to fit a phone; keep their text readable there. */
+@media (max-width: 600px) {
+  .plot .tick,
+  .plot .label {
+    font-size: 14px;
+  }
+}
