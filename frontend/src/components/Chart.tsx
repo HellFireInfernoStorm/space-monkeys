@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import { CHART_HEIGHT, chartGeometry, nearestPoint, pointKey, uniqueTicks, type PlotPoint, type SelectionKind } from "../photometry";
+import { CHART_HEIGHT, chartGeometry, dragRange, nearestPoint, pointKey, uniqueTicks, type PlotPoint, type SelectionKind } from "../photometry";
 
 type Scales = ReturnType<typeof chartGeometry>;
 interface Props {
@@ -21,16 +21,23 @@ interface Props {
   underlay?: (scales: Scales) => ReactNode;
   overlay?: (scales: Scales) => ReactNode;
   onPointClick?: (point: PlotPoint) => void;
+  /** Id of the point to ring as "shown elsewhere" (the frame in the player). */
+  markedId?: string;
+  /** Dragging across the plot (mouse or pen) reports the x range; a short drag stays a click. */
+  onRangeSelect?: (lo: number, hi: number) => void;
 }
 
 /** Responsive scatter chart. Layer callbacks share the exact scales used by the marks. */
 export default function Chart({ points, title, xLabel, yLabel, xFormat, colour, tooltip,
-  highlightedId, selectedKey, onSelect, underlay, overlay, onPointClick, invertY = false, laneLabel = "Not measured", pointOpacity = 1, extraY }: Props) {
+  highlightedId, selectedKey, onSelect, underlay, overlay, onPointClick, invertY = false, laneLabel = "Not measured", pointOpacity = 1, extraY, markedId, onRangeSelect }: Props) {
   const wrapper = useRef<HTMLDivElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const selected = points.find((p) => pointKey(p) === selectedKey);
   const [cardSize, setCardSize] = useState({ width: 220, height: 140 });
+  const [drag, setDrag] = useState<{ start: number; end: number } | null>(null);
+  const lastPointer = useRef("mouse");
+  const suppressClick = useRef(false);
   const clip = useId();
   const height = CHART_HEIGHT;
   const scales = useMemo(() => chartGeometry(points, width, height, invertY, extraY), [points, width, height, invertY, extraY]);
@@ -52,10 +59,13 @@ export default function Chart({ points, title, xLabel, yLabel, xFormat, colour, 
     return () => observer.disconnect();
   }, [hasActive]);
   const select = (kind: SelectionKind, point?: PlotPoint) => onSelect(kind, point ? pointKey(point) : undefined);
+  const pxOf = (event: React.MouseEvent<SVGRectElement>) => event.clientX - event.currentTarget.ownerSVGElement!.getBoundingClientRect().left;
   const locate = (event: React.MouseEvent<SVGRectElement>) => {
     const bounds = event.currentTarget.ownerSVGElement!.getBoundingClientRect();
     return nearestPoint(positioned, event.clientX - bounds.left, event.clientY - bounds.top)?.point;
   };
+  const dragged = drag ? dragRange(drag.start, drag.end, scales) : null;
+  const clampPx = (px: number) => Math.min(plot.left + plot.width, Math.max(plot.left, px));
   const tipLeft = active ? Math.max(4, Math.min(width - cardSize.width - 4,
     active.px + 16 + cardSize.width < width ? active.px + 16 : active.px - cardSize.width - 16)) : 0;
   const tipTop = active ? Math.max(4, Math.min(height - cardSize.height - 4, active.py - 30)) : 0;
@@ -66,7 +76,7 @@ export default function Chart({ points, title, xLabel, yLabel, xFormat, colour, 
         aria-label={`${title}, ${points.length} points. ${selected?.label ?? ""}`} tabIndex={0}
         onBlur={() => onSelect("keyboard")}
         onKeyDown={(event) => {
-          if (event.key === "Escape") { onSelect("keyboard"); onSelect("pointer"); event.preventDefault(); return; }
+          if (event.key === "Escape") { setDrag(null); onSelect("keyboard"); onSelect("pointer"); event.preventDefault(); return; }
           if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
           event.preventDefault();
           const ordered = [...points].sort((a, b) => a.x - b.x);
@@ -99,14 +109,42 @@ export default function Chart({ points, title, xLabel, yLabel, xFormat, colour, 
             </g>}
             <circle cx={px} cy={py} r={highlighted ? 7 : 5} className={p.y === null ? "unmeasured" : "dot"} />
             {highlighted && <circle cx={px} cy={py} r={9} className="highlight-ring" />}
+            {p.id !== undefined && p.id === markedId && <circle cx={px} cy={py} r={8} className="frame-ring" />}
           </g>;
         })}
         <g clipPath={`url(#${clip})`} aria-hidden="true" pointerEvents="none">{overlay?.(scales)}</g>
+        {drag && <g className="drag-band" pointerEvents="none">
+          <rect x={clampPx(Math.min(drag.start, drag.end))} y={plot.top} height={plot.height}
+            width={clampPx(Math.max(drag.start, drag.end)) - clampPx(Math.min(drag.start, drag.end))} />
+          {dragged && <text x={clampPx(Math.min(drag.start, drag.end)) + 4} y={plot.top + 12}>{xFormat(dragged.lo)}–{xFormat(dragged.hi)} µm</text>}
+        </g>}
         <rect x={plot.left} y={plot.top} width={plot.width} height={plot.height + lane}
-          fill="transparent" onPointerMove={(event) => { if (event.pointerType !== "touch") select("pointer", locate(event)); }}
-          onPointerLeave={(event) => { if (event.pointerType !== "touch") onSelect("pointer"); }}
-          onPointerCancel={() => onSelect("pointer")}
-          onClick={(event) => { const p = locate(event); select("pointer", p); if (p) onPointClick?.(p); }} />
+          fill="transparent" className={selected && onPointClick ? "hit pointing" : onRangeSelect ? "hit ranging" : "hit"}
+          onPointerDown={(event) => {
+            lastPointer.current = event.pointerType;
+            if (!onRangeSelect || event.pointerType === "touch" || event.button !== 0) return;
+            event.currentTarget.setPointerCapture?.(event.pointerId);
+            setDrag({ start: pxOf(event), end: pxOf(event) });
+          }}
+          onPointerMove={(event) => {
+            if (drag) { setDrag({ ...drag, end: pxOf(event) }); return; }
+            if (event.pointerType !== "touch") select("pointer", locate(event));
+          }}
+          onPointerUp={() => {
+            if (!drag) return;
+            setDrag(null);
+            if (dragged) { suppressClick.current = true; onRangeSelect?.(dragged.lo, dragged.hi); }
+          }}
+          onPointerLeave={(event) => { if (event.pointerType !== "touch" && !drag) onSelect("pointer"); }}
+          onPointerCancel={() => { setDrag(null); onSelect("pointer"); }}
+          onClick={(event) => {
+            if (suppressClick.current) { suppressClick.current = false; return; }
+            const p = locate(event);
+            // On touch the first tap only shows the tooltip; a second tap on the same point acts.
+            const firstTap = lastPointer.current === "touch" && (!p || pointKey(p) !== selectedKey);
+            select("pointer", p);
+            if (p && !firstTap) onPointClick?.(p);
+          }} />
       </svg>}
       {active && <div ref={card} className="chart-tooltip" role="tooltip" style={{ left: tipLeft, top: tipTop }}>{tooltip(active.point)}</div>}
     </div>

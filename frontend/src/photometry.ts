@@ -527,3 +527,20 @@ export function changeVerdict(visits: VisitMean[], { warned, mock, available }: 
   if (largest.z >= HINT_THRESHOLD) return { tone: "unclear", value: "Unclear", detail: `visits differ by ${delta}%; not significant${suffix}` };
   return { tone: "steady", value: "No sign", detail: `a change above ${Math.round(CHANGE_THRESHOLD * tightest * 100)}% would show${suffix}` };
 }
+
+/** Below this many pixels a drag across the spectrum is a click, not a new range. */
+export const DRAG_MIN_PX = 8;
+
+/**
+ * Wavelength range for a drag across a chart from `startPx` to `endPx` (pixels from the chart's
+ * left edge): ordered, clamped to the axis and rounded to 3 decimals. Null for a short drag.
+ */
+export function dragRange(startPx: number, endPx: number, scales: { x0: number; x1: number; plot: { left: number; width: number } }): { lo: number; hi: number } | null {
+  if (Math.abs(endPx - startPx) <= DRAG_MIN_PX) return null;
+  const { x0, x1, plot } = scales;
+  const toX = (px: number) => Math.min(x1, Math.max(x0, x0 + (px - plot.left) / plot.width * (x1 - x0)));
+  const round = (x: number) => Math.round(x * 1000) / 1000;
+  const lo = round(toX(Math.min(startPx, endPx)));
+  const hi = round(toX(Math.max(startPx, endPx)));
+  return hi > lo ? { lo, hi } : null;
+}

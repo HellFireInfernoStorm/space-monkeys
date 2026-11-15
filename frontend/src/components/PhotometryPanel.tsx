@@ -20,6 +20,7 @@ import {
   wavelengthColour,
 } from "../photometry";
 import Chart from "./Chart";
+import { csvFileName, photometryCsv } from "../export";
 import type { ViewState } from "../urlState";
 
 // The tool itself (docs/RESOURCES.md). It is a browser application: a plain HTTP request for
@@ -31,6 +32,20 @@ interface Props {
   bands: Band[];
   view: ViewState;
   onChange: (change: Partial<ViewState>) => void;
+  /** The frame on screen in the player (null in the Stacked view), marked on both charts. */
+  currentFrame?: { id: string; mjd: number } | null;
+  /** Ask the player to show this exposure. */
+  onOpenFrame?: (exposureId: string) => void;
+  /** The last requested exposure was not among the player's loaded frames. */
+  missingFrame?: { id: string; nonce: number; loaded: number } | null;
+}
+
+/** A thin labelled vertical line: the player's current frame. */
+function FrameMarker({ x, plot }: { x: number; plot: { top: number; height: number } }) {
+  return <g className="frame-marker">
+    <line x1={x} x2={x} y1={plot.top} y2={plot.top + plot.height} />
+    <text x={x + 3} y={plot.top + 11}>Frame</text>
+  </g>;
 }
 
 type State =
@@ -39,7 +54,7 @@ type State =
   | { status: "error"; message: string };
 
 /** Layer 3: quick-look spectrum and light curve of one point. */
-export default function PhotometryPanel({ view, onChange, bands }: Props) {
+export default function PhotometryPanel({ view, onChange, bands, currentFrame = null, onOpenFrame, missingFrame = null }: Props) {
   const [state, setState] = useState<State>({ status: "loading", started: Date.now() });
   const [, setTick] = useState(0);
   const { ra, dec, pmra, pmdec, epoch, plx, wlmin, wlmax, pra, pdec } = view;
@@ -96,7 +111,8 @@ export default function PhotometryPanel({ view, onChange, bands }: Props) {
         </>
       )}
       {state.status === "error" && <p className="notice error">Could not measure: {state.message}</p>}
-      {state.status === "ready" && <Body data={state.data} binned={view.bin} unit={view.unit} lc={view.lc} onChange={onChange} bands={bands} />}
+      {state.status === "ready" && <Body data={state.data} binned={view.bin} unit={view.unit} lc={view.lc} onChange={onChange} bands={bands}
+        view={view} currentFrame={currentFrame} onOpenFrame={onOpenFrame} missingFrame={missingFrame} />}
 
     </div>
   );
@@ -109,6 +125,10 @@ function Body({
   lc,
   onChange,
   bands,
+  view,
+  currentFrame,
+  onOpenFrame,
+  missingFrame,
 }: {
   bands: Band[];
   data: PhotometryResult;
@@ -116,9 +136,24 @@ function Body({
   unit: ViewState["unit"];
   lc: ViewState["lc"];
   onChange: (change: Partial<ViewState>) => void;
+  view: ViewState;
+  currentFrame: { id: string; mjd: number } | null;
+  onOpenFrame?: (exposureId: string) => void;
+  missingFrame: { id: string; nonce: number; loaded: number } | null;
 }) {
   const [selections, setSelections] = useState<ChartSelections>({});
   useEffect(() => setSelections({}), [data]);
+  // The "not in the player" notice shows for a few seconds, and never across a new measurement.
+  const [notice, setNotice] = useState<{ loaded: number } | null>(null);
+  useEffect(() => {
+    if (!missingFrame) return;
+    setNotice({ loaded: missingFrame.loaded });
+    const timer = window.setTimeout(() => setNotice(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [missingFrame]);
+  useEffect(() => setNotice(null), [data]);
+  const openFrame = onOpenFrame ? (p: PlotPoint) => { if (p.id) onOpenFrame(p.id); } : undefined;
+  const tooltip = (p: PlotPoint) => pointTooltip(p, !!onOpenFrame);
   const selection = selections.pointer ?? selections.keyboard;
   const chartSelection = (chart: string) => ({
     selectedKey: selection?.chart === chart ? selection.key : undefined,
@@ -148,6 +183,24 @@ function Body({
   const correctedY = useMemo(() => [1 - NOISE_FLOOR, 1 + NOISE_FLOOR, ...visits.flatMap((v) => [v.r - v.err, v.r + v.err])], [visits]);
   const showCorrected = correctable && lc === "rel";
   const change = changeVerdict(visits, { warned: cautioned, mock: data.mode === "mock", available: correctable });
+  // The spectrum marks the frame only when that exposure was measured here: a frame's own wavelength is at its centre.
+  const frameWavelength = currentFrame ? data.points.find((p) => p.exposure_id === currentFrame.id)?.wavelength : undefined;
+  const downloadCsv = () => {
+    const isPoint = view.pra !== null && view.pdec !== null;
+    const context = {
+      corrected, visits, name: view.name, isPoint, moving: !isPoint && (!!view.pmra || !!view.pmdec),
+      ra: isPoint ? view.pra! : view.ra!, dec: isPoint ? view.pdec! : view.dec!, wlmin: view.wlmin, wlmax: view.wlmax,
+      generatedAt: new Date(),
+    };
+    const url = URL.createObjectURL(new Blob([photometryCsv(data, context)], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = csvFileName(context, data.mode === "mock");
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
   const meanMag = summary.mean && toAbMag(summary.mean.y, summary.mean.err);
   const meanText = !summary.mean ? "—" : ab
     ? meanMag ? `${meanMag.mag.toFixed(2)} ± ${meanMag.err.toFixed(2)} AB mag` : "—"
@@ -199,6 +252,7 @@ function Body({
         <div className="phot-tile"><span>Brightest at</span><strong>{summary.brightest === undefined ? "—" : `${summary.brightest.toFixed(2)} µm`}</strong><small>{summary.brightest === undefined ? "signal too weak" : "weighted bin"}</small></div>
         <div className={`phot-tile change-tile ${change.tone}`} title={`Changed? ${change.value}: ${change.detail}`}><span>Changed?</span><strong>{change.value}</strong><small>{change.detail}</small></div>
       </div>
+      <div className="phot-actions"><button type="button" onClick={downloadCsv}>Download CSV</button></div>
       {summary.snrMeasured > 0 && summary.snrMeasured < measured && <p className="hint">Mean flux, combined and typical single-exposure S/N, Brightest at and the binned line use {summary.snrMeasured} of {measured} measured exposures with positive errors.</p>}
       <p className={`phot-verdict ${signal.tone}`}><span aria-hidden="true" />{signal.text}</p>
       <div className="plots">
@@ -207,9 +261,11 @@ function Body({
             <div className="phot-units">{(["mjy", "ab"] as const).map((value) => <button key={value} type="button" aria-pressed={unit === value} onClick={() => onChange({ unit: value })}>{value === "mjy" ? "mJy" : "AB mag"}</button>)}</div>
             <label className="check inline"><input type="checkbox" checked={binned} onChange={(e) => onChange({ bin: e.target.checked })} />Binned line</label>
           </div>
+          <p className="hint drag-hint">Drag across the spectrum to measure a narrower range.</p>
           <Chart {...chartSelection("spectrum")} points={displayedSpectrum} pointOpacity={binned ? 0.45 : 1} invertY={ab} laneLabel={laneLabel} xLabel="Wavelength (µm)" yLabel={yLabel} xFormat={(x) => x.toFixed(2)}
             title={ab ? "Spectrum: AB magnitude against wavelength" : "Spectrum: flux against wavelength"} colour={byWavelength}
-            tooltip={pointTooltip}
+            tooltip={tooltip} onPointClick={openFrame} markedId={currentFrame?.id}
+            onRangeSelect={(lo, hi) => onChange({ wlmin: lo, wlmax: hi })}
             underlay={({ sx, x0, x1, plot }) => <>
               {bandStrips(bands, x0, x1).map((band) => {
                 const width = sx(band.right) - sx(band.left);
@@ -227,13 +283,16 @@ function Body({
                 </g>;
               })}
             </>}
-            overlay={({ sx, sy }) => binned && <g className="binned-overlay">
-              {displayedBins.length >= 2 && <>
-                <path className="bin-band" d={`M${displayedBins.map((p) => `${sx(p.x)},${sy(p.y! + p.err!)}`).join(" L")} L${[...displayedBins].reverse().map((p) => `${sx(p.x)},${sy(p.y! - p.err!)}`).join(" L")} Z`} />
-                <path className="bin-line" d={`M${displayedBins.map((p) => `${sx(p.x)},${sy(p.y!)}`).join(" L")}`} />
-              </>}
-              {displayedBins.map((p) => <circle key={p.x} cx={sx(p.x)} cy={sy(p.y!)} r={3.5} />)}
-            </g>} />
+            overlay={({ sx, sy, plot }) => <>
+              {binned && <g className="binned-overlay">
+                {displayedBins.length >= 2 && <>
+                  <path className="bin-band" d={`M${displayedBins.map((p) => `${sx(p.x)},${sy(p.y! + p.err!)}`).join(" L")} L${[...displayedBins].reverse().map((p) => `${sx(p.x)},${sy(p.y! - p.err!)}`).join(" L")} Z`} />
+                  <path className="bin-line" d={`M${displayedBins.map((p) => `${sx(p.x)},${sy(p.y!)}`).join(" L")}`} />
+                </>}
+                {displayedBins.map((p) => <circle key={p.x} cx={sx(p.x)} cy={sy(p.y!)} r={3.5} />)}
+              </g>}
+              {frameWavelength !== undefined && <FrameMarker x={sx(frameWavelength)} plot={plot} />}
+            </>} />
         </figure>
         <figure>
           <div className="chart-heading"><h3>Light curve</h3><span>Brightness against time</span>
@@ -246,26 +305,32 @@ function Body({
           {showCorrected ? (
             <Chart {...chartSelection("lightCurve")} points={corrected} pointOpacity={0.4} extraY={correctedY} xLabel="Date (UTC)"
               yLabel="Relative to normal" xFormat={mjdToDay} title="Light curve: brightness relative to normal for each wavelength, against time"
-              colour={byWavelength} tooltip={pointTooltip}
+              colour={byWavelength} tooltip={tooltip} onPointClick={openFrame} markedId={currentFrame?.id}
               underlay={({ sy, plot }) => <g className="noise-band">
                 <rect x={plot.left} width={plot.width} y={sy(1 + NOISE_FLOOR)} height={sy(1 - NOISE_FLOOR) - sy(1 + NOISE_FLOOR)} />
                 <line x1={plot.left} x2={plot.left + plot.width} y1={sy(1)} y2={sy(1)} />
                 <text x={plot.left + plot.width - 4} y={Math.max(plot.top + 11, sy(1 + NOISE_FLOOR) - 4)} textAnchor="end">±3.8% scatter of a steady check star</text>
               </g>}
-              overlay={({ sx, sy }) => <g className="visit-overlay" aria-hidden="true">
-                {visits.map((v) => <g key={v.start} className={v.count < MIN_POINTS_PER_VISIT ? "few" : undefined}>
-                  <line x1={sx(v.mjd)} x2={sx(v.mjd)} y1={sy(v.r - v.err)} y2={sy(v.r + v.err)} className="visit-error" />
-                  <line x1={sx(v.mjd) - 5} x2={sx(v.mjd) + 5} y1={sy(v.r - v.err)} y2={sy(v.r - v.err)} className="visit-cap" />
-                  <line x1={sx(v.mjd) - 5} x2={sx(v.mjd) + 5} y1={sy(v.r + v.err)} y2={sy(v.r + v.err)} className="visit-cap" />
-                  <circle cx={sx(v.mjd)} cy={sy(v.r)} r={6} />
-                </g>)}
-              </g>} />
+              overlay={({ sx, sy, plot }) => <>
+                <g className="visit-overlay" aria-hidden="true">
+                  {visits.map((v) => <g key={v.start} className={v.count < MIN_POINTS_PER_VISIT ? "few" : undefined}>
+                    <line x1={sx(v.mjd)} x2={sx(v.mjd)} y1={sy(v.r - v.err)} y2={sy(v.r + v.err)} className="visit-error" />
+                    <line x1={sx(v.mjd) - 5} x2={sx(v.mjd) + 5} y1={sy(v.r - v.err)} y2={sy(v.r - v.err)} className="visit-cap" />
+                    <line x1={sx(v.mjd) - 5} x2={sx(v.mjd) + 5} y1={sy(v.r + v.err)} y2={sy(v.r + v.err)} className="visit-cap" />
+                    <circle cx={sx(v.mjd)} cy={sy(v.r)} r={6} />
+                  </g>)}
+                </g>
+                {currentFrame && <FrameMarker x={sx(currentFrame.mjd)} plot={plot} />}
+              </>} />
           ) : (
             <Chart {...chartSelection("lightCurve")} points={lightCurve} invertY={ab} laneLabel={laneLabel} xLabel="Date (UTC)" yLabel={yLabel} xFormat={mjdToDay}
-              title={ab ? "Light curve: AB magnitude against time" : "Light curve: flux against time"} colour={byWavelength} tooltip={pointTooltip} />
+              title={ab ? "Light curve: AB magnitude against time" : "Light curve: flux against time"} colour={byWavelength}
+              tooltip={tooltip} onPointClick={openFrame} markedId={currentFrame?.id}
+              overlay={({ sx, plot }) => currentFrame && <FrameMarker x={sx(currentFrame.mjd)} plot={plot} />} />
           )}
         </figure>
       </div>
+      {notice && <p className="notice" role="status">That exposure is not among the {notice.loaded} frames loaded in the player. The player shows up to 40, spread evenly over time.</p>}
       <p className="hint">
         Each exposure sees this point at a different wavelength, so in a wide wavelength range the light curve
         mixes colour with change. Narrow the range to compare like with like.
@@ -307,10 +372,11 @@ function Body({
 }
 
 
-function pointTooltip(p: PlotPoint) {
+function pointTooltip(p: PlotPoint, clickable = false) {
   const details = pointDetails(p);
   return <>{Object.entries(details).map(([field, text]) => field === "exposure"
-    ? <small key={field}>{text}</small> : <div key={field}>{text}</div>)}</>;
+    ? <small key={field}>{text}</small> : <div key={field}>{text}</div>)}
+    {clickable && p.id !== undefined && <small className="tooltip-action">Click to show this frame</small>}</>;
 }
 
 /** Labelled fallback, not an image of the sky; the full background ring remains visible. */
