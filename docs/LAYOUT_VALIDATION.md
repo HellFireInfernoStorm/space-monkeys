@@ -27,11 +27,22 @@ The mock preview was checked at 1440 × 900 and 1280 × 800. At 1280 px the fram
 
 ## Live checks and remaining work
 
-Both WISE 0855 (stack, 4.4–5.0 µm) and Barnard's Star (blink, 1.0–1.2 µm) were requested in live mode. Barnard's Star returned 20 real DR1 frames once, with explicit warnings that three other collections failed. A subsequent attempt failed completely. WISE 0855 failed its archive search on three attempts, including after reload. Errors included `HTTP Code: 502 Proxy Error` at `https://irsa.ipac.caltech.edu/SIA/capabilities` and HTTP 502 on collection queries.
+The initial run hit intermittent IRSA HTTP 502 errors: Barnard's Star returned only 20 DR1 frames once and WISE 0855 failed three times. **The requested two-target check was rerun successfully on 2026-11-15**, with the unchanged application code:
 
-The live badge, loading/error states and usable map controls were checked. A complete two-target live-data walkthrough, including WISE 0855's stack and the moving marker during real-frame playback, remains unverified. The pull request stays draft until that check can be completed. No backend workaround or science change was introduced.
+| Check | Result |
+| --- | --- |
+| Frontend commands rerun | `npm run typecheck`, all 53 tests and `npm run build` passed; the existing Aladin chunk warning remains |
+| Mock API on port 8000 and dev preview | Health reported `mock`; WISE Stack view loaded its images and table; Barnard Images view and frame-dependent marker worked |
+| Live WISE 0855, 4.4–5.0 µm, Stacked | 46 of 46 matching exposures, uncapped; tracked S/N 14.18, static S/N 11.44; two visit stacks and motion table displayed. Every displayed stack PNG loaded. No archive-failure warning; the known-neighbour warning remains |
+| Live WISE motion table | Later visit 3.90 ± 0.57 arcseconds west and 0.99 ± 0.56 north, against 4.44 west and 0.54 north predicted; these reproduce the existing documented results |
+| Live Barnard's Star, 1.0–1.2 µm, Images | 30 of 30 matching frames, uncapped, from DR1 and QR3; API warnings empty; all 30 PNGs loaded |
+| Real-frame playback | Play advanced Barnard's Star from the first observation to frame 24 (2026-08-21); Pause stopped it |
+| Real-frame marker | First frame RA 269.4463493°, Dec 4.7671641°; last frame RA 269.4461213°, Dec 4.7701011°. The marker follows the observation rather than the old catalogue position |
+| Browser console | No warning/error messages captured during the successful live checks |
 
-Next action: once IRSA responds reliably, run the live API and open WISE 0855 in Stack mode, then Barnard's Star in Images mode. Repeat the issue #10 interaction checklist with their real images before requesting review. Do not treat mock screenshots or a partial archive search as full live verification.
+The live Stack-pixel click was also checked to open the spectrum tab and show "Measuring every exposure…". That additional measurement was not awaited to completion before switching targets, so this is not a new live photometry validation.
+
+The previous archive blocker is resolved for the requested check. A complete repeat of every issue #10 interaction in live mode and a separate hover-only tooltip sweep have not been performed; the mock interaction checks above remain the evidence for those controls. No backend workaround, science change or application code change was introduced during this rerun. The PR remains draft; this validation run did not request review or merge it.
 
 ## Screenshots
 
@@ -44,3 +55,5 @@ All mock screenshots label their synthetic data; the sky map is the existing ext
 | Spectrum tab | [Screenshot](screenshots/issue-10/spectrum-1440.jpg) | [Screenshot](screenshots/issue-10/spectrum-1280.jpg) |
 
 [Mock stack layout](screenshots/issue-10/stack-1280.jpg); [partial live Barnard result](screenshots/issue-10/live-barnard-partial-1280.jpg).
+
+Successful rerun: [real WISE 0855 stack](screenshots/issue-10/live-wise-stack.jpg); [real Barnard playback](screenshots/issue-10/live-barnard-blink.jpg). These are live-data screenshots, not mock examples. The earlier partial result is retained as historical evidence only.

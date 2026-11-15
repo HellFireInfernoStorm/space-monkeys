@@ -24,6 +24,8 @@ Rules that apply to everything listed here:
 | 2026-11-15 | Thisal | OpenAI Codex | Read the current project documentation, implementation, test coverage and assigned layout handoff; summarised how the project addresses the challenge and distinguished implemented features from documented verification limits | Project orientation in the Codex chat; no application changes or new validation runs | Not yet |
 | 2026-11-15 | Thisal | OpenAI Codex | Implemented issue #10: controls drawer, centred header, tabbed workbench, sky map controls and confirmed-position navigation; added URL round-trip coverage, ran frontend checks and browser checks, documented partial live validation and archive failures | `frontend/src/`, architecture and layout-validation notes, screenshots and PR #11 | Not yet |
 
+| 2026-11-15 | Thisal | OpenAI Codex | Reran the requested frontend commands and mock/live browser checks; confirmed the real 46-exposure WISE stack and all 30 Barnard frames, playback and moving marker; recorded successful evidence superseding the earlier archive blocker | `docs/LAYOUT_VALIDATION.md`, live screenshots and PR #11; no application code changes | Not yet |
+
 ## Draft statement for the project page
 
 Keep this current; copy it to the project page at submission.

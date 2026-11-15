@@ -89,4 +89,4 @@ Front end:
 
 The site uses system fonts and no icon set. Layout controls use plain Unicode characters.
 
-The issue #10 screenshots in `docs/screenshots/issue-10/` show our own interface and mock frames, plus the existing Aladin Lite/AllWISE sky map (credits and terms above). `live-barnard-partial-1280.jpg` also shows SPHEREx DR1 data (credits above). These are validation screenshots, not new image assets used by the site.
+The issue #10 screenshots in `docs/screenshots/issue-10/` show our own interface and mock frames, plus the existing Aladin Lite/AllWISE sky map (credits and terms above). The live Barnard and WISE validation screenshots also show SPHEREx DR1/QR3 data (credits above). These are validation screenshots, not new image assets used by the site.
