@@ -244,6 +244,7 @@ export default function App() {
               key={frames.data.frames.map((frame) => frame.exposure_id).join("|")}
               list={frames.data}
               speed={view.speed}
+              showMatches={view.matches}
               mode={view.mode}
               onChange={update}
               onFrame={setShownFrame}

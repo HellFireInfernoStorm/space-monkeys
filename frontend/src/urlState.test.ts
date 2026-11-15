@@ -11,6 +11,7 @@ describe("urlState", () => {
 
   it("round-trips every parameter", () => {
     const view: ViewState = {
+      matches: false,
       ra: 133.8189083,
       dec: -7.247048,
       size: 180,

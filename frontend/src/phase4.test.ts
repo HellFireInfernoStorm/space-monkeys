@@ -106,6 +106,21 @@ describe("spectrum tab, phase 4", () => {
     expect(container.textContent).not.toContain("That exposure is not among");
   });
 
+  it("drops the notice when a later click finds its frame", async () => {
+    vi.spyOn(api, "getPhotometry").mockResolvedValue({
+      points: [point(0), point(1)], capped: false, returned: 2, total: 2,
+      ra: 10, dec: 20, mode: "mock", flux_unit: "Jy", method: "aperture", warnings: [],
+    });
+    const view: ViewState = { ...DEFAULT_VIEW, ra: 10, dec: 20, wlmin: 4.4, wlmax: 5, phot: true };
+    const show = (props: Record<string, unknown>) => createElement(PhotometryPanel, { view, bands: [], onChange: () => {}, ...props });
+    await act(async () => root.render(show({ missingFrame: null })));
+    await act(async () => root.render(show({ missingFrame: { id: "e9", nonce: 1, loaded: 40 } })));
+    expect(container.textContent).toContain("That exposure is not among the 40 frames loaded in the player.");
+    // App clears missingFrame when the next requested exposure is found.
+    await act(async () => root.render(show({ missingFrame: null })));
+    expect(container.textContent).not.toContain("That exposure is not among");
+  });
+
   it("downloads every exposure as CSV, marked mock in the name and the header", async () => {
     let saved: Blob | undefined;
     URL.createObjectURL = vi.fn((blob: Blob) => { saved = blob; return "blob:test"; });
@@ -168,7 +183,7 @@ describe("frame player, phase 4", () => {
     const root = createRoot(container);
     const results: Array<[string, boolean]> = [];
     const show = (requestedFrame: { id: string; nonce: number } | null) => createElement(BlinkPlayer, {
-      list, speed: 2, mode: "blink", onChange: () => {}, requestedFrame,
+      list, speed: 2, mode: "blink", onChange: () => {}, showMatches: false, requestedFrame,
       onRequestResult: (request: { id: string }, found: boolean) => results.push([request.id, found]),
     });
     await act(async () => root.render(show(null)));

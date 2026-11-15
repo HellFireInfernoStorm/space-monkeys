@@ -4,6 +4,30 @@
  */
 
 export interface paths {
+    "/api/alignment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Alignment
+         * @description Independent star-match verification of one exposure; does not alter science data.
+         *
+         *     ra/dec are the displayed frame centre. target_ra/target_dec are the science
+         *     target at the observation date, excluded with nearby blends from the fit.
+         *     Work is capped at two readers and the configured deadline; failures retain WCS.
+         */
+        get: operations["alignment_api_alignment_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/bands": {
         parameters: {
             query?: never;
@@ -269,6 +293,91 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AlignmentResult */
+        AlignmentResult: {
+            /** Catalogue */
+            catalogue: string;
+            /** Catalogue Url */
+            catalogue_url: string;
+            /** Center Dec */
+            center_dec?: number | null;
+            /** Center Ra */
+            center_ra?: number | null;
+            /**
+             * Correction Applied
+             * @default false
+             */
+            correction_applied: boolean;
+            /**
+             * Detected
+             * @default 0
+             */
+            detected: number;
+            /**
+             * Elapsed S
+             * @default 0
+             */
+            elapsed_s: number;
+            /** Exposure Id */
+            exposure_id: string;
+            /** Field Arcsec */
+            field_arcsec: number;
+            /** Fit Rms Arcsec */
+            fit_rms_arcsec?: number | null;
+            /**
+             * Matched
+             * @default 0
+             */
+            matched: number;
+            /** Matches */
+            matches?: components["schemas"]["StarMatch"][];
+            /** Median Arcsec */
+            median_arcsec?: number | null;
+            /** Mjd */
+            mjd: number | null;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "mock" | "live";
+            /** Offset East Arcsec */
+            offset_east_arcsec?: number | null;
+            /** Offset North Arcsec */
+            offset_north_arcsec?: number | null;
+            /**
+             * Provenance
+             * @enum {string}
+             */
+            provenance: "archive" | "verified" | "mock";
+            /**
+             * Quality Passed
+             * @description True only when all matching/geometry/RMS gates pass
+             * @default false
+             */
+            quality_passed: boolean;
+            /** Reason */
+            reason: string;
+            /**
+             * Rejected
+             * @default 0
+             */
+            rejected: number;
+            /** Rms Arcsec */
+            rms_arcsec?: number | null;
+            /** Rms Pixels */
+            rms_pixels?: number | null;
+            /** Solver Version */
+            solver_version: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "complete" | "failed" | "timeout" | "busy";
+            /** Target Dec */
+            target_dec?: number | null;
+            /** Target Ra */
+            target_ra?: number | null;
+        };
         /** Band */
         Band: {
             /**
@@ -787,6 +896,40 @@ export interface components {
             /** Warnings */
             warnings?: string[];
         };
+        /** StarMatch */
+        StarMatch: {
+            /** Catalogue Dec */
+            catalogue_dec: number;
+            /** Catalogue Ra */
+            catalogue_ra: number;
+            /** East Arcsec */
+            east_arcsec: number;
+            /**
+             * Fit Residual Arcsec
+             * @description Distance from the median offset used for the inlier gate, arcseconds
+             */
+            fit_residual_arcsec?: number | null;
+            /** Inlier */
+            inlier: boolean;
+            /** Measured Dec */
+            measured_dec: number;
+            /** Measured Ra */
+            measured_ra: number;
+            /** North Arcsec */
+            north_arcsec: number;
+            /**
+             * Offset Arcsec
+             * @description Total catalogue-to-centroid offset, arcseconds
+             */
+            offset_arcsec?: number | null;
+            /**
+             * Residual Arcsec
+             * @description Legacy name: total catalogue-to-centroid offset, arcseconds
+             */
+            residual_arcsec: number;
+            /** Source Id */
+            source_id: string;
+        };
         /** Target */
         Target: {
             /** Aliases */
@@ -959,6 +1102,45 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    alignment_api_alignment_get: {
+        parameters: {
+            query: {
+                exposure_id: string;
+                /** @description Right Ascension, degrees, ICRS, at `epoch` */
+                ra: number;
+                /** @description Declination, degrees, ICRS, at `epoch` */
+                dec: number;
+                /** @description Right Ascension, degrees, ICRS, at `epoch` */
+                target_ra: number;
+                /** @description Declination, degrees, ICRS, at `epoch` */
+                target_dec: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlignmentResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     bands_api_bands_get: {
         parameters: {
             query?: never;

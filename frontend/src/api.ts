@@ -11,6 +11,7 @@ export type Exposure = Schemas["Exposure"];
 export type ExposureList = Schemas["ExposureList"];
 export type Frame = Schemas["Frame"];
 export type FrameList = Schemas["FrameList"];
+export type AlignmentResult = Schemas["AlignmentResult"];
 export type StackResult = Schemas["StackResult"];
 export type StackImage = Schemas["StackImage"];
 export type MotionPoint = Schemas["MotionPoint"];
@@ -96,6 +97,12 @@ export const getTargets = async (signal?: AbortSignal) =>
 
 export const getFrames = (query: FramesQuery, signal?: AbortSignal) =>
   get<FrameList>("/api/frames", { ...query }, signal);
+
+export const getAlignment = (frame: Frame, signal?: AbortSignal) =>
+  get<AlignmentResult>("/api/alignment", {
+    exposure_id: frame.exposure_id, ra: frame.center_ra, dec: frame.center_dec,
+    target_ra: frame.target_ra, target_dec: frame.target_dec,
+  }, signal);
 
 export interface StackQuery extends PositionQuery {
   size: number;
