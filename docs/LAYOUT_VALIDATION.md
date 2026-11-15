@@ -52,6 +52,16 @@ Checked both selections in the browser: the active tab has accent text and a 3 p
 
 Latest screenshots: [Sky map active](screenshots/issue-10/tab-highlight-sky.jpg), [Spectrum active](screenshots/issue-10/tab-highlight-spectrum.jpg). The earlier screenshots below predate this styling correction.
 
+## Owner review follow-up
+
+Addressed the two non-blocking map findings from the owner's PR #11 review on 2026-11-15:
+
+- **Esc focus:** after expanding, clicking inside the map and pressing Esc, the map collapses and `document.activeElement` is the "Expand sky map" button.
+- **Starting width:** Aladin's initial canvas resize changed the constructor's effective field. The first zoom update now reapplies 0.5° once. Reserving the root scrollbar gutter also prevents closing the drawer's scroll lock from narrowing the field again. Fresh loads show **30.0 arcminutes** at both 1440 × 900 and 1280 × 800. Zooming in gives 20.0 arcminutes; switching tabs and reopening/closing the drawer keep 20.0. A spectrum-first Galactic link initialises at 30.0 when its sky tab is first opened and retains the Galactic setting.
+- **History:** tab switches remain history entries, as already documented and accepted in the review. No behaviour change was made for this informational note.
+
+Type checking, all 53 tests and production build passed again. No warning/error messages were captured in these browser checks. Screenshots: [initial 30-arcminute view](screenshots/issue-10/review-initial-view.jpg), [focus after Esc](screenshots/issue-10/review-escape-focus.jpg).
+
 ## Screenshots
 
 All mock screenshots label their synthetic data; the sky map is the existing external WISE context survey.

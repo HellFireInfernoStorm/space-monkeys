@@ -95,6 +95,7 @@ export default function AladinPanel({ ra, dec, sky, frame, wiseUrl, onChange, on
   const [coordinates, setCoordinates] = useState("");
   const [fov, setFov] = useState(FIELD_OF_VIEW_DEG);
   const [expanded, setExpanded] = useState(false);
+  const expandButton = useRef<HTMLButtonElement>(null);
   const holder = useRef<HTMLDivElement>(null);
   const map = useRef<{ api: AladinApi; aladin: AladinInstance } | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -164,7 +165,16 @@ export default function AladinPanel({ ra, dec, sky, frame, wiseUrl, onChange, on
           refresh();
         });
         aladin.on("positionChanged", refresh);
-        aladin.on("zoomChanged", refresh);
+        let initialWidthApplied = false;
+        aladin.on("zoomChanged", () => {
+          // The initial canvas resize changes the constructor's effective field width.
+          // Correct it after that zoom update, once only; later user zoom stays intact.
+          if (!initialWidthApplied) {
+            initialWidthApplied = true;
+            aladin.setFoV(FIELD_OF_VIEW_DEG);
+          }
+          refresh();
+        });
         aladin.on("resizeChanged", refresh);
         refresh();
         setReady(true);
@@ -228,7 +238,10 @@ export default function AladinPanel({ ra, dec, sky, frame, wiseUrl, onChange, on
   useEffect(() => {
     if (!expanded) return;
     const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setExpanded(false);
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setExpanded(false);
+      requestAnimationFrame(() => expandButton.current?.focus({ preventScroll: true }));
     };
     document.addEventListener("keydown", escape);
     return () => document.removeEventListener("keydown", escape);
@@ -250,7 +263,7 @@ export default function AladinPanel({ ra, dec, sky, frame, wiseUrl, onChange, on
           <MapDropdown label="Coordinates" value={frame} options={FRAME_OPTIONS} onChange={(frame) => onChange({ frame })} />
         </div>
         <span className="tooltip-anchor map-expand">
-          <button type="button" aria-label={expanded ? "Exit expanded sky map" : "Expand sky map"}
+          <button type="button" ref={expandButton} aria-label={expanded ? "Exit expanded sky map" : "Expand sky map"}
             aria-describedby="expand-help" aria-pressed={expanded} onClick={() => setExpanded((value) => !value)}>⛶</button>
           <span className="tooltip" role="tooltip" id="expand-help">{EXPAND_HELP}</span>
         </span>
