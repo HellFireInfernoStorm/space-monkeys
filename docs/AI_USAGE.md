@@ -44,6 +44,8 @@ Rules that apply to everything listed here:
 | 2026-11-15 | Chetha | Claude Code (Anthropic) | Implemented issue #32 Phase 3: colour-corrected light curve, visit averages, Changed? verdict and the cautionary-warning filter; fixed exact bin-centre handling after PR #33 review; ran the live validation and wrote the method section | `frontend/src/photometry.ts`, `PhotometryPanel.tsx`, `Chart.tsx`, `urlState.ts`, tests, `docs/SCIENCE.md` section 7, `docs/screenshots/spectrum-phase3/` | Not yet |
 | 2026-11-15 | Repository owner (PR #28 update) | OpenAI Codex | Integrated current main's SpaceShift capitalization, preserved both AI logs and resolved the decision-number collision by renumbering the plate-solving approval to D-020 | PR #28 branch, decision log and validation note | Not yet |
 
+| 2026-11-15 | Thisal | OpenAI Codex | Refined the existing public workbench styling: restrained graphite/teal palette, sentence-case headings, readable measurement labels and caveats, clearer selected controls, table rows and keyboard focus; preserved the layout and scientific calculations | `frontend/src/styles.css`; frontend checks and browser review recorded in the PR | Not yet |
+
 ## Draft statement for the project page
 
 Keep this current; copy it to the project page at submission.
