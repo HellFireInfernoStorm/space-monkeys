@@ -27,7 +27,6 @@ declare module "aladin-lite" {
     pix2world(x: number, y: number, frame?: string): [number, number];
     on(event: "click", callback: (point: { ra: number; dec: number; x: number; y: number; isDragging: boolean }) => void): void;
     on(event: "zoomChanged" | "positionChanged" | "resizeChanged", callback: () => void): void;
-    off(event: string): void;
   }
 
   export interface AladinApi {

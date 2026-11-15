@@ -88,7 +88,6 @@ interface Props {
 
 /** A wide-field sky map centred on the position, for context around the small frames. */
 export default function AladinPanel({ ra, dec, sky, frame, wiseUrl, onChange, onPosition }: Props) {
-  const container = useRef<HTMLDivElement>(null);
   const [clicked, setClicked] = useState<Point | null>(null);
   const clickedRef = useRef<Point | null>(null);
   const [currentPixel, setCurrentPixel] = useState<ScreenPoint>(null);
@@ -225,21 +224,15 @@ export default function AladinPanel({ ra, dec, sky, frame, wiseUrl, onChange, on
     }
   }, [frame, ready]);
 
+  // Aladin Lite 3.9.2 observes its container and redraws when this viewport overlay changes size.
   useEffect(() => {
-    const changed = () => setExpanded(document.fullscreenElement === container.current);
-    document.addEventListener("fullscreenchange", changed);
-    return () => document.removeEventListener("fullscreenchange", changed);
-  }, []);
-
-  async function fullscreen() {
-    try {
-      if (document.fullscreenElement === container.current) await document.exitFullscreen();
-      else await container.current?.requestFullscreen();
-      // Aladin Lite observes its container with ResizeObserver and redraws after fullscreen.
-    } catch {
-      setProblem("The browser could not expand the sky map.");
-    }
-  }
+    if (!expanded) return;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
+    };
+    document.addEventListener("keydown", escape);
+    return () => document.removeEventListener("keydown", escape);
+  }, [expanded]);
 
   function dismissPoint() { clickedRef.current = null; setClicked(null); setClickedPixel(null); }
   const width = holder.current?.clientWidth ?? 0;
@@ -247,7 +240,7 @@ export default function AladinPanel({ ra, dec, sky, frame, wiseUrl, onChange, on
   const visible = (pixel: ScreenPoint) => pixel && pixel[0] >= 0 && pixel[1] >= 0 && pixel[0] < width && pixel[1] < height;
 
   return (
-    <div ref={container} className="sky-map" aria-label="Interactive sky map">
+    <div className={`sky-map${expanded ? " expanded" : ""}`} aria-label="Interactive sky map">
       <div ref={holder} className="aladin" />
       {!ready && !problem && <p className="map-status" role="status">Loading sky map…</p>}
       {problem && <p className="notice error map-status">{problem}</p>}
@@ -258,10 +251,10 @@ export default function AladinPanel({ ra, dec, sky, frame, wiseUrl, onChange, on
         </div>
         <span className="tooltip-anchor map-expand">
           <button type="button" aria-label={expanded ? "Exit expanded sky map" : "Expand sky map"}
-            aria-describedby="expand-help" aria-pressed={expanded} onClick={fullscreen}>⛶</button>
+            aria-describedby="expand-help" aria-pressed={expanded} onClick={() => setExpanded((value) => !value)}>⛶</button>
           <span className="tooltip" role="tooltip" id="expand-help">{EXPAND_HELP}</span>
         </span>
-        {visible(currentPixel) && <span className="map-marker current" role="img" aria-label="Current position"
+        {visible(currentPixel) && <span className="map-marker current" role="img" aria-label="Current position" title={`RA ${ra.toFixed(7)}°, Dec ${dec.toFixed(7)}°`}
           style={{ left: currentPixel![0], top: currentPixel![1] }} />}
         {clicked && visible(clickedPixel) && <>
           <span className="map-marker clicked" role="img" aria-label="Clicked position"

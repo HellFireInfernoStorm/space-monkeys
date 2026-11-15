@@ -83,6 +83,17 @@ describe("urlState", () => {
     expect(parseView("?frame=unknown&tab=unknown")).toMatchObject({ frame: "ICRSd", tab: "sky" });
   });
 
+  it("round-trips every map frame and tab, including measured views", () => {
+    for (const frame of ["ICRS", "ICRSd", "Galactic"] as const) {
+      for (const tab of ["sky", "spectrum"] as const) {
+        for (const phot of [false, true]) {
+          const view = { ...DEFAULT_VIEW, ra: 269.45, dec: 4.69, frame, tab, phot };
+          expect(parseView(serializeView(view))).toEqual(view);
+        }
+      }
+    }
+  });
+
   it("needs both coordinates of a measured point, in range", () => {
     expect(parseView("?pra=10").pra).toBeNull();
     expect(parseView("?pra=10&pdec=95").pdec).toBeNull();
@@ -100,6 +111,8 @@ describe("isNewView", () => {
     expect(isNewView(DEFAULT_VIEW, { ...DEFAULT_VIEW, ra: 1, dec: 2 })).toBe(true);
     expect(isNewView(DEFAULT_VIEW, { ...DEFAULT_VIEW, wlmin: 1, wlmax: 2 })).toBe(true);
     expect(isNewView(DEFAULT_VIEW, { ...DEFAULT_VIEW, mode: "diff" })).toBe(true);
+    expect(isNewView(DEFAULT_VIEW, { ...DEFAULT_VIEW, tab: "spectrum" })).toBe(true);
+    expect(isNewView(DEFAULT_VIEW, { ...DEFAULT_VIEW, frame: "Galactic" })).toBe(true);
   });
 
   it("is false for speed and the background survey", () => {

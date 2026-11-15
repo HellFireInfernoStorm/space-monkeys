@@ -43,6 +43,7 @@ type FramesState =
 
 export default function App() {
   const [view, setView] = useState<ViewState>(() => parseView(window.location.search));
+  const [skyVisited, setSkyVisited] = useState(() => view.tab === "sky");
   const [health, setHealth] = useState<Health | null>(null);
   const [bands, setBands] = useState<Band[]>([]);
   const [targets, setTargets] = useState<Target[]>([]);
@@ -64,6 +65,11 @@ export default function App() {
     });
   }, []);
   const pick = useCallback((pra: number, pdec: number) => update({ phot: true, pra, pdec, tab: "spectrum" }), [update]);
+
+  // Initialise WebGL only with a visible, sized container. Once opened, keep the map mounted.
+  useEffect(() => {
+    if (view.tab === "sky") setSkyVisited(true);
+  }, [view.tab]);
 
   // Keep the address bar in step with the view, so the link can always be copied.
   // A new target, position, range or mode is a new history entry, so Back returns to the
@@ -268,7 +274,7 @@ export default function App() {
           </div>
           <div id="panel-sky" role="tabpanel" aria-labelledby="tab-sky" hidden={view.tab !== "sky"}
             className="sky-tab" tabIndex={0}>
-            {mapRa !== null && mapDec !== null ? (
+            {mapRa !== null && mapDec !== null ? skyVisited && (
               <AladinPanel ra={mapRa} dec={mapDec} sky={view.sky} frame={view.frame}
                 onChange={update}
                 onPosition={(newRa, newDec) => update(viewForTypedPosition(view, newRa, newDec, {}))}
