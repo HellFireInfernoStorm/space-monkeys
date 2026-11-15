@@ -29,7 +29,7 @@ To be added. Slides or video; check the link in a private browser window.
 ## Link to final project
 
 Deployed site: to be added.
-Repository: to be added.
+Repository: [space-monkeys on GitHub](https://github.com/HellFireInfernoStorm/space-monkeys).
 
 ## Project details
 

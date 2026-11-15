@@ -28,6 +28,8 @@ Rules that apply to everything listed here:
 | 2026-11-15 | Thisal | OpenAI Codex | Addressed PR #11 review: restored focus after leaving expanded map with Esc; corrected the initial 30-arcminute field after canvas resize and kept drawer scrollbar space stable; checked both desktop sizes, zoom preservation and spectrum-first links, then reran frontend checks | `frontend/src/components/AladinPanel.tsx`, `frontend/src/styles.css`, validation notes and review screenshots | Not yet |
 | 2026-11-15 | Chetha | Claude Code (Anthropic) | Diagnosed the IRSA 502 outage, found that a deep collection answering with no rows stopped the saved-search fallback, wrote the fix and its tests, and opened issue #13 | `backend/app/live_frames.py`, `backend/tests/test_live_frames.py` and issue #13 | Not yet |
 
+| 2026-11-15 | Thisal | OpenAI Codex | Started issue #12: confirmed the spaceshift rename was already merged in PR #15 and recorded in D-018; checked project links, the draft hosting configuration and GitHub deployment records; added the repository link to the project page. Exact domain, GoDaddy availability/prices and deployment destination remain unconfirmed; no purchase or DNS changes made | `docs/PROJECT_PAGE.md`, issue #12 and the Codex chat | Not yet |
+
 ## Draft statement for the project page
 
 Keep this current; copy it to the project page at submission.
