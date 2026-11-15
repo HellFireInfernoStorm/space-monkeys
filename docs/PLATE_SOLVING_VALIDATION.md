@@ -52,7 +52,7 @@ Backend regressions cover cached results while all reader slots are occupied, st
 
 Browser check on the merged implementation at 1280×900: after running a synthetic check and opening details, ArrowRight, ArrowLeft and Space inside the focused reference table left the slider at frame 0, kept the table visible and retained the Play button. Both “Total offset” and “From median” headers were visible. Evidence: [table keyboard isolation](screenshots/issue-22/review-table-keys.jpg). Temporary viewport overrides and preview servers were cleaned up. Installing main's new DOM-test dependencies required incremental `npm install` because an existing dev server held the native bundler binding; no dependency/lockfile change beyond main was introduced.
 
-Owner approval to implement #22 is recorded in DECISIONS D-019 using the existing human approval comment. Formal decision-issue closure remains a human action. #27 remains open: the correct ESA licence/credits pages returned HTTP 451; AIP supplies a DR3 attribution reference but not confirmation of the full ESA licence. No merge, deployment or undraft is claimed.
+Owner approval to implement #22 is recorded in DECISIONS D-020 using the existing human approval comment. This entry was renumbered from D-019 when integrating main's accepted SpaceShift capitalization decision, preserving main's D-019. Formal decision-issue closure remains a human action. #27 remains open: the correct ESA licence/credits pages returned HTTP 451; AIP supplies a DR3 attribution reference but not confirmation of the full ESA licence. No merge, deployment or undraft is claimed.
 
 ## Timeout classification follow-up
 

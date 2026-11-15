@@ -24,7 +24,8 @@ Format: number, date, the decision in one or two sentences, the reason, and who 
 | D-016 | 2026-11-14 | The repository is public from the start, under the repository owner's personal GitHub account for now. | Gets the prototype where the team can reach it quickly; a move to an organisation can still happen later. | Repository owner |
 | D-017 | 2026-11-14 | Our own code and documents are licensed under Apache 2.0 (`LICENSE`). | The Space Apps terms require an open-source licence and apply Apache 2.0 when none is named; it works with every library we use. | Repository owner |
 | D-018 | 2026-11-15 | The public product name is spaceshift; the team and repository name stays space-monkeys (D-010). | Agreed by the team in issue #12. | Team |
-| D-019 | 2026-11-15 | Implement the plate-solving proposal in [issue #22](https://github.com/HellFireInfernoStorm/space-monkeys/issues/22). | The repository owner explicitly approved implementation with [“Implement.”](https://github.com/HellFireInfernoStorm/space-monkeys/issues/22#issuecomment-6894154888). This records that approval; the decision issue still awaits human closure. | Repository owner |
+| D-019 | 2026-11-15 | Use SpaceShift as the public display name, updating the spelling in D-018. | Requested in issue [#35](https://github.com/HellFireInfernoStorm/space-monkeys/issues/35). | Deeshan |
+| D-020 | 2026-11-15 | Implement the plate-solving proposal in [issue #22](https://github.com/HellFireInfernoStorm/space-monkeys/issues/22). | The repository owner explicitly approved implementation with [“Implement.”](https://github.com/HellFireInfernoStorm/space-monkeys/issues/22#issuecomment-6894154888). This records that approval; the decision issue still awaits human closure. | Repository owner |
 
 ## Open
 
