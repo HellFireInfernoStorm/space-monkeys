@@ -204,29 +204,6 @@ export default function App() {
           )}
         </section>
 
-        {ra !== null && dec !== null && (
-          <section className="panel full-width">
-            <h2>Spectrum and light curve</h2>
-            {view.phot ? (
-              <>
-                <PhotometryPanel view={view} onChange={update} />
-                <button type="button" onClick={() => update({ phot: false, pra: null, pdec: null })}>
-                  Close
-                </button>
-              </>
-            ) : (
-              <>
-                <p className="hint">
-                  Measure the brightness in every exposure: against wavelength for a spectrum, against time for a
-                  light curve. Click a point in the frames, or measure the target itself.
-                </p>
-                <button type="button" className="primary" onClick={() => update({ phot: true })}>
-                  Measure {view.name || "this position"}
-                </button>
-              </>
-            )}
-          </section>
-        )}
 
         <section className="panel">
           <h2>Wider view</h2>
@@ -251,6 +228,30 @@ export default function App() {
             <p className="hint">The sky map appears once a position is chosen.</p>
           )}
         </section>
+
+        {ra !== null && dec !== null && (
+          <section className="panel full-width">
+            <h2>Spectrum and light curve</h2>
+            {view.phot ? (
+              <>
+                <PhotometryPanel view={view} onChange={update} />
+                <button type="button" onClick={() => update({ phot: false, pra: null, pdec: null })}>
+                  Close
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="hint">
+                  Measure the brightness in every exposure: against wavelength for a spectrum, against time for a
+                  light curve. Click a point in the frames, or measure the target itself.
+                </p>
+                <button type="button" className="primary" onClick={() => update({ phot: true })}>
+                  Measure {view.name || "this position"}
+                </button>
+              </>
+            )}
+          </section>
+        )}
       </main>
 
       <footer className="foot">

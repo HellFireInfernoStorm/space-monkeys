@@ -27,7 +27,7 @@ type State =
 
 const W = 360;
 const H = 220;
-const M = { left: 52, right: 12, top: 12, bottom: 40 };
+const M = { left: 52, right: 30, top: 12, bottom: 40 };
 
 /** A scatter plot with error bars. Unmeasured points are hollow rings on the bottom axis. */
 function Plot({
