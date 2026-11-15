@@ -50,6 +50,8 @@ Rules that apply to everything listed here:
 
 | 2026-11-15 | Thisal | OpenAI Codex | Restored dark mode at the user’s request, removed serif typography, squared panel and control edges, retained flat measurement groups, and adjusted charts, warnings and focus colors for dark surfaces | `frontend/src/styles.css`; checks and preview in PR #40 | Not yet |
 
+| 2026-11-15 | Thisal | OpenAI Codex | Restored the first graphite/teal UI iteration exactly from commit `00cd8b0` at the user’s request; retained subsequent AI-use history | `frontend/src/styles.css`; PR #40 | Not yet |
+
 ## Draft statement for the project page
 
 Keep this current; copy it to the project page at submission.
