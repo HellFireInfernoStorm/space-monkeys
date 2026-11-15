@@ -10,12 +10,12 @@ Built by team **space-monkeys** for the NASA Space Apps Challenge 2026, challeng
 
 Pick one of the five built-in targets, type a position (Right Ascension and Declination), or click a spot on the sky map. Then:
 
-| Layer | What it does | State |
+| Layer | What it does | State (see [ACCEPTANCE.md](docs/ACCEPTANCE.md)) |
 | --- | --- | --- |
-| 1. Blink and difference | Plays the exposures of that patch like a short video, or shows each one minus a reference frame. Uses only exposures that saw the target within the selected wavelength range, to reduce changes that are only colour. A visible change still needs checking for wavelength effects and image artifacts; the player warns when its frames span a wide wavelength range. | Works on real data |
-| 2. Motion-tracked stacking | Adds many exposures together while following a moving object, so objects too faint to see in one exposure appear. Measures the motion and compares it with the prediction. | Works on real data |
-| 3. Spectrum and light curve | Click a point to measure its brightness in every exposure: by wavelength (spectrum) and by date (light curve). A quick-look measurement, cross-checked against IRSA's Spectrophotometry Tool. | Works on real data |
-| 4. WISE comparison | Shows a 2010 AllWISE image of the same field beside the SPHEREx view, side by side or blinking, and links to WiseView. | Works on real data |
+| 1. Blink and difference | Plays the exposures of that patch like a short video, or shows each one minus a reference frame. Uses only exposures that saw the target within the selected wavelength range, to reduce changes that are only colour. A visible change still needs checking for wavelength effects and image artifacts; the player warns when its frames span a wide wavelength range. | Runs on real data |
+| 2. Motion-tracked stacking | Adds many exposures together while following a moving object, so objects too faint to see in one exposure appear. Measures the motion and compares it with the prediction. | Runs on real data |
+| 3. Spectrum and light curve | Click a point to measure its brightness in every exposure: by wavelength (spectrum) and by date (light curve). A quick-look measurement, cross-checked against IRSA's Spectrophotometry Tool. | Checked on real data, locally |
+| 4. WISE comparison | Shows a 2010 AllWISE image of the same field beside the SPHEREx view, side by side or blinking, and links to WiseView. | Checked on real data, locally |
 | 5. Automatic flags | Marks sources that moved or changed. | Not built |
 
 Also in the workbench:
@@ -32,8 +32,8 @@ In a typical single SPHEREx exposure at 4.4 to 5.0 micrometres, WISE 0855 has a 
 ## Status
 
 - The site is public at https://spaceshift.earth/: the homepage at `/` and the workbench at `/explore/`. The workbench badge, and the [API health endpoint](https://space-monkeys-demo-bjdddzdbduc6gme7.southindia-01.azurewebsites.net/api/health), show whether it is using live or mock data.
-- Layers 1 to 4 have been checked on real SPHEREx data. [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md) records what was checked, when and how.
-- The two variable-star targets are hard cases. In the tested exposures, R Draconis gave no usable aperture measurements (its core is saturated). RW Aurigae gave usable measurements at 0.746 to 1.117 micrometres; the tested longer-wavelength range was unusable. See [docs/SCIENCE.md](docs/SCIENCE.md) for how many exposures were sampled.
+- Layers 3 and 4 are checked on real SPHEREx data, run locally. Layers 1 and 2 run on real data, but their acceptance checks are not ticked yet. [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md) records what was checked, when and how.
+- The two variable-star targets are hard cases. R Draconis was saturated in every exposure we tested, so it gave no usable aperture measurements. RW Aurigae has given usable measurements so far only at 0.746 to 1.117 micrometres; the other range tested (1.6 to 1.8 micrometres) was saturated. See [docs/SCIENCE.md](docs/SCIENCE.md) for how many exposures were sampled.
 - A position the tool has not seen before takes about 30 seconds the first time (archive search and image reads); after that it loads in under a second from the cache.
 - When IRSA's search service is down, the tool falls back to the last saved search for that position or a nearby one, and says so.
 
@@ -85,7 +85,7 @@ npm run dev
 
 Open http://localhost:5173 for the homepage and http://localhost:5173/explore/ for the workbench. The API documentation is at http://localhost:8000/docs.
 
-Before a demo, run `python scripts/prewarm.py` with the back end's environment (live mode). It fills the cache for the five targets so they load quickly even if the archive is slow or down.
+Before a demo, run the pre-warm script from the repository root with the back end's virtual environment: `backend\.venv\Scripts\python.exe scripts/prewarm.py` on Windows, `backend/.venv/bin/python scripts/prewarm.py` on macOS and Linux. It always uses live mode, so `SM_MODE` does not need to be set. It fills the cache for the five targets so they load quickly even if the archive is slow or down.
 
 ## The five test targets
 
@@ -104,7 +104,7 @@ Before a demo, run `python scripts/prewarm.py` with the back end's environment (
 | `backend/` | Python and FastAPI service: archive search, image patches, stacking, photometry, WISE images, alignment check |
 | `frontend/` | React, Vite and TypeScript static site: homepage at `/`, workbench at `/explore/` |
 | `docs/` | Shared documents (below), the generated API contract `openapi.json`, and review screenshots |
-| `scripts/` | Cross-platform helper scripts: API export, cache pre-warm, accuracy check |
+| `scripts/` | Cross-platform helper scripts: cache pre-warm, label sync (the API export and the accuracy and alignment checks are in `backend/scripts/`) |
 | `.github/` | Issue and pull request templates, labels, code owners, continuous integration |
 | `.do/` | Earlier hosting draft for DigitalOcean App Platform, not used |
 
