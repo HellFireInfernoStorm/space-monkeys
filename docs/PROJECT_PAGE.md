@@ -28,8 +28,10 @@ To be added. Slides or video; check the link in a private browser window.
 
 ## Link to final project
 
-Deployed site: to be added.
+Deployed site: [spaceshift.earth](https://spaceshift.earth).
 Repository: [space-monkeys on GitHub](https://github.com/HellFireInfernoStorm/space-monkeys).
+
+Deployment check (2026-11-15): the public HTTPS site and API connectivity work. The deployed API health endpoint reported **mock mode**, so this confirms a public synthetic-data demo, not deployed real-data or science acceptance. Recheck the mode before submitting the project page.
 
 ## Project details
 

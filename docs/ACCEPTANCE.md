@@ -6,7 +6,7 @@ Format for a ticked item: `- [x] Item (2026-11-15, checked on the live site with
 
 ## A. Required by the challenge objective
 
-- [ ] The tool is on the public web; no login needed
+- [x] The tool is on the public web; no login needed (2026-11-15, unauthenticated HTTPS requests to `https://spaceshift.earth` and the original Azure frontend address returned HTTP 200; the API health endpoint returned HTTP 200 and allowed both frontend origins. The user confirmed both addresses work. Deployed API mode was `mock`; this does not verify real-data features.)
 - [ ] The user can enter Right Ascension and Declination
 - [ ] The tool shows SPHEREx images of that patch of sky
 - [ ] The images play in time order like a short video
@@ -66,7 +66,9 @@ For each: the object is found from its name, real SPHEREx frames load, and the e
 
 ## Verified so far
 
-Nothing on a deployed site. From the data spike on 2026-11-14 (throwaway scripts, not this code):
+Deployment/connectivity check, 2026-11-15: `https://spaceshift.earth` and the original Azure Static Web Apps address are publicly reachable over HTTPS. The Azure App Service API allows both frontend origins after the `SM_CORS_ORIGINS` update. The API health endpoint reported `mode: "mock"`; no deployed real-data or science acceptance is claimed by this check.
+
+From the data spike on 2026-11-14 (throwaway scripts, not this code):
 
 - The archive search returns exposures for all five targets.
 - WISE 0855 appears at a signal-to-noise ratio of about 18.7 in a motion-tracked stack of 47 exposures.
