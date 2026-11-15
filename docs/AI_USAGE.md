@@ -29,6 +29,7 @@ Rules that apply to everything listed here:
 | 2026-11-15 | Chetha | Claude Code (Anthropic) | Diagnosed the IRSA 502 outage, found that a deep collection answering with no rows stopped the saved-search fallback, wrote the fix and its tests, and opened issue #13 | `backend/app/live_frames.py`, `backend/tests/test_live_frames.py` and issue #13 | Not yet |
 | 2026-11-15 | Repository owner (requested proposal) | OpenAI Codex | Reviewed existing WCS/image alignment and drafted the plate-solving decision proposal with visible matches, quality states and acceptance criteria | GitHub issue #22 | Not yet |
 | 2026-11-15 | Repository owner (issue #22) | OpenAI Codex | Implemented independent catalogue alignment verification, visible matches and failure states, URL preference, adversarial tests and validation notes | Plate-solving implementation PR and `docs/PLATE_SOLVING_VALIDATION.md` | Not yet |
+| 2026-11-15 | Repository owner (PR #28 review) | OpenAI Codex | Fixed cancelled checks leaving retry disabled after returning to a frame; added asynchronous cancellation/race regression tests and checked the delayed A-to-B-to-A sequence in the browser | `frontend/src/alignmentRequest.ts`, tests, `AlignmentPanel.tsx` and PR #28 | Not yet |
 
 ## Draft statement for the project page
 

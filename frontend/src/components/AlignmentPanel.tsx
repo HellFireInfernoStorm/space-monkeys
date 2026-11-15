@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import { getAlignment, type AlignmentResult, type Frame } from "../api";
+import { useEffect, useState } from "react";
+import { type AlignmentResult, type Frame } from "../api";
 import { alignmentLabel, alignmentSpot } from "../alignment";
+import { alignmentFrameKey, createAlignmentRequest, emptyAlignmentRequest } from "../alignmentRequest";
 
 interface Props {
   mode: "mock" | "live";
@@ -13,33 +14,18 @@ interface Props {
 
 /** Explicit checks avoid querying catalogues on every automatic blink transition. */
 export default function AlignmentPanel({ frame, extent, showMatches, onMatches, onResult, mode }: Props) {
-  const [state, setState] = useState<{ key: string; result: AlignmentResult | null; loading: boolean; error: string }>({
-    key: "", result: null, loading: false, error: "",
-  });
-  const abort = useRef<AbortController | null>(null);
-  const key = [frame.exposure_id, frame.center_ra, frame.center_dec, frame.target_ra, frame.target_dec].join("|");
+  const [state, setState] = useState(emptyAlignmentRequest);
+  const [request] = useState(() => createAlignmentRequest(setState));
+  const key = alignmentFrameKey(frame);
   const result = state.key === key ? state.result : null;
   const loading = state.key === key && state.loading;
   const error = state.key === key ? state.error : "";
   useEffect(() => {
-    abort.current?.abort();
-    return () => abort.current?.abort();
-  }, [key]);
+    request.select(key);
+    return request.cancel;
+  }, [key, request]);
   useEffect(() => onResult(result), [result, onResult]);
 
-  async function run() {
-    abort.current?.abort();
-    const controller = new AbortController();
-    abort.current = controller;
-    setState({ key, result: null, loading: true, error: "" });
-    try {
-      const response = await getAlignment(frame, controller.signal);
-      if (!controller.signal.aborted) setState({ key, result: response, loading: false, error: "" });
-    } catch (e) {
-      if (!controller.signal.aborted) setState({ key, result: null, loading: false,
-        error: e instanceof Error ? e.message : "Check failed" });
-    }
-  }
   const visible = (result?.matches ?? []).filter((match) => {
     const cat = alignmentSpot(match.catalogue_ra, match.catalogue_dec, frame, extent);
     const obs = alignmentSpot(match.measured_ra, match.measured_dec, frame, extent);
@@ -50,7 +36,7 @@ export default function AlignmentPanel({ frame, extent, showMatches, onMatches, 
     <p role="status">{loading ? "Checking star matches… archive coordinates remain active" :
       !result && mode === "mock" ? "Mock demonstration — not checked" : alignmentLabel(result)}</p>
     {!result && <p className="hint">We match stars in this image to known sky positions to check where it points.</p>}
-    <button type="button" disabled={loading} onClick={run}>{loading ? "Checking…" : "Check this frame"}</button>
+    <button type="button" disabled={loading} onClick={() => request.run(frame)}>{loading ? "Checking…" : "Check this frame"}</button>
     <label className="alignment-toggle"><input type="checkbox" checked={showMatches}
       onChange={(e) => onMatches(e.target.checked)} /> Show star matches</label>
     {error && <p role="alert">{error}. Showing unverified archive coordinates.</p>}
