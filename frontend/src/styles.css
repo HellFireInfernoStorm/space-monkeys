@@ -634,6 +634,11 @@ button:hover, button:focus-visible { border-color: var(--accent); }
   border-bottom: 3px solid transparent;
   padding: 14px 6px;
   color: var(--muted);
+  /* Same lettering as the panel headings (h2), so "Frames over time" and the tabs match. */
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 .workbench-tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
 .sky-tab { flex: 1; min-height: 0; display: flex; }
