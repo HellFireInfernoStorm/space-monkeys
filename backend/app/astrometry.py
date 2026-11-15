@@ -25,7 +25,7 @@ from .flags import DEFAULT_BAD_MASK
 from .models import AlignmentResult, StarMatch
 from .resample import sky_to_tangent, tangent_to_sky
 
-VERSION = "translation-check-v2"
+VERSION = "translation-check-v3"
 FIELD_PIXELS = 161  # bounded ~16.5 arcminute native-pixel patch
 MIN_MATCHES = 8
 MATCH_RADIUS = PIXEL_SCALE_ARCSEC  # header-seeded, not a blind solver
@@ -129,6 +129,7 @@ and leave-one-out residuals. Reject rather than fit away motion or wrong WCS.
             catalogue_dec=float(catalogue_sky[c, 1]), measured_ra=float(measured_sky[o, 0]),
             measured_dec=float(measured_sky[o, 1]), east_arcsec=float(offsets[k, 0]),
             north_arcsec=float(offsets[k, 1]), residual_arcsec=float(np.linalg.norm(offsets[k])),
+            offset_arcsec=float(np.linalg.norm(offsets[k])), fit_residual_arcsec=float(residuals[k]),
             inlier=bool(inliers[k]),
         ))
     if inliers.sum() < MIN_MATCHES:
@@ -151,6 +152,7 @@ and leave-one-out residuals. Reject rather than fit away motion or wrong WCS.
         result.reason = "Offsets exceed the 0.5-pixel gate; archive coordinates remain unverified."
         return result
     result.provenance = "mock" if result.mode == "mock" else "verified"
+    result.quality_passed = True
     result.reason = "Archive coordinates verified against detected reference stars. No correction applied."
     return result
 
@@ -164,7 +166,8 @@ def catalogue(settings, ra, dec, mjd):
     table = settings.astrometry_catalogue
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.]*", table):
         raise ValueError("Invalid configured catalogue name")
-    radius = FIELD_PIXELS * PIXEL_SCALE_ARCSEC / 3600  # circumscribes rotated patch
+    # Nominal half-diagonal, plus one matching radius for rounding/header offsets.
+    radius = (FIELD_PIXELS / math.sqrt(2) * PIXEL_SCALE_ARCSEC + MATCH_RADIUS) / 3600
     query = (
         f"SELECT TOP 501 source_id,ra,dec,pmra,pmdec,ref_epoch FROM {table} "
         f"WHERE 1=CONTAINS(POINT('ICRS',ra,dec),CIRCLE('ICRS',{ra:.9f},{dec:.9f},{radius:.9f})) "
@@ -198,6 +201,16 @@ def catalogue(settings, ra, dec, mjd):
 
 
 def native_stars(settings, exposure, ra, dec):
+    """Convert mirror HTTP/transport failures into the normal failed-check path."""
+    import aiohttp
+
+    try:
+        return _native_stars(settings, exposure, ra, dec)
+    except aiohttp.ClientError as error:
+        raise OSError("Could not read the detector patch from the mirror") from error
+
+
+def _native_stars(settings, exposure, ra, dec):
     """Read only bounded IMAGE/FLAGS sections with full celestial distortion model."""
     from astropy.io import fits
 
@@ -246,10 +259,7 @@ def solve(settings, exposure_id, ra, dec, target_ra, target_dec):
     result = base_result(settings, exposure_id, exposure.mjd)
     result.center_ra, result.center_dec = ra, dec
     result.target_ra, result.target_dec = target_ra, target_dec
-    if not _slots.acquire(blocking=False):
-        return result.model_copy(update={
-            "state": "busy", "reason": "Two checks already running. Try again shortly.",
-        })
+    acquired = False
     try:
         cache = cache_for(settings.cache_dir)
         key = make_key(VERSION, settings.mode, exposure_id, getattr(exposure, "cloud_url", None),
@@ -258,6 +268,11 @@ def solve(settings, exposure_id, ra, dec, target_ra, target_dec):
         saved = cache.get_json("alignment", key, max_age_s=86400)
         if saved:
             return AlignmentResult(**saved)
+        if not _slots.acquire(blocking=False):
+            return result.model_copy(update={
+                "state": "busy", "reason": "Two checks already running. Try again shortly.",
+            })
+        acquired = True
         if settings.mode == "mock":
             # Use the same synthetic sources actually drawn in the image, not arbitrary dots.
             east, north, peaks = mock._sources(ra, dec, result.field_arcsec/2, exposure)
@@ -303,7 +318,8 @@ def solve(settings, exposure_id, ra, dec, target_ra, target_dec):
         result.elapsed_s = round(time.monotonic()-started, 3)
         return result
     finally:
-        _slots.release()
+        if acquired:
+            _slots.release()
 
 
 async def check(settings, exposure_id, ra, dec, target_ra, target_dec):

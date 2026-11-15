@@ -2,7 +2,10 @@
 
 import asyncio
 import io
+import math
+import re
 import threading
+from urllib.parse import parse_qs
 
 import numpy as np
 import pytest
@@ -42,6 +45,11 @@ def test_translation_units_wrap_and_poles(tmp_path, centre):
     assert r.rms_pixels == pytest.approx(r.rms_arcsec / 6.15)
     assert r.fit_rms_arcsec < 1e-6
     assert not r.correction_applied
+    assert r.quality_passed
+    for match in r.matches:
+        assert match.offset_arcsec == pytest.approx(np.hypot(0.7, 0.4))
+        assert match.residual_arcsec == match.offset_arcsec  # legacy API compatibility
+        assert match.fit_residual_arcsec < 1e-6
 
 
 @pytest.mark.parametrize("kind", ["empty", "few", "cluster", "line", "offset", "unrelated", "ambiguous"])
@@ -64,6 +72,7 @@ def test_bad_solutions_do_not_verify(tmp_path, kind):
         p = np.concatenate([p, p + 0.2])
     r = assess(tmp_path, p, obs)
     assert r.provenance == "archive"
+    assert not r.quality_passed
     assert not r.correction_applied
     assert r.reason
 
@@ -207,6 +216,52 @@ def test_busy_and_failure_release_slot(tmp_path, monkeypatch):
     slots.release()
 
 
+def test_cached_results_do_not_require_a_reader_slot(tmp_path, monkeypatch):
+    s = Settings(mode="mock", cache_dir=tmp_path, _env_file=None)
+    e = mock.all_exposures()[0]
+    expected = a.solve(s, e.exposure_id, 150, 20, 150, 20)
+    slots = threading.BoundedSemaphore(1)
+    slots.acquire()
+    monkeypatch.setattr(a, "_slots", slots)
+    monkeypatch.setattr(mock, "_sources", lambda *args: pytest.fail("cache hit must not read sources"))
+    assert a.solve(s, e.exposure_id, 150, 20, 150, 20) == expected
+    assert not slots.acquire(blocking=False)  # cache hit must not release someone else's slot
+    slots.release()
+
+
+def test_mock_reports_geometry_rejection(tmp_path, monkeypatch):
+    p = np.array([(x+100, y+100) for x in (0, 8, 16, 24) for y in (0, 8, 16)])
+    monkeypatch.setattr(mock, "_sources", lambda *args: (p[:, 0], p[:, 1], np.full(len(p), 5)))
+    s = Settings(mode="mock", cache_dir=tmp_path, _env_file=None)
+    r = a.solve(s, mock.all_exposures()[0].exposure_id, 150, 20, 150, 20)
+    assert r.provenance == "mock"
+    assert not r.quality_passed
+    assert r.matched == 12
+    assert "clustered" in r.reason
+
+
+@pytest.mark.parametrize("status", [403, 500, 503])
+def test_mirror_http_errors_return_structured_failure(live_client, monkeypatch, status):
+    aiohttp = pytest.importorskip("aiohttp")
+    from app.live import LiveExposure
+    e = LiveExposure("x", "x", "test", 1, "test", 61000, 1, 1, 2, None, "fixture")
+    monkeypatch.setattr(live_frames, "find_exposure", lambda *args: e)
+
+    def fail(*args):
+        raise aiohttp.ClientResponseError(request_info=None, history=(), status=status, message="fixture")
+
+    monkeypatch.setattr(a, "_native_stars", fail)
+    response = live_client.get("/api/alignment", params={
+        "exposure_id": "x", "ra": 150, "dec": 20, "target_ra": 150, "target_dec": 20,
+    })
+    assert response.status_code == 200
+    r = response.json()
+    assert r["state"] == "failed"
+    assert r["provenance"] == "archive"
+    assert r["rms_arcsec"] is None
+    assert not r["quality_passed"]
+
+
 def test_catalogue_parser_and_epoch_propagation(tmp_path, monkeypatch):
     pytest.importorskip("astropy")
     payload = b"source_id,ra,dec,pmra,pmdec,ref_epoch\n123,150,20,1000,0,2016\n"
@@ -215,6 +270,22 @@ def test_catalogue_parser_and_epoch_propagation(tmp_path, monkeypatch):
     assert ids == ["123"]
     assert coords[0, 0] > 150.002
     assert coords[0, 1] == pytest.approx(20, abs=1e-6)
+
+
+def test_catalogue_cone_uses_patch_half_diagonal_with_match_margin(tmp_path, monkeypatch):
+    pytest.importorskip("astropy")
+    queries = []
+
+    def reply(request, **kwargs):
+        queries.append(parse_qs(request.data.decode())["QUERY"][0])
+        return io.BytesIO(b"source_id,ra,dec,pmra,pmdec,ref_epoch\n")
+
+    monkeypatch.setattr(a, "urlopen", reply)
+    a.catalogue(settings(tmp_path), 150, 20, 61000)
+    radius = float(re.search(r"CIRCLE\('ICRS',[^,]+,[^,]+,([0-9.]+)\)", queries[0]).group(1))
+    half_diagonal = a.FIELD_PIXELS / math.sqrt(2) * 6.15 / 3600
+    assert radius == pytest.approx(half_diagonal + a.MATCH_RADIUS/3600, abs=1e-9)
+    assert radius < a.FIELD_PIXELS * 6.15 / 3600
 
 
 @pytest.mark.parametrize("payload", [b"<html>unavailable</html>",

@@ -2,7 +2,7 @@
 
 ## Issue #22: independent plate-solving check (local first deliverable)
 
-- [x] Visible alignment status, synthetic matches, accessible table, URL overlay preference and safe failure state (2026-11-15, local mock browser at desktop/mobile sizes, keyboard and Back checks; `PLATE_SOLVING_VALIDATION.md`).
+- [x] Visible alignment status, synthetic matches, accessible table, URL overlay preference and safe failure state (2026-11-15, local mock browser and keyboard/Back checks; the prototype mobile layout override was removed in re-review; see `PLATE_SOLVING_VALIDATION.md`).
 - [x] Offline adversarial matching, raw FITS distortion/crop and API failure/timeout tests (2026-11-15, backend pytest and frontend tests; details in the validation note).
 - [ ] Real catalogue matching and accuracy gates validated on representative star-rich and sparse infrared fields (catalogue access failed).
 - [ ] Gaia DR3 licence and acknowledgement confirmed (#27).

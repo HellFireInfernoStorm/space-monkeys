@@ -32,7 +32,8 @@ describe("urlState", () => {
       phot: true,
       pra: 133.802411,
       pdec: -7.245112,
-      bin: true,
+      bin: false,
+      unit: "ab",
       wise: "W2",
       cmp: "blink",
     };
@@ -63,6 +64,8 @@ describe("urlState", () => {
       { phot: true },
       { pra: 76.97773, pdec: 30.37557 },
       { bin: true },
+      { bin: false },
+      { unit: "ab" },
       { wise: "W1" },
       { wise: "W2" },
       { cmp: "blink" },
@@ -160,4 +163,13 @@ describe("applyChange", () => {
     expect(applyChange(measured, { ra: 11, pra: 11, pdec: 20 })).toMatchObject({ pra: 11, pdec: 20 });
     expect(applyChange(measured, { size: 200 })).toMatchObject({ pra: 10.001, pdec: 20.001 });
   });
+});
+
+
+it("defaults to a binned line, restores old links and writes only nondefault photometry settings", () => {
+  expect(parseView("?bin=1").bin).toBe(true);
+  expect(parseView("?bin=0").bin).toBe(false);
+  expect(parseView("?unit=unknown").unit).toBe("mjy");
+  expect(serializeView({ ...DEFAULT_VIEW, bin: false, unit: "ab" })).toBe("bin=0&unit=ab");
+  expect(isNewView(DEFAULT_VIEW, { ...DEFAULT_VIEW, bin: false, unit: "ab" })).toBe(false);
 });

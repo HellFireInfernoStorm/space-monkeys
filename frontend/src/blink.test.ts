@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Frame } from "./api";
-import { colourSpread, imageAddress } from "./blink";
+import { colourSpread, imageAddress, playbackShortcut } from "./blink";
 
 function frame(id: string, wavelength: number | null = 1.1): Frame {
   return {
@@ -19,6 +19,14 @@ function frame(id: string, wavelength: number | null = 1.1): Frame {
 }
 
 describe("blink", () => {
+  it("maps only playback keys and toggles just once per Space press", () => {
+    expect(playbackShortcut(" ", false)).toBe("toggle");
+    expect(playbackShortcut(" ", true)).toBe("ignore-repeat");
+    expect(playbackShortcut("ArrowLeft", false)).toBe(-1);
+    expect(playbackShortcut("ArrowRight", true)).toBe(1);
+    expect(playbackShortcut("Enter", false)).toBeNull();
+  });
+
   it("shows the reference frame plainly in difference mode and the others minus it", () => {
     const reference = frame("A-D2");
     expect(imageAddress(reference, "diff", reference)).toBe("/api/frame.png?exposure_id=A-D2");

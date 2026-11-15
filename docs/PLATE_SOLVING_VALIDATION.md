@@ -18,20 +18,20 @@ Backend coverage: known east/north offsets and units; RA wrap and both high-decl
 
 Frontend coverage: exact gnomonic projection and handedness, wrap/high declination, behind-plane rejection, provenance/failure wording, URL preference round-trip/history, SVG output and rejecting stale exposure/centre overlays. Actual browser checks supplement the unit tests.
 
-From `backend/`: `python -m pytest -q` (**154 passed, 2 pre-existing skips**), `python -m ruff check .` (passed), `python scripts/export_openapi.py`. From `frontend/`: `npm run gen:api`, `npm run typecheck`, `npm test` (**94 passed** after integrating current main, including five review regressions) and `npm run build` (all passed). The 36 astrometry-specific backend tests were rerun after cleanup; the timeout test uses an event barrier rather than relying on a short sleep.
+From `backend/`: `python -m pytest -q` (**160 passed, 2 pre-existing skips**), `python -m ruff check .` (passed), `python scripts/export_openapi.py`. From `frontend/`: `npm run gen:api`, `npm run typecheck`, `npm test` (**117 passed** after integrating current main and re-review regressions) and `npm run build` (all passed). The 42 astrometry-specific backend tests pass; the timeout test uses an event barrier rather than relying on a short sleep.
 
 Sandboxed Windows TestClient initialization hung in asyncio's loopback socket-pair setup. Running with ordinary local socket permissions resolved it without application changes. Existing warnings remain: Starlette/httpx deprecation, Astropy's no-distance proper-motion warning and Vite's large Aladin chunk warning.
 
 ## Browser evidence
 
-Checked at 1280×900 and 390×844, plus the narrow default browser panel:
+Original prototype checks at 1280×900 and 390×844, plus the narrow default browser panel (the global responsive override was subsequently removed in re-review; the mobile screenshots are historical evidence, not current mobile-layout acceptance):
 
 - Initial status, mock success, diagnostic metrics and actual rendered SVG matches (18 sampled symbols for 125 crop-visible matches).
 - Checkbox toggled with Space; `matches=0` appeared in the URL; Back restored checked state.
 - Slider Home/End changed frames and cleared stale evidence. Detector 6 showed three matches and an insufficient-reference reason, with no accuracy metric.
 - Enter opened details; accessibility exposed source IDs, catalogue/detected coordinates, offsets and inclusion state. The scrollable table is focusable.
 - Stopping only the isolated test API produced “Failed to fetch. Showing unverified archive coordinates.” The image remained and verification evidence disappeared.
-- Mobile page width was 375 CSS pixels inside 390; desktop 1265 inside 1280 (scrollbar accounts for remaining width). A responsive override removes the old 1100-pixel page minimum so the evidence panel is readable.
+- At that time, mobile page width was 375 CSS pixels inside 390; desktop 1265 inside 1280 (scrollbar accounts for remaining width). The subsequent review removed that page-wide layout change to keep PR scope limited to alignment.
 - Temporary viewport override was reset and isolated preview servers stopped. Existing user servers were left running.
 
 Screenshots: [desktop mock](screenshots/issue-22/desktop-mock.jpg), [mobile details](screenshots/issue-22/mobile-details.jpg), [mobile failure](screenshots/issue-22/mobile-network-failure.jpg). These show our interface and synthetic frames, with the existing credited AllWISE/Aladin map where visible; they are validation evidence, not application assets.
@@ -44,7 +44,17 @@ Five asynchronous regression tests cover A → B → A with a successful retry, 
 
 Newer main commits introduced merge conflicts in the stylesheet and AI log. Both sets of additions were preserved, including the Phase 1 chart styles and all AI log entries. The chart/photometry components and helpers match main; the merged frontend passed typecheck, 94 tests and production build.
 
-## Real-data attempts (original validation)
+## Second review: keyboard integration and diagnostic correctness
+
+Merged current main, retaining its page-level Blink/Difference shortcuts and Phase 2 photometry. The focusable reference table now calls `preventDefault` for arrows/Space and scrolls itself, so the document handler does not step frames, clear the result or start playback. DOM-based player tests exercise all five keys with the actual document handler and assert unchanged frame/playback, retained table and local scrolling; a rendered A-to-B-to-A cancellation regression is included.
+
+Backend regressions cover cached results while all reader slots are occupied, structured mirror HTTP 403/500/503 failures, a half-diagonal reference cone with a matching margin, preserved rejection of clustered mocks and distinct total-offset/median-residual values. `quality_passed` makes mock geometry/RMS rejections visible; additive match fields distinguish the two distances without changing the legacy field. Schema/types are regenerated; v3 invalidates old cached diagnostics. The unrelated global responsive block was removed.
+
+Browser check on the merged implementation at 1280×900: after running a synthetic check and opening details, ArrowRight, ArrowLeft and Space inside the focused reference table left the slider at frame 0, kept the table visible and retained the Play button. Both “Total offset” and “From median” headers were visible. Evidence: [table keyboard isolation](screenshots/issue-22/review-table-keys.jpg). Temporary viewport overrides and preview servers were cleaned up. Installing main's new DOM-test dependencies required incremental `npm install` because an existing dev server held the native bundler binding; no dependency/lockfile change beyond main was introduced.
+
+Owner approval to implement #22 is recorded in DECISIONS D-019 using the existing human approval comment. Formal decision-issue closure remains a human action. #27 remains open: the correct ESA licence/credits pages returned HTTP 451; AIP supplies a DR3 attribution reference but not confirmation of the full ESA licence. No merge, deployment or undraft is claimed.
+
+## Real-data attempts (original validation, before review changes)
 
 Two exposures per target were selected with a 20-probe cap. Archive SIA failures triggered the existing saved-search fallback. Cold/retry worker calls failed at the Gaia connection with `urllib.error.URLError: <urlopen error timed out>`. A documented IRSA Gaia mirror returned HTTP 502 Proxy Error for POST and GET. No real catalogue match, residual distribution or successful fit is claimed.
 

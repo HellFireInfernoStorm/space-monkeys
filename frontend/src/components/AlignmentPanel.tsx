@@ -41,7 +41,7 @@ export default function AlignmentPanel({ frame, extent, showMatches, onMatches, 
       onChange={(e) => onMatches(e.target.checked)} /> Show star matches</label>
     {error && <p role="alert">{error}. Showing unverified archive coordinates.</p>}
     {result && <>
-      {(result.provenance === "archive" || (result.matched ?? 0) - (result.rejected ?? 0) < 8) && <p>{result.reason}</p>}
+      {!result.quality_passed && <p>{result.reason}</p>}
       <p>{(result.matched ?? 0) - (result.rejected ?? 0)} consistent reference stars · {result.rejected} rejected
         {result.rms_arcsec != null && <> · RMS offset {result.rms_arcsec.toFixed(2)}″ ({result.rms_pixels?.toFixed(2)} pixels)</>}
       </p>
@@ -52,14 +52,30 @@ export default function AlignmentPanel({ frame, extent, showMatches, onMatches, 
         <p>{result.catalogue} · MJD {result.mjd?.toFixed(5) ?? "unknown"} · {result.solver_version} · {result.elapsed_s?.toFixed(2)} s</p>
         {result.catalogue_url && <a href={result.catalogue_url} target="_blank" rel="noreferrer">Reference catalogue and credits</a>}
         <p>No correction applied. These are archive coordinates; the translation fit is diagnostic.</p>
+        <p>Total offset is the catalogue-to-detection distance. Inclusion uses distance from the median offset, shown separately.</p>
         {result.offset_east_arcsec != null && <p>Detected minus catalogue: {result.offset_east_arcsec.toFixed(2)}″ east,
           {" "}{result.offset_north_arcsec?.toFixed(2)}″ north. Leave-one-out fit RMS: {result.fit_rms_arcsec?.toFixed(2)}″.</p>}
-        <div className="alignment-table" tabIndex={0} role="region" aria-label="Scrollable reference-star table"><table><caption>Independent reference-star matches (ICRS degrees)</caption>
-          <thead><tr><th>Source</th><th>Catalogue RA, Dec</th><th>Detected RA, Dec</th><th>Offset</th><th>Fit</th></tr></thead>
+        <div className="alignment-table" tabIndex={0} role="region" aria-label="Scrollable reference-star table"
+          onKeyDown={(event) => {
+            const distance = 40;
+            const steps: Record<string, [number, number]> = {
+              ArrowLeft: [-distance, 0], ArrowRight: [distance, 0],
+              ArrowUp: [0, -distance], ArrowDown: [0, distance],
+              " ": [0, event.shiftKey ? -event.currentTarget.clientHeight : event.currentTarget.clientHeight],
+            };
+            const step = steps[event.key];
+            if (!step || event.altKey || event.ctrlKey || event.metaKey) return;
+            // Native document-level playback shortcuts must not consume table navigation.
+            event.preventDefault();
+            event.currentTarget.scrollBy({ left: step[0], top: step[1] });
+          }}><table><caption>Independent reference-star matches (ICRS degrees)</caption>
+          <thead><tr><th>Source</th><th>Catalogue RA, Dec</th><th>Detected RA, Dec</th><th>Total offset</th><th>From median</th><th>Fit</th></tr></thead>
           <tbody>{(result.matches ?? []).map((match) => <tr key={match.source_id}>
             <td>{match.source_id}</td><td>{match.catalogue_ra.toFixed(6)}, {match.catalogue_dec.toFixed(6)}</td>
             <td>{match.measured_ra.toFixed(6)}, {match.measured_dec.toFixed(6)}</td>
-            <td>{match.residual_arcsec.toFixed(2)}″</td><td>{match.inlier ? "Included" : "Rejected"}</td>
+            <td>{(match.offset_arcsec ?? match.residual_arcsec).toFixed(2)}″</td>
+            <td>{match.fit_residual_arcsec == null ? "Unknown" : `${match.fit_residual_arcsec.toFixed(2)}″`}</td>
+            <td>{match.inlier ? "Included" : "Rejected"}</td>
           </tr>)}</tbody>
         </table></div>
       </details>

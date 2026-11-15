@@ -229,6 +229,8 @@ Code: `backend/app/photometry.py`. Each exposure covering a point gives one samp
 
 **Method.** Aperture of radius 3 pixels (18.5 arcseconds) around the point, at the object's position on the date of each exposure (proper motion and parallax). Background: the median of an annulus from 5 to 7.5 pixels. MJy/sr times the solid angle of one 6.15-arcsecond pixel gives janskys; the API reports microjanskys (`uJy`), as in mock mode. This is the aperture checked against 2MASS in pull request #5, moved into the app; `backend/scripts/check_accuracy.py` uses the same code.
 
+**Visit grouping in the interface.** Start a new visit when consecutive exposure MJDs, sorted by time, differ by more than 60 days. This is the display convention specified in [issue #30](https://github.com/HellFireInfernoStorm/space-monkeys/issues/30), not a measured survey cadence: the WISE 0855 clusters documented below (60801, 60989–61021, 61151–61171) span up to 32 days and have gaps of 130–188 days, so 60 days separates those clusters. The count uses all returned exposures, including refused apertures. It does not establish physically distinct visits for every possible target.
+
 **Refused points.** Any empty pixel in the aperture (flagged, missing or off the detector) means no flux: `usable` is false and `reason` says why, with the names of the problem flags. A partial sum would report a fraction of a star, for example a saturated core, as if it were a faint star. Empty pixels in the annulus are left out of the background.
 
 **Error.** sigma * sqrt(N_ap + (pi / 2) * N_ap^2 / N_sky), with sigma the robust standard deviation (1.4826 times the median absolute deviation) of the annulus. This is background noise only. It leaves out the photon noise of the source and calibration differences, and resampling makes neighbouring pixels slightly correlated. It is far too small for bright stars: on the 2MASS check star below, the scatter between exposures was 3.8 % against error bars of about 0.1 %.
@@ -264,7 +266,11 @@ Code: `backend/app/photometry.py`. Each exposure covering a point gives one samp
 
 **Limits.** Saturated stars give no light curve (R Draconis; RW Aurigae except at the shortest wavelengths). A light curve over a wide wavelength range mixes colour with change. The values are quick estimates; IRSA's Spectrophotometry Tool is the precise method.
 
+**AB display units.** AB magnitude = −2.5 log10(flux / 3631 Jy); the propagated error is (2.5 / ln 10) × flux error / flux, defined only for positive flux. Source: [Oke & Gunn (1983), ApJ 266, 713](https://articles.adsabs.harvard.edu/pdf/1983ApJ...266..713O). Flux summaries are averaged before conversion.
+
 ## 8. WISE comparison (layer 4)
+
+The spectrum interface marks WISE W1 at 3.4 µm and W2 at 4.6 µm, matching `backend/app/wise.py`; these are centre markers, not sourced filter edges.
 
 Code: `backend/app/wise.py`. The AllWISE Atlas image (WISE observations of 2010, combined) of the same field as the SPHEREx image, at WISE's 1.375-arcsecond pixels, north up, east left (details: `docs/ARCHITECTURE.md`). Dates come from the tile header: for WISE 0855's tile (`1342m076_ac51`), the frames span 2010-05-03 to 2010-11-13, middle frame 2010-05-06.
 
@@ -288,3 +294,5 @@ The diagnostic compares original-detector centroids with epoch-propagated Gaia D
 Our engineering gates require eight unambiguous matches, a one-native-pixel matching radius, a 0.35-pixel translation-outlier cutoff, adequate 2D coverage and at most 0.5 native pixel RMS both before correction and in leave-one-out translation residuals. Detection requires a seven-MAD-sigma local maximum and a complete clean 5×5 footprint, rejecting close competing peaks. The science target and neighbours within three pixels are excluded. These are not published SPHEREx accuracy specifications; real matching must validate them before release.
 
 “Verified” means archive-coordinate agreement passed these checks, not that a new WCS was applied. Translation is diagnostic. Catalogue markers alone do not verify an image. Real matching was not completed on 2026-11-15 because catalogue connections timed out; see `PLATE_SOLVING_VALIDATION.md`. Mock numbers remain synthetic. Existing wavelength matching and science products retain their original behavior.
+
+The absolute catalogue-to-detection offset and the distance from the median offset are distinct. Inlier selection uses the latter; the match table labels both explicitly. The API retains `residual_arcsec` as a legacy name for the absolute offset and adds `offset_arcsec` and `fit_residual_arcsec`. A separate `quality_passed` flag prevents synthetic provenance from hiding geometry or RMS rejection. The Gaia query uses the native patch's nominal half-diagonal plus one matching-radius margin (about 706 arcseconds), reducing unrelated sources outside the detector patch; this remains a header-seeded check with conservative limits, not a complete survey catalogue search.

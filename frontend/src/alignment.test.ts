@@ -11,7 +11,7 @@ const result: AlignmentResult = {
   center_ra: 0, center_dec: 0, target_ra: 0, target_dec: 0,
   mode: "live", exposure_id: "test", mjd: 61000, state: "complete", provenance: "verified",
   reason: "test", catalogue: "test", catalogue_url: "", solver_version: "test", field_arcsec: 990,
-  correction_applied: false, detected: 12, elapsed_s: 1, matched: 12, rejected: 0,
+  correction_applied: false, quality_passed: true, detected: 12, elapsed_s: 1, matched: 12, rejected: 0,
   matches: [{ source_id: "1", catalogue_ra: 0, catalogue_dec: 0, measured_ra: 0.0001,
     measured_dec: 0, east_arcsec: 0.36, north_arcsec: 0, residual_arcsec: 0.36, inlier: true }],
 };
@@ -38,6 +38,7 @@ describe("visible independent alignment", () => {
     expect(alignmentLabel(result)).toBe("Verified against catalogue");
     expect(alignmentLabel({ ...result, mode: "mock" })).toContain("Mock demonstration");
     expect(alignmentLabel({ ...result, mode: "mock", matched: 3 })).toContain("insufficient");
+    expect(alignmentLabel({ ...result, mode: "mock", quality_passed: false })).toContain("verification rejected");
     for (const state of ["failed", "timeout", "busy"] as const) {
       expect(alignmentLabel({ ...result, state })).toContain("unverified");
       expect(alignmentLabel({ ...result, state, mode: "mock" })).toContain("unverified");

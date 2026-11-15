@@ -349,6 +349,12 @@ export interface components {
              * @enum {string}
              */
             provenance: "archive" | "verified" | "mock";
+            /**
+             * Quality Passed
+             * @description True only when all matching/geometry/RMS gates pass
+             * @default false
+             */
+            quality_passed: boolean;
             /** Reason */
             reason: string;
             /**
@@ -898,6 +904,11 @@ export interface components {
             catalogue_ra: number;
             /** East Arcsec */
             east_arcsec: number;
+            /**
+             * Fit Residual Arcsec
+             * @description Distance from the median offset used for the inlier gate, arcseconds
+             */
+            fit_residual_arcsec?: number | null;
             /** Inlier */
             inlier: boolean;
             /** Measured Dec */
@@ -906,7 +917,15 @@ export interface components {
             measured_ra: number;
             /** North Arcsec */
             north_arcsec: number;
-            /** Residual Arcsec */
+            /**
+             * Offset Arcsec
+             * @description Total catalogue-to-centroid offset, arcseconds
+             */
+            offset_arcsec?: number | null;
+            /**
+             * Residual Arcsec
+             * @description Legacy name: total catalogue-to-centroid offset, arcseconds
+             */
             residual_arcsec: number;
             /** Source Id */
             source_id: string;

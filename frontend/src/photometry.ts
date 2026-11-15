@@ -2,7 +2,7 @@
 
 import type { Band, PhotometryPoint } from "./api";
 
-/** One point ready to plot, flux in millijansky. A null flux means "could not be measured". */
+/** One point ready to plot, in mJy or AB magnitude. Null means no value in the chosen unit. */
 export interface PlotPoint {
   id?: string;
   mjd?: number;
@@ -245,13 +245,13 @@ export function nearestPoint<T extends { px: number; py: number }>(points: T[], 
 }
 
 /** All chart geometry uses CSS pixels, including the separate missing-value lane. */
-export function chartGeometry(points: PlotPoint[], width: number, height = CHART_HEIGHT) {
+export function chartGeometry(points: PlotPoint[], width: number, height = CHART_HEIGHT, invertY = false) {
   const lane = points.some((p) => p.y === null) ? 18 : 0;
   const plot = { left: 64, top: 22, width: Math.max(1, width - 108), height: height - 66 - lane };
   const [x0, x1] = extent(points.map((p) => p.x));
   const [y0, y1] = extent(points.filter((p) => p.y !== null).flatMap((p) => [p.y! - (p.err ?? 0), p.y! + (p.err ?? 0)]));
   const sx = (x: number) => plot.left + (x - x0) / (x1 - x0) * plot.width;
-  const sy = (y: number) => plot.top + plot.height - (y - y0) / (y1 - y0) * plot.height;
+  const sy = (y: number) => plot.top + (invertY ? (y - y0) / (y1 - y0) : 1 - (y - y0) / (y1 - y0)) * plot.height;
   const floor = plot.top + plot.height;
   return { sx, sy, x0, x1, y0, y1, plot, floor, lane,
     xTicks: ticks(x0, x1, Math.max(1, Math.floor(plot.width / 100))), yTicks: ticks(y0, y1, 5),
@@ -284,5 +284,96 @@ export function uniqueTicks(values: number[], format: (value: number) => string)
     if (seen.has(label)) return false;
     seen.add(label);
     return true;
+  });
+}
+
+// Threshold from docs/SCIENCE.md section 6; this verdict uses aperture S/N, not PSF significance.
+export const SIGNAL_THRESHOLD = 5;
+// Oke & Gunn (1983), AB definition; input fluxes here are mJy.
+export const AB_ZERO_POINT_JY = 3631;
+// backend/app/wise.py, BANDS / wavelength_um. Centres only, not filter widths.
+export const WISE_BANDS = [{ name: "WISE W1", wavelength: 3.4 }, { name: "WISE W2", wavelength: 4.6 }];
+// docs/SCIENCE.md section 7: aperture and background annulus, in detector pixels.
+export const PIXEL_SCALE_ARCSEC = 6.15;
+export const APERTURE_RADIUS_PIXELS = 3;
+export const BACKGROUND_RADII_PIXELS = [5, 7.5] as const;
+
+// Visit grouping is a display convention; rationale and WISE dates: docs/SCIENCE.md section 7.
+export function groupVisits(mjds: number[], gapDays = 60): Array<{ start: number; end: number; count: number }> {
+  const visits: Array<{ start: number; end: number; count: number }> = [];
+  for (const mjd of [...mjds].sort((a, b) => a - b)) {
+    const last = visits.at(-1);
+    if (!last || mjd - last.end > gapDays) visits.push({ start: mjd, end: mjd, count: 1 });
+    else { last.end = mjd; last.count++; }
+  }
+  return visits;
+}
+
+export function summarise(points: PlotPoint[]) {
+  const measured = points.filter((p) => p.y !== null);
+  const withError = measured.filter((p): p is PlotPoint & { y: number; err: number } => p.err !== null && p.err > 0);
+  const snrs = withError.map((p) => p.y / p.err).sort((a, b) => a - b);
+  const middle = Math.floor(snrs.length / 2);
+  const meanPoint = binPoints(points, 1)[0];
+  const mean = meanPoint ? { y: meanPoint.y!, err: meanPoint.err! } : undefined;
+  const combinedSnr = mean ? mean.y / mean.err : undefined;
+  const bins = binPoints(points, binCount(withError.length));
+  const brightest = bins.reduce<PlotPoint | undefined>((best, p) => !best || p.y! > best.y! ? p : best, undefined);
+  const wavelengths = points.map((p) => p.wavelength ?? p.x);
+  const mjds = points.flatMap((p) => p.mjd === undefined ? [] : [p.mjd]);
+  return {
+    measured: measured.length, snrMeasured: withError.length, total: points.length, bins,
+    wlMin: wavelengths.length ? Math.min(...wavelengths) : undefined,
+    wlMax: wavelengths.length ? Math.max(...wavelengths) : undefined,
+    firstMjd: mjds.length ? Math.min(...mjds) : undefined,
+    lastMjd: mjds.length ? Math.max(...mjds) : undefined,
+    visits: groupVisits(mjds), mean, combinedSnr,
+    medianSnr: snrs.length ? (snrs.length % 2 ? snrs[middle] : (snrs[middle - 1] + snrs[middle]) / 2) : undefined,
+    brightest: combinedSnr !== undefined && combinedSnr >= SIGNAL_THRESHOLD ? brightest?.x : undefined,
+  };
+}
+
+export function verdict(summary: ReturnType<typeof summarise>, { mock, warned }: { mock: boolean; warned: boolean }): {
+  tone: "clear" | "combined" | "none" | "empty"; text: string;
+} {
+  let tone: "clear" | "combined" | "none" | "empty";
+  let text: string;
+  if (!summary.measured) {
+    tone = "empty";
+    text = "No measurement: every aperture holds flagged or missing pixels.";
+  } else if (summary.combinedSnr === undefined) {
+    tone = "none";
+    text = "S/N unavailable: measured aperture fluxes have no positive background-noise errors.";
+  } else if (summary.medianSnr! >= SIGNAL_THRESHOLD) {
+    tone = "clear";
+    text = `Clear signal in single exposures (typical S/N ${summary.medianSnr!.toFixed(1)}).`;
+  } else if (summary.combinedSnr! >= SIGNAL_THRESHOLD) {
+    tone = "combined";
+    text = `Signal only when exposures are combined (S/N ${summary.combinedSnr!.toFixed(1)}); about ${summary.medianSnr!.toFixed(1)} in a single exposure. The Stacked view in the frame player is the better way to see a faint object.`;
+  } else {
+    tone = "none";
+    text = `No clear signal in this wavelength range (combined S/N ${summary.combinedSnr!.toFixed(1)}).`;
+  }
+  if (warned) text += " The warning above says what else may be in the aperture.";
+  if (mock) text += " (Synthetic data.)";
+  return { tone, text };
+}
+
+export function toAbMag(mJy: number, errMJy: number): { mag: number; err: number } | null {
+  if (mJy <= 0) return null;
+  return { mag: -2.5 * Math.log10(mJy / (AB_ZERO_POINT_JY * 1000)), err: (2.5 / Math.LN10) * errMJy / mJy };
+}
+
+/** Convert only after averaging in flux space; retain raw flux in every tooltip. */
+export function magnitudePoints(points: PlotPoint[]): PlotPoint[] {
+  return points.map((p) => {
+    if (p.y === null) return p;
+    const converted = toAbMag(p.y, p.err ?? 0);
+    const raw = pointDetails(p);
+    const details = { ...raw, value: converted
+      ? `${converted.mag.toFixed(2)} ± ${converted.err.toFixed(2)} AB mag (${raw.value})`
+      : `No magnitude: flux ${p.y.toPrecision(3)} ± ${(p.err ?? 0).toPrecision(2)} mJy is not above zero` };
+    return { ...p, y: converted?.mag ?? null, err: converted ? (p.err === null ? null : converted.err) : null,
+      details, label: Object.values(details).join("\n") };
   });
 }

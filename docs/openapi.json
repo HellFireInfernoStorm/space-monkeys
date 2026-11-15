@@ -140,6 +140,12 @@
             "title": "Provenance",
             "type": "string"
           },
+          "quality_passed": {
+            "default": false,
+            "description": "True only when all matching/geometry/RMS gates pass",
+            "title": "Quality Passed",
+            "type": "boolean"
+          },
           "reason": {
             "title": "Reason",
             "type": "string"
@@ -1246,6 +1252,18 @@
             "title": "East Arcsec",
             "type": "number"
           },
+          "fit_residual_arcsec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Distance from the median offset used for the inlier gate, arcseconds",
+            "title": "Fit Residual Arcsec"
+          },
           "inlier": {
             "title": "Inlier",
             "type": "boolean"
@@ -1262,7 +1280,20 @@
             "title": "North Arcsec",
             "type": "number"
           },
+          "offset_arcsec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Total catalogue-to-centroid offset, arcseconds",
+            "title": "Offset Arcsec"
+          },
           "residual_arcsec": {
+            "description": "Legacy name: total catalogue-to-centroid offset, arcseconds",
             "title": "Residual Arcsec",
             "type": "number"
           },

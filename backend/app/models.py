@@ -97,7 +97,13 @@ class StarMatch(BaseModel):
     measured_dec: float
     east_arcsec: float
     north_arcsec: float
-    residual_arcsec: float
+    residual_arcsec: float = Field(description="Legacy name: total catalogue-to-centroid offset, arcseconds")
+    offset_arcsec: float | None = Field(
+        default=None, description="Total catalogue-to-centroid offset, arcseconds"
+    )
+    fit_residual_arcsec: float | None = Field(
+        default=None, description="Distance from the median offset used for the inlier gate, arcseconds"
+    )
     inlier: bool
 
 
@@ -116,6 +122,9 @@ class AlignmentResult(BaseModel):
     catalogue_url: str
     solver_version: str
     correction_applied: bool = False
+    quality_passed: bool = Field(
+        default=False, description="True only when all matching/geometry/RMS gates pass"
+    )
     detected: int = 0
     matched: int = 0
     rejected: int = 0
