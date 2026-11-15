@@ -423,3 +423,145 @@ h3 {
 .foot p {
   margin: 0.3rem 0;
 }
+
+/* Layer 3: spectrum and light curve. */
+.stage.pickable {
+  cursor: crosshair;
+}
+
+.phot .plots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.phot figure {
+  margin: 0;
+}
+
+.phot figcaption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+.plot {
+  width: 100%;
+  height: auto;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.plot .grid {
+  stroke: var(--line);
+  stroke-width: 0.5;
+}
+
+.plot .axis {
+  stroke: var(--muted);
+  stroke-width: 1;
+}
+
+.plot .zero {
+  stroke: var(--muted);
+  stroke-dasharray: 3 3;
+  stroke-width: 0.7;
+}
+
+.plot .tick,
+.plot .label {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+
+.plot .unmeasured {
+  fill: none;
+  stroke: #f0a35e;
+  stroke-width: 1.2;
+}
+
+.legend .key {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin: 0 4px 0 8px;
+  vertical-align: middle;
+}
+
+.legend .key.measured {
+  background: var(--accent);
+}
+
+.legend .key.unmeasured {
+  border: 1.5px solid #f0a35e;
+}
+
+.check.inline {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+button.link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.layout > .full-width {
+  grid-column: 1 / -1;
+}
+
+.plot .point {
+  color: var(--accent);
+}
+
+.plot .point circle {
+  fill: currentColor;
+}
+
+.plot .point line {
+  stroke: currentColor;
+  stroke-width: 1;
+}
+
+.plot circle.hit {
+  fill: transparent;
+  stroke: none;
+  pointer-events: all;
+}
+
+.ramp-legend {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.85em;
+}
+
+.ramp-legend .ramp {
+  display: inline-block;
+  width: 60px;
+  height: 8px;
+  border-radius: 4px;
+}
+
+.ramp-legend {
+  white-space: nowrap;
+}
+
+/* The plots shrink to fit a phone; keep their text readable there. */
+@media (max-width: 600px) {
+  .plot .tick,
+  .plot .label {
+    font-size: 14px;
+  }
+}

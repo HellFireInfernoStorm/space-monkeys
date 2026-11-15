@@ -11,9 +11,8 @@ needs_network = pytest.mark.skipif(
 )
 
 
-def test_unbuilt_live_endpoints_answer_501(live_client):
+def test_health_reports_live_mode(live_client):
     assert live_client.get("/api/health").json()["mode"] == "live"
-    assert live_client.get("/api/photometry", params={"ra": 10, "dec": 20}).status_code == 501
 
 
 def test_targets_work_in_live_mode(live_client):

@@ -223,7 +223,48 @@ Rechecked 2026-11-15 at 4.4 to 5.0 micrometres, size 120 arcseconds, 96 exposure
 
 The revised positions differ from main by at most 0.15 arcsecond in either component, and remain within 0.21 arcsecond of the predictions. This checks an isolated source alongside the blended WISE case; it does not establish that bootstrap errors include PSF systematics.
 
-## 7. What we must not claim
+## 7. Quick-look photometry (layer 3)
+
+Code: `backend/app/photometry.py`. Each exposure covering a point gives one sample (wavelength, brightness, time); against wavelength the samples make a spectrum, against time a light curve.
+
+**Method.** Aperture of radius 3 pixels (18.5 arcseconds) around the point, at the object's position on the date of each exposure (proper motion and parallax). Background: the median of an annulus from 5 to 7.5 pixels. MJy/sr times the solid angle of one 6.15-arcsecond pixel gives janskys; the API reports microjanskys (`uJy`), as in mock mode. This is the aperture checked against 2MASS in pull request #5, moved into the app; `backend/scripts/check_accuracy.py` uses the same code.
+
+**Refused points.** Any empty pixel in the aperture (flagged, missing or off the detector) means no flux: `usable` is false and `reason` says why, with the names of the problem flags. A partial sum would report a fraction of a star, for example a saturated core, as if it were a faint star. Empty pixels in the annulus are left out of the background.
+
+**Error.** sigma * sqrt(N_ap + (pi / 2) * N_ap^2 / N_sky), with sigma the robust standard deviation (1.4826 times the median absolute deviation) of the annulus. This is background noise only. It leaves out the photon noise of the source and calibration differences, and resampling makes neighbouring pixels slightly correlated. It is far too small for bright stars: on the 2MASS check star below, the scatter between exposures was 3.8 % against error bars of about 0.1 %.
+
+**Measured on 2026-11-15** (live mode, local, not a deployed site):
+
+| Check | Expected | Measured |
+| --- | --- | --- |
+| 2MASS star RA 76.97773, Dec +30.37557 (H = 9.64, 0.143 Jy), 1.6 to 1.8 µm, complete search | Pull request #5: 9 complete apertures at 0.1296 to 0.1462 Jy, 10 refused | 19 matching; 9 measured at 0.1298 to 0.1466 Jy, 10 refused. The small difference in range comes from the pixel grid: our patches are centred on the star, the script's on RW Aurigae |
+| WISE 0855, 4.4 to 5.0 µm, along its motion, one collection of four searched | About 0.5 mJy (0.58 from the stack, 0.47 from its WISE magnitude) | 46 matching, 22 measured; weighted mean 0.554 ± 0.043 mJy. **Includes a field star**: see below |
+| RW Aurigae, 0.746 to 1.117 µm, one collection searched | 13 of 40 complete cores (pull request #5) | 11 of 38 measured |
+| R Draconis, 0.746 to 1.117 µm | None usable | 0 of 69 (all saturated) |
+
+**WISE 0855 and its neighbour.** The fixed field star near RA 133.7582, Dec −7.2412 (`targets.py`) is 11.2 arcseconds from WISE 0855 at the first visit (MJD 60801), 8.1 to 7.4 at the second (MJD 60989 to 61021) and 4.3 to 3.9 at the third (MJD 61151 to 61171): always inside the 18.5-arcsecond aperture. The aperture flux is the sum of both, so the 0.554 mJy above does not measure WISE 0855 alone. Per visit: 0.23 ± 0.28 mJy (1 point), 0.69 ± 0.09 mJy (6 points), 0.51 ± 0.05 mJy (15 points). The difference between visits is not evidence of a brightness change: the star's share of the aperture changes as the object moves. The stack (section 6) fits the two separately; the aperture cannot.
+
+**Cross-check against IRSA's Spectrophotometry Tool** (2026-11-15; single object, point source, no deep fields; the tool's result was downloaded as a VOTable and compared exposure by exposure on `obs_publisher_did`). For the 2MASS check star, all 9 of our measured exposures at 1.6 to 1.8 µm are in the tool's result:
+
+| Exposure | Wavelength (µm) | Ours (Jy) | IRSA (Jy) | Ours / IRSA |
+| --- | --- | --- | --- | --- |
+| 2025W37_1A_0496_2 D2 | 1.628 | 0.1446 | 0.1435 ± 0.0043 | 1.007 |
+| 2025W38_1A_0538_2 D3 | 1.664 | 0.1466 | 0.1439 ± 0.0043 | 1.018 |
+| 2025W38_1A_0538_3 D3 | 1.702 | 0.1438 | 0.1386 ± 0.0042 | 1.037 |
+| 2026W09_2A_0224_2 D3 | 1.635 | 0.1426 | 0.1408 ± 0.0042 | 1.013 |
+| 2026W09_2A_0224_3 D3 | 1.672 | 0.1380 | 0.1351 ± 0.0041 | 1.021 |
+| 2026W09_2A_0552_1 D3 | 1.750 | 0.1395 | 0.1358 ± 0.0041 | 1.028 |
+| 2026W09_2A_0552_2 D3 | 1.790 | 0.1298 | 0.1246 ± 0.0038 | 1.041 |
+| 2026W37_2A_0630_1 D2 | 1.613 | 0.1464 | 0.1449 ± 0.0044 | 1.010 |
+| 2026W38_1A_0162_1 D3 | 1.648 | 0.1453 | 0.1410 ± 0.0043 | 1.031 |
+
+- Ours are higher by a median of 2.1 % (1.007 to 1.041). Six of the nine differences are within one of the tool's error bars (about 3 %); the other three (1.648, 1.702 and 1.790 µm) are 1.0, 1.2 and 1.4 error bars above. The cause of the offset is not known; aperture photometry against the tool's model fit is one candidate. We did not adjust anything to remove it.
+- The tool's errors (about 3 %) match the 3.8 % scatter we see between exposures, which confirms that our background-only error bars are too small for a bright star.
+- Refusals agree in 18 of 19 exposures. Our 9 measured exposures carry only flag bit 21 (informational) in the tool's result; 9 of our 10 refused ones carry problem bits there (OVERFLOW, TRANSIENT, SUR_ERROR, HALO; their lower 32 bits equal the flags we report). The exception, MJD 61297.861 at 1.765 µm, is clean in the tool but holds a HALO-flagged pixel in our 3-pixel aperture. The tool also sets a bit 32, which is not in our flag table (section 4); we have not looked up its meaning.
+
+**Limits.** Saturated stars give no light curve (R Draconis; RW Aurigae except at the shortest wavelengths). A light curve over a wide wavelength range mixes colour with change. The values are quick estimates; IRSA's Spectrophotometry Tool is the precise method.
+
+## 8. What we must not claim
 
 - A moving dot is not a new planet. Asteroids move through these images all the time. Layer 5 labels moving detections "possible asteroid or artifact" unless they match a known catalogue object.
 - A brightness change between two exposures at different wavelengths is not variability (section 1).

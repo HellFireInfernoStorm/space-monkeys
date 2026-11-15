@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from . import __version__, live, live_frames, mock, stack_service
 from . import models as m
+from . import photometry as phot
 from .bands import BANDS
 from .config import PIXEL_SCALE_ARCSEC, Settings, get_settings
 from .sampling import sample_evenly
@@ -380,14 +381,30 @@ def photometry(
     pmra: PmRa = 0.0,
     pmdec: PmDec = 0.0,
     epoch: Epoch = 2000.0,
+    parallax: Annotated[
+        float, Query(ge=0, le=1000, description="Parallax, mas. Moves the aperture with the object (live)")
+    ] = 0.0,
     wl_min: WlMin = None,
     wl_max: WlMax = None,
     max_items: MaxItems = None,
 ) -> m.PhotometryResult:
     """Quick-look brightness at a point in every exposure: plot against wavelength for a
-    spectrum, or against time for a light curve."""
+    spectrum, or against time for a light curve.
+
+    For a moving object, give its proper motion: each exposure is measured where the object
+    was on that date. Points whose aperture holds flagged or missing pixels have a null
+    `flux`. A first request for a position can take about a minute in live mode; then it
+    is cached.
+    """
     if settings.mode != "mock":
-        raise _not_built()
+        try:
+            return phot.live_photometry(
+                settings, ra, dec, pmra, pmdec, epoch, parallax, wl_min, wl_max, max_items
+            )
+        except (live.LiveDependencyMissing, ImportError) as error:
+            raise HTTPException(status_code=503, detail=_missing_extra(error)) from error
+        except live_frames.SearchFailed as error:
+            raise HTTPException(status_code=502, detail=str(error)) from error
     cap = max_items if max_items is not None else settings.max_exposures
 
     matching = [e for e in mock.all_exposures() if _in_range(e.wavelength_um, wl_min, wl_max)]

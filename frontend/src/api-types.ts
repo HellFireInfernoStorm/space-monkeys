@@ -118,6 +118,11 @@ export interface paths {
          * Photometry
          * @description Quick-look brightness at a point in every exposure: plot against wavelength for a
          *     spectrum, or against time for a light curve.
+         *
+         *     For a moving object, give its proper motion: each exposure is measured where the object
+         *     was on that date. Points whose aperture holds flagged or missing pixels have a null
+         *     `flux`. A first request for a position can take about a minute in live mode; then it
+         *     is cached.
          */
         get: operations["photometry_api_photometry_get"];
         put?: never;
@@ -508,11 +513,14 @@ export interface components {
             flags: number;
             /**
              * Flux
-             * @description In `flux_unit`
+             * @description In `flux_unit`. Null when the point could not be measured: the aperture holds flagged or missing pixels (for example a saturated star core). Never a partial sum.
              */
-            flux: number;
-            /** Flux Err */
-            flux_err: number;
+            flux: number | null;
+            /**
+             * Flux Err
+             * @description In `flux_unit`; null when `flux` is null
+             */
+            flux_err: number | null;
             /**
              * Lambda Width
              * @description Width of the bandpass, micrometres
@@ -522,6 +530,17 @@ export interface components {
             mjd: number;
             /** Obs Id */
             obs_id: string;
+            /**
+             * Reason
+             * @description Why the point could not be measured, with problem flags; null if usable
+             */
+            reason?: string | null;
+            /**
+             * Usable
+             * @description False when the point could not be measured
+             * @default true
+             */
+            usable: boolean;
             /**
              * Wavelength
              * @description Micrometres, at the measured position
@@ -986,6 +1005,8 @@ export interface operations {
                 pmdec?: number;
                 /** @description Decimal year of the given position */
                 epoch?: number;
+                /** @description Parallax, mas. Moves the aperture with the object (live) */
+                parallax?: number;
                 /** @description Shortest wavelength to include, micrometres */
                 wl_min?: number | null;
                 /** @description Longest wavelength to include, micrometres */

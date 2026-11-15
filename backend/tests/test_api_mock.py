@@ -113,6 +113,8 @@ def test_photometry_shape(client):
         "flux",
         "flux_err",
         "flags",
+        "usable",
+        "reason",
     }
 
 

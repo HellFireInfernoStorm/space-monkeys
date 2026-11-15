@@ -45,7 +45,7 @@ The contract is `docs/openapi.json`, generated from the code. Browse it at `http
 | `GET /api/frame.png` | One image patch as PNG; with `diff_ref`, a difference image | yes | yes |
 | `GET /api/stack` | Layer 2: many exposures added together. One typical single exposure, the tracked stack, the fixed-grid stack, one stack per visit, and the measured versus predicted motion | yes | yes |
 | `GET /api/stack.png` | One image of a stack set as PNG (`kind` = `single`, `tracked`, `static` or `epoch`, and `index` for epochs) | yes | yes |
-| `GET /api/photometry` | Quick-look brightness per exposure at a point: serves both the spectrum and the light curve | yes | **501** |
+| `GET /api/photometry` | Layer 3: quick-look brightness per exposure at a point, serving both the spectrum and the light curve. With proper motion (and optional `parallax`), each exposure is measured where the object was on that date | yes | yes |
 
 Planned, not in the contract yet:
 
@@ -90,6 +90,16 @@ Code: `backend/app/stacking.py` (pure NumPy, tested without the network) and `st
 
 Measured on 2026-11-14 (same home connection): the WISE 0855 stack at 4.4 to 5.0 micrometres (46 exposures) takes 31 seconds with an empty cache (search, 93 wavelength checks, 46 patches, all images), 5.7 seconds when the layer 1 pre-warm has already cached 40 of the patches, and 0.01 seconds from the stack cache.
 
+### Photometry (layer 3)
+
+Code: `backend/app/photometry.py`. `scripts/check_accuracy.py` uses the same `measure()`.
+
+1. **Inputs.** Steps 1 to 4 above, capped at `max_exposures`. Each exposure's patch is 21 pixels (120 arcseconds), centred on the object's position on that date, so it shares cache entries with a tracked 120-arcsecond frame request.
+2. **Measurement.** Aperture radius 3 pixels; background is the median of an annulus 5 to 7.5 pixels; MJy/sr times the 6.15-arcsecond pixel solid angle gives Jy, reported as `uJy` in both modes. The parallax shift is added to the aperture position. Science, checks and limits: `docs/SCIENCE.md`, section 7.
+3. **Error.** sigma * sqrt(N_ap + (pi / 2) * N_ap^2 / N_sky), with sigma the robust scatter (1.4826 times the median absolute deviation) of the annulus. Background noise only: on the 2MASS check star (0.14 Jy) the scatter between exposures was 3.8 %, far above the error bars. The panel says so.
+4. **Unusable points.** Any empty aperture pixel (flagged, missing or off the detector), an aperture too near the patch edge, or too few background pixels gives `usable` false, `flux` and `flux_err` null (never a partial sum) and a `reason`, with the names of the problem flags. `flags` is the bitwise OR of the aperture pixels' flags. Empty annulus pixels are left out of the background.
+5. **Cache.** The result is kept for `search_cache_hours`, keyed by the request, `PHOTOMETRY_VERSION`, the grid version and the collections. Empty results and results with search-failure warnings are not stored.
+
 ### Cache
 
 - Folder: `settings.cache_dir` (environment variable `SM_CACHE_DIR`), default `backend/.cache`, git-ignored. Safe to delete.
@@ -107,10 +117,11 @@ Measured on 2026-11-14 (same home connection): the WISE 0855 stack at 4.4 to 5.0
 
 ## The front end
 
-- `src/urlState.ts` is the single source of view state. Parameters: `ra`, `dec`, `size` (arcseconds), `wlmin`, `wlmax`, `pmra`, `pmdec`, `epoch`, `speed` (frames per second), `mode` (`blink`, `diff` or `stack`), `track` (`1` to re-centre every frame on the moving object; left out when off), `sky` (background survey in the wide-field sky map: `wise` by default, or `spherex`), `name`. A link with these parameters reproduces the view, which also makes the tool embeddable in a frame.
+- `src/urlState.ts` is the single source of view state. Parameters: `ra`, `dec`, `size` (arcseconds), `wlmin`, `wlmax`, `pmra`, `pmdec`, `epoch`, `speed` (frames per second), `mode` (`blink`, `diff` or `stack`), `track` (`1` to re-centre every frame on the moving object; left out when off), `sky` (background survey in the wide-field sky map: `wise` by default, or `spherex`), `name`, `phot` (`1` shows the spectrum and light-curve panel), `pra` and `pdec` (a clicked point to measure; left out, the panel measures the target along its motion), `bin` (`1` for the binned spectrum). A link with these parameters reproduces the view, which also makes the tool embeddable in a frame.
 - `src/api.ts` is the only file that calls the back end. Its types come from `src/api-types.ts`, generated from the contract with `npm run gen:api`.
 - `BlinkPlayer` preloads every frame image and switches which one is visible, so playback does not flicker. In difference mode the first frame is the reference: it is shown as a plain image labelled "Reference frame: the others are shown minus this one", and every other frame minus it. Its pure helpers are in `src/blink.ts`.
 - `StackView` (`mode=stack`) shows one exposure beside the tracked stack, the fixed-grid stack, a blink of the per-visit stacks with markers at the predicted positions, and the motion table. In this mode the page does not load the frame list. Its pure helpers are in `src/stackView.ts`. `ModeToggle` switches between the three modes.
+- `PhotometryPanel` (layer 3) plots `/api/photometry` as a spectrum and a light curve in inline SVG, with error bars; unmeasured points are hollow rings on the axis, explained in the legend. Clicking a blink or difference frame, or a fixed-grid image in the Stack view (the fixed-grid stack and the per-visit stacks; the single exposure and the tracked stack follow the object, so they are not clickable unless there is no motion), sets `pra` and `pdec`. Light-curve points are coloured by wavelength; hovering any point shows its date, wavelength and bandpass, value or refusal reason. Pure helpers (units, binning, click to sky position) are in `src/photometry.ts`.
 - `AladinPanel` shows the surrounding sky from existing surveys and is the place for catalogue overlays (Gaia, WISE).
 - Aladin Lite comes from the npm package `aladin-lite`. It is loaded only when the sky map panel first appears (a lazy dynamic import, so it is a separate chunk). Its usage logging is off.
 - Both backgrounds (WISE, and the experimental SPHEREx all-sky cube) are HiPS tile sets that the browser fetches straight from IRSA, because the CDS tile servers did not answer on 2026-11-14.

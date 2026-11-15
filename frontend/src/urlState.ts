@@ -34,6 +34,16 @@ export interface ViewState {
   sky: SkyLayer;
   /** Label of the chosen target, for display only. */
   name: string;
+  /** Show the spectrum and light-curve panel (layer 3). */
+  phot: boolean;
+  /**
+   * The point measured in that panel: Right Ascension and Declination in degrees, a fixed
+   * spot on the sky. Null means the target itself, followed along its motion.
+   */
+  pra: number | null;
+  pdec: number | null;
+  /** Show the spectrum as weighted averages in wavelength bins. */
+  bin: boolean;
 }
 
 export const DEFAULT_VIEW: ViewState = {
@@ -51,6 +61,10 @@ export const DEFAULT_VIEW: ViewState = {
   track: false,
   sky: "wise",
   name: "",
+  phot: false,
+  pra: null,
+  pdec: null,
+  bin: false,
 };
 
 export const LIMITS = {
@@ -77,6 +91,9 @@ export function parseView(search: string): ViewState {
   const ra = numberIn(p.get("ra"), 0, 360);
   const dec = numberIn(p.get("dec"), -90, 90);
   const hasPosition = ra !== null && dec !== null;
+  const pra = numberIn(p.get("pra"), 0, 360);
+  const pdec = numberIn(p.get("pdec"), -90, 90);
+  const hasPoint = pra !== null && pdec !== null;
   const mode = p.get("mode");
   const sky = p.get("sky");
   return {
@@ -94,6 +111,10 @@ export function parseView(search: string): ViewState {
     track: p.get("track") === "1",
     sky: sky === "spherex" ? "spherex" : "wise",
     name: (p.get("name") ?? "").slice(0, 80),
+    phot: p.get("phot") === "1",
+    pra: hasPoint ? pra : null,
+    pdec: hasPoint ? pdec : null,
+    bin: p.get("bin") === "1",
   };
 }
 
@@ -116,11 +137,17 @@ export function serializeView(view: ViewState): string {
   if (view.track) p.set("track", "1");
   if (view.sky !== DEFAULT_VIEW.sky) p.set("sky", view.sky);
   if (view.name) p.set("name", view.name);
+  if (view.phot) p.set("phot", "1");
+  if (view.pra !== null && view.pdec !== null) {
+    p.set("pra", trim(view.pra, 6));
+    p.set("pdec", trim(view.pdec, 6));
+  }
+  if (view.bin) p.set("bin", "1");
   return p.toString();
 }
 
 /** Settings that change continuously while watching; every other change is a new view. */
-const CONTINUOUS: ReadonlyArray<keyof ViewState> = ["speed", "sky"];
+const CONTINUOUS: ReadonlyArray<keyof ViewState> = ["speed", "sky", "bin"];
 
 /**
  * Whether going from one view to the next deserves its own entry in the browser history
