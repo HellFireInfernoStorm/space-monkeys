@@ -565,3 +565,51 @@ button.link {
     font-size: 14px;
   }
 }
+
+/* Layer 4: WISE (2010) against SPHEREx. */
+.compare-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.compare-row.single {
+  grid-template-columns: minmax(0, 520px);
+  justify-content: center;
+}
+
+.compare-panel {
+  margin: 0;
+}
+
+.compare-panel figcaption {
+  margin-top: 6px;
+  font-size: 0.85rem;
+}
+
+.compare .reticle {
+  width: 36px;
+  height: 36px;
+  background-size:
+    2px 10px,
+    2px 10px,
+    10px 2px,
+    10px 2px;
+}
+
+.key-reticle {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin: 0 2px;
+  vertical-align: middle;
+  background:
+    linear-gradient(#ffd24a, #ffd24a) center / 2px 100% no-repeat,
+    linear-gradient(#ffd24a, #ffd24a) center / 100% 2px no-repeat;
+}
+
+.key-reticle.ghost {
+  opacity: 0.55;
+  filter: grayscale(1) brightness(1.6);
+}

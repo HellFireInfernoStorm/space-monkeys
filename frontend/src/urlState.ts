@@ -4,6 +4,8 @@
 
 export type ViewMode = "blink" | "diff" | "stack";
 export type SkyLayer = "wise" | "spherex";
+export type WiseBand = "W1" | "W2";
+export type CompareMode = "side" | "blink";
 
 export interface ViewState {
   /** Right Ascension in degrees (ICRS) at `epoch`. Null until a position is chosen. */
@@ -44,6 +46,10 @@ export interface ViewState {
   pdec: number | null;
   /** Show the spectrum as weighted averages in wavelength bins. */
   bin: boolean;
+  /** Layer 4: compare with this WISE band (2010). Null hides the comparison. */
+  wise: WiseBand | null;
+  /** Layer 4: the two images side by side, or blinking between them. */
+  cmp: CompareMode;
 }
 
 export const DEFAULT_VIEW: ViewState = {
@@ -65,6 +71,8 @@ export const DEFAULT_VIEW: ViewState = {
   pra: null,
   pdec: null,
   bin: false,
+  wise: null,
+  cmp: "side",
 };
 
 export const LIMITS = {
@@ -115,6 +123,8 @@ export function parseView(search: string): ViewState {
     pra: hasPoint ? pra : null,
     pdec: hasPoint ? pdec : null,
     bin: p.get("bin") === "1",
+    wise: p.get("wise") === "W1" || p.get("wise") === "W2" ? (p.get("wise") as WiseBand) : null,
+    cmp: p.get("cmp") === "blink" ? "blink" : "side",
   };
 }
 
@@ -143,11 +153,13 @@ export function serializeView(view: ViewState): string {
     p.set("pdec", trim(view.pdec, 6));
   }
   if (view.bin) p.set("bin", "1");
+  if (view.wise) p.set("wise", view.wise);
+  if (view.cmp !== DEFAULT_VIEW.cmp) p.set("cmp", view.cmp);
   return p.toString();
 }
 
 /** Settings that change continuously while watching; every other change is a new view. */
-const CONTINUOUS: ReadonlyArray<keyof ViewState> = ["speed", "sky", "bin"];
+const CONTINUOUS: ReadonlyArray<keyof ViewState> = ["speed", "sky", "bin", "cmp"];
 
 /**
  * Whether going from one view to the next deserves its own entry in the browser history

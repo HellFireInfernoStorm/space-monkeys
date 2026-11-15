@@ -264,7 +264,17 @@ Code: `backend/app/photometry.py`. Each exposure covering a point gives one samp
 
 **Limits.** Saturated stars give no light curve (R Draconis; RW Aurigae except at the shortest wavelengths). A light curve over a wide wavelength range mixes colour with change. The values are quick estimates; IRSA's Spectrophotometry Tool is the precise method.
 
-## 8. What we must not claim
+## 8. WISE comparison (layer 4)
+
+Code: `backend/app/wise.py`. The AllWISE Atlas image (WISE observations of 2010, combined) of the same field as the SPHEREx image, at WISE's 1.375-arcsecond pixels, north up, east left (details: `docs/ARCHITECTURE.md`). Dates come from the tile header: for WISE 0855's tile (`1342m076_ac51`), the frames span 2010-05-03 to 2010-11-13, middle frame 2010-05-06.
+
+**Checked on 2026-11-15** (live, local; WISE 0855 at 4.4 to 5.0 µm, 300-arcsecond field, the fixed-grid SPHEREx stack against AllWISE W2):
+
+- **Field stars line up.** Of the 8 brightest stars in the SPHEREx stack, 7 have a WISE counterpart within 1.0 to 3.2 arcseconds (under half a SPHEREx pixel); median offset 0.9 arcseconds east-west and 0.3 north-south. The eighth is 9.3 arcseconds from the nearest WISE star; it is 12 arcseconds from the brightest star in the field and is probably a second peak of that star in the coarser SPHEREx image. Positions measured as brightness-weighted centres in the displayed images.
+- **WISE 0855 is where its motion puts it in 2010.** Moved to the WISE middle date with its proper motion and parallax, it is 126.5 arcseconds east and 10.4 arcseconds south of its position in the SPHEREx stack. The WISE image has a clear source there: the brightest pixel within 5.5 arcseconds of the prediction is 1.4 arcseconds from it. At its present position the WISE image shows only the known field star about 4 arcseconds away.
+- The WISE image is sharper (about 6 arcsecond resolution on 1.375-arcsecond pixels, against 6.15-arcsecond SPHEREx pixels). Differences in sharpness, and in brightness between W2 and the SPHEREx wavelengths, are not changes in the sky.
+
+## 9. What we must not claim
 
 - A moving dot is not a new planet. Asteroids move through these images all the time. Layer 5 labels moving detections "possible asteroid or artifact" unless they match a known catalogue object.
 - A brightness change between two exposures at different wavelengths is not variability (section 1).

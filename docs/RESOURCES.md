@@ -13,11 +13,16 @@ If you do not know a licence, write "unknown" and open a `question` issue. Do no
 | IRSA Simple Image Access service | Finding exposures that cover a position | https://irsa.ipac.caltech.edu/SIA | IRSA |
 | SPHEREx data on the AWS Open Data mirror (bucket `nasa-irsa-spherex`) | Reading image patches | https://irsa.ipac.caltech.edu/Missions/spherex.html | Same data, same acknowledgement |
 | IRSA Spectrophotometry Tool | Cross-check for our quick-look brightness values; model for our column names; linked from the spectrum panel | https://irsa.ipac.caltech.edu/applications/spherex/tool-spectrophotometry (from https://irsa.ipac.caltech.edu/Missions/spherex.html) | IRSA |
+| AllWISE Atlas images (W1 and W2), from IRSA's public mirror on AWS (bucket `nasa-irsa-wise`, prefix `wise/allwise/images/p3am_cdd`) | Layer 4: the 2010 image of the same field, beside the SPHEREx image (`/api/wise`) | https://nasa-irsa-wise.s3.us-west-2.amazonaws.com/wise/allwise/images/p3am_cdd/ ; documentation https://wise2.ipac.caltech.edu/docs/release/allwise/ | WISE/NEOWISE acknowledgement below, as given in the bucket's AllWISE README (`wise/allwise/catalogs/p3as_psd/healpix_k5/README.md`, read 2026-11-15). Licence not stated there; NASA data from IRSA |
 | WISE and NEOWISE images, through WiseView | Layer 4 links out to WiseView at the same coordinates | http://byw.tools/wiseview | WiseView credits below |
 
 Required SPHEREx acknowledgement (put this on the project page and in the site footer):
 
 > This publication makes use of data products from the Spectro-Photometer for the History of the Universe, Epoch of Reionization and Ices Explorer (SPHEREx), which is a joint project of the Jet Propulsion Laboratory and the California Institute of Technology, and is funded by the National Aeronautics and Space Administration.
+
+Required WISE/NEOWISE acknowledgement (layer 4; on the project page and in the site footer):
+
+> This publication makes use of data products from the Wide-field Infrared Survey Explorer, which is a joint project of the University of California, Los Angeles, and the Jet Propulsion Laboratory/California Institute of Technology, and NEOWISE, which is a project of the Jet Propulsion Laboratory/California Institute of Technology. WISE and NEOWISE are funded by the National Aeronautics and Space Administration.
 
 ## Space agency partner and other data
 

@@ -18,10 +18,12 @@ import {
 import AladinPanel from "./components/AladinPanel";
 import BlinkPlayer from "./components/BlinkPlayer";
 import PhotometryPanel from "./components/PhotometryPanel";
+import WiseCompare, { type SpherexImage } from "./components/WiseCompare";
 import StackView from "./components/StackView";
 import TargetPicker from "./components/TargetPicker";
 import ViewForm from "./components/ViewForm";
 import { isNewView, parseView, serializeView, type ViewState } from "./urlState";
+import { framePixels } from "./wiseCompare";
 import { WISE_EPOCH, wiseViewUrl } from "./wiseview";
 
 const ACKNOWLEDGEMENT =
@@ -128,6 +130,35 @@ export default function App() {
   // Where the object is at the time of the observations, if the server has told us.
   // In blink mode, a moving object is where the frame on screen says it is.
   const frame = !stackMode && frames.status === "ready" ? shownFrame : null;
+  // The SPHEREx image the WISE comparison (layer 4) uses: the fixed-grid stack in Stack mode, or
+  // the frame on screen. With "follow the object" every frame has its own centre, so the middle
+  // frame is used instead, to keep one WISE image.
+  let compareImage: SpherexImage | null = null;
+  if (stackMode && stack) {
+    const image = stack.static ?? stack.tracked;
+    if (image) {
+      compareImage = {
+        imageUrl: image.image_url,
+        ra: stack.reference_ra,
+        dec: stack.reference_dec,
+        extent: stack.pixels * stack.pixel_scale,
+        mjd: image.mjd_mid,
+        label: `${image.n_exposures} exposures stacked on a fixed sky grid, ${image.wl_min_um.toFixed(2)} to ${image.wl_max_um.toFixed(2)} µm`,
+      };
+    }
+  } else if (!stackMode && frames.status === "ready" && frames.data.frames.length > 0) {
+    const list = frames.data.frames;
+    const chosen = track ? list[Math.floor(list.length / 2)] : (shownFrame ?? list[0]);
+    compareImage = {
+      imageUrl: chosen.image_url,
+      ra: chosen.center_ra,
+      dec: chosen.center_dec,
+      extent: framePixels(frames.data.size, frames.data.pixel_scale) * frames.data.pixel_scale,
+      mjd: chosen.mjd,
+      label: `one exposure, ${chosen.wavelength_um === null ? "wavelength unknown" : `${chosen.wavelength_um.toFixed(3)} µm`}`,
+    };
+  }
+
   const mapRa = stackMode && stack ? stack.reference_ra : frame ? frame.target_ra : frames.status === "ready" ? frames.data.ra : ra;
   const mapDec = stackMode && stack ? stack.reference_dec : frame ? frame.target_dec : frames.status === "ready" ? frames.data.dec : dec;
 
@@ -252,13 +283,38 @@ export default function App() {
             )}
           </section>
         )}
+
+        {ra !== null && dec !== null && (
+          <section className="panel full-width">
+            <h2>Then and now: WISE (2010) and SPHEREx</h2>
+            {view.wise ? (
+              <>
+                <WiseCompare view={view} spherex={compareImage} onChange={update} />
+                <button type="button" onClick={() => update({ wise: null })}>
+                  Close
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="hint">
+                  See the same patch of sky as WISE saw it in 2010, next to SPHEREx. Anything that moved since then is in
+                  a different place.
+                </p>
+                <button type="button" className="primary" onClick={() => update({ wise: "W2" })}>
+                  Compare with WISE (2010)
+                </button>
+              </>
+            )}
+          </section>
+        )}
       </main>
 
       <footer className="foot">
         <p>{ACKNOWLEDGEMENT}</p>
+        <p>This publication makes use of data products from the Wide-field Infrared Survey Explorer, which is a joint project of the University of California, Los Angeles, and the Jet Propulsion Laboratory/California Institute of Technology, and NEOWISE, which is a project of the Jet Propulsion Laboratory/California Institute of Technology. WISE and NEOWISE are funded by the National Aeronautics and Space Administration.</p>
         <p>
-          Sky map: Aladin Lite, developed at CDS, Strasbourg Observatory, France. WISE images in the
-          linked comparison: WiseView.
+          Sky map: Aladin Lite, developed at CDS, Strasbourg Observatory, France. WISE comparison images:
+          AllWISE Atlas, from the NASA/IPAC Infrared Science Archive. Further WISE images: WiseView.
         </p>
         <p>This project is not affiliated with or endorsed by NASA.</p>
       </footer>

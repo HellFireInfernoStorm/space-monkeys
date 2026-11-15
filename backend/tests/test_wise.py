@@ -106,29 +106,56 @@ def test_field_beyond_the_tile_edge_is_blank(tmp_path):
     assert 0 < np.isfinite(image).mean() < 0.5
 
 
-def test_one_request_row_read_matches_the_file(tmp_path, monkeypatch):
-    """read_rows computes the byte offset itself; check it against astropy's own reading."""
-    from astropy.io import fits
+class _FakeResponse(io.BytesIO):
+    def __enter__(self):
+        return self
 
-    path = _tile_file(tmp_path / "tile.fits", size=101)
+    def __exit__(self, *exc):
+        return False
+
+
+def _serve(monkeypatch, path):
+    """Answer range requests from a local file, and count them."""
     blob = open(path, "rb").read()
-
-    class FakeResponse(io.BytesIO):
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            return False
+    requests = []
 
     def urlopen(request, timeout=None):
         start, end = (int(v) for v in request.headers["Range"].split("=")[1].split("-"))
-        return FakeResponse(blob[start : end + 1])
+        requests.append((start, end))
+        return _FakeResponse(blob[start : end + 1])
 
     monkeypatch.setattr(wise.urllib.request, "urlopen", urlopen)
+    return requests
+
+
+def test_remote_header_and_rows_match_the_file(tmp_path, monkeypatch):
+    """The header parser and the byte offsets are our own; check them against astropy."""
+    from astropy.io import fits
+
+    path = _tile_file(tmp_path / "tile.fits", size=101)
+    _serve(monkeypatch, path)
+    url = "https://example.invalid/tile.fits"
+    header, data_start = wise.remote_header(url)
     with fits.open(path) as hdus:
-        expected = hdus[0].data[40:47]
-        rows = wise.read_rows("https://example.invalid/tile.fits", hdus[0].header, 40, 47)
-    assert np.array_equal(rows, expected)
+        assert data_start == hdus[0]._data_offset
+        assert header["MIDOBS"] == hdus[0].header["MIDOBS"] and header["NAXIS1"] == 101
+        assert np.array_equal(wise.read_rows(url, data_start, 101, 40, 47), hdus[0].data[40:47])
+
+
+def test_remote_patch_equals_local_patch_in_two_requests(tmp_path, monkeypatch):
+    path = _tile_file(tmp_path / "tile.fits")
+    local, local_facts = wise.read_tile_patch(path, *CENTRE, 61)
+    requests = _serve(monkeypatch, path)
+    remote, remote_facts = wise.read_tile_patch("https://example.invalid/tile.fits", *CENTRE, 61)
+    assert np.array_equal(local, remote, equal_nan=True) and local_facts == remote_facts
+    assert len(requests) == 2  # the header, then the rows
+
+
+def test_remote_header_without_end_is_an_error(monkeypatch):
+    blank = lambda request, timeout=None: _FakeResponse(b" " * 2880)  # noqa: E731
+    monkeypatch.setattr(wise.urllib.request, "urlopen", blank)
+    with pytest.raises(OSError):
+        wise.remote_header("https://example.invalid/tile.fits")
 
 
 # --- the API -------------------------------------------------------------------------------
