@@ -35,6 +35,7 @@ Rules that apply to everything listed here:
 | 2026-11-15 | Deeshan | OpenAI Codex | Planned and implemented keyboard shortcuts for Blink and Difference playback, adjusted shortcut handling after review, and added rendered-player regression coverage | Issue #20 and PR #23 | Not yet |
 | 2026-11-15 | Thisal | OpenAI Codex | Addressed PR #31 re-review: based bin counts on positive-error exposures, replaced circular test expectations and added a 20-flux/4-error regression, disclosed weighted-summary sample counts and derived the method paragraph numbers from diagram constants | Photometry helper/tests and panel; frontend checks and CI recorded in the PR | Not yet |
 | 2026-11-15 | Thisal | OpenAI Codex | Fixed PR #31 method-text spacing and clarified all uses of the positive-error subset; added rendered-panel tests for line/unit toggles, summary stability, subset notes and method text | Photometry panel and existing photometry tests; validation recorded in PR | Not yet |
+| 2026-11-15 | Deeshan | OpenAI Codex | Standardized the SpaceShift display name and audited remaining references | App heading, browser title, documentation and issue #35 | Not yet |
 
 ## Draft statement for the project page
 
