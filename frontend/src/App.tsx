@@ -174,8 +174,8 @@ export default function App() {
         <button type="button" ref={menuButton} className="menu-button"
           aria-label={drawerOpen ? "Hide controls" : "Show controls"}
           aria-expanded={drawerOpen} aria-controls="controls-drawer"
-          onClick={() => setDrawerOpen((open) => !open)}>☰ <span>Menu</span></button>
-        <h1>Sky Workbench</h1>
+          onClick={() => setDrawerOpen((open) => !open)}>☰ <span>Controls</span></button>
+        <h1>spaceshift</h1>
         <div className="view-summary">
           <span className="summary-position">{ra !== null && dec !== null
             ? `RA ${ra.toFixed(5)}°, Dec ${dec.toFixed(5)}°` : "No position yet"}</span>

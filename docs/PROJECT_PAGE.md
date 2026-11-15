@@ -14,7 +14,7 @@ Planet X and SPHEREx
 
 ## Project name
 
-To be decided. Working title: Sky Workbench.
+spaceshift (built by team space-monkeys).
 
 ## High-level summary (50 to 200 words)
 
