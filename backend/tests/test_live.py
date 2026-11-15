@@ -38,6 +38,9 @@ def test_live_exposure_search(live_client):
     assert 1 <= first["detector"] <= 6
     assert 0.7 < first["wl_min_um"] < first["wl_max_um"] < 5.1
     assert first["cloud_url"].startswith("https://")
+    # The archive labels each row with one of the collection names we asked for (issue #38).
+    collections = set(body["collections"])
+    assert all(e["collection"] in collections for e in body["exposures"])
 
 
 @needs_network

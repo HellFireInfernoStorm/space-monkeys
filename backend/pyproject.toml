@@ -22,6 +22,7 @@ live = [
     "pyvo>=1.5",
     "fsspec>=2024.6",
     "aiohttp>=3.9",
+    "requests>=2.31",  # archive search session (timeout, retries); also a PyVO dependency
 ]
 dev = [
     "pytest>=8",
