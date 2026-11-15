@@ -75,3 +75,9 @@ From the project's own code, run locally in live mode on 2026-11-14 (not a deplo
 
 - `/api/stack` for WISE 0855 at 4.4 to 5.0 micrometres: 46 exposures, tracked stack S/N 18.6; two visit stacks show the object stepping about 4 arcseconds west, as predicted (`docs/SCIENCE.md`, section 6). Seen in the browser in the Stack view, and the view came back after reloading the page.
 - Barnard's Star blink and difference views load 30 real frames at 1.0 to 1.2 micrometres in the browser.
+
+Layer 3, `/api/photometry` in live mode, run locally through the endpoint code on 2026-11-15 (not a deployed site, not yet seen in the browser, not yet cross-checked against IRSA's Spectrophotometry Tool). IRSA's search service returned intermittent 502 errors during these runs, so some collections were missing; results with failed searches are not cached:
+
+- 2MASS check star in the RW Aurigae field (RA 76.97773, Dec +30.37557, H = 9.64, reference 0.143 Jy), 1.6 to 1.8 micrometres: 19 matching exposures (as in pull request #5); 9 measured at 0.1298 to 0.1466 Jy (pull request #5: 0.1296 to 0.1462 Jy), 9 with no flux, 1 unreadable. Scatter between exposures 3.8 %; the background-only error bars are about 0.1 mJy.
+- RW Aurigae, 0.746 to 1.117 micrometres, one collection of four searched: 11 of 38 exposures measured (0.073 to 0.181 Jy across that wavelength range), 27 with a flagged core.
+- R Draconis, 0.746 to 1.117 micrometres: 0 of 69 measured; every aperture holds flagged pixels (saturated), as expected from pull request #5.

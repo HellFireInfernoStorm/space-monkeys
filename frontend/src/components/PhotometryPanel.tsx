@@ -151,7 +151,9 @@ export default function PhotometryPanel({ view, onChange }: Props) {
       {state.status === "ready" && <Body data={state.data} binned={view.bin} onChange={onChange} />}
       <p className="hint">
         Quick estimates: aperture of 3 pixels (18.5″) radius, background from the median of a ring from 5 to 7.5
-        pixels, error from the scatter in that ring. For precise values use IRSA's{" "}
+        pixels, error from the scatter in that ring. The error bars cover background noise only: for bright
+        sources the scatter between exposures is larger (3.8% for a 0.14 Jy check star), so treat smaller changes
+        as not significant. For precise values use IRSA's{" "}
         <a href={SPECTROPHOTOMETRY_TOOL} target="_blank" rel="noreferrer">
           SPHEREx Spectrophotometry Tool (from its SPHEREx page)
         </a>

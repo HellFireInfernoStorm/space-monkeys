@@ -11,9 +11,10 @@ Options:
     --no-diff                   skip difference images
 
 It runs the same code as the API (/api/frames, then every /api/frame.png, plain and
-difference; then /api/stack and every /api/stack.png for the targets in STACKS), in live
-mode, writing to the cache folder in `SM_CACHE_DIR` or the default
-`backend/.cache`. Run it again at any time: what is cached already is not fetched again.
+difference; then /api/stack and every /api/stack.png for the targets in STACKS; then
+/api/photometry for the targets in PHOTOMETRY), in live mode, writing to the cache folder
+in `SM_CACHE_DIR` or the default `backend/.cache`. Run it again at any time: what is cached
+already is not fetched again.
 """
 
 import argparse
@@ -24,6 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
 
 from app import live_frames, stack_service  # noqa: E402
+from app import photometry as phot  # noqa: E402
 from app.config import Settings  # noqa: E402
 from app.targets import TARGETS  # noqa: E402
 
@@ -41,6 +43,15 @@ PLANS: dict[str, list[tuple[float, float, bool]]] = {
 # Stacks (layer 2) to warm, per target: wavelength ranges in micrometres.
 STACKS: dict[str, list[tuple[float, float]]] = {
     "wise-0855": [(4.4, 5.0)],
+    "barnard": [(1.0, 1.2)],
+}
+
+# Spectrum and light curve (layer 3) to warm, per target: wavelength ranges in micrometres.
+# The site's target buttons select the ranges in PLANS; the RW Aurigae light curve needs
+# 0.746 to 1.117 micrometres, the only range where its core is not saturated (issue #7).
+PHOTOMETRY: dict[str, list[tuple[float, float]]] = {
+    "wise-0855": [(4.4, 5.0)],
+    "rw-aur": [(0.746, 1.117), (2.0, 2.4)],
     "barnard": [(1.0, 1.2)],
 }
 
@@ -105,6 +116,22 @@ def warm_stack(settings: Settings, target, wl_min: float, wl_max: float, size: f
         print(f"    warning: {warning}")
 
 
+def warm_photometry(settings: Settings, target, wl_min: float, wl_max: float):
+    """/api/photometry for the target itself, followed along its motion, as the site asks for it."""
+    started = time.time()
+    result = phot.live_photometry(
+        settings, target.ra, target.dec, target.pmra, target.pmdec, target.epoch, target.parallax,
+        wl_min, wl_max, None,
+    )
+    measured = sum(1 for p in result.points if p.flux is not None)
+    print(
+        f"{target.name}: {wl_min}-{wl_max} um photometry: {measured} of {result.returned} measured, "
+        f"{time.time() - started:.0f} s"
+    )
+    for warning in result.warnings:
+        print(f"    warning: {warning}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--only", nargs="*", help="target ids to warm (default: all)")
@@ -128,6 +155,11 @@ def main() -> int:
                 warm_stack(settings, target, wl_min, wl_max, args.size)
             except Exception as error:  # noqa: BLE001 - one target must not stop the rest
                 print(f"{target.name}: stack failed: {type(error).__name__}: {error}")
+        for wl_min, wl_max in PHOTOMETRY.get(target.id, []):
+            try:
+                warm_photometry(settings, target, wl_min, wl_max)
+            except Exception as error:  # noqa: BLE001 - one target must not stop the rest
+                print(f"{target.name}: photometry failed: {type(error).__name__}: {error}")
     return 0
 
 

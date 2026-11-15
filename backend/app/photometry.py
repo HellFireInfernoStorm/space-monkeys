@@ -42,14 +42,16 @@ MIN_SKY_PIXELS = 20
 # centred on the same point, so the two share the disk cache.
 PATCH_SIZE_ARCSEC = 120.0
 # Bump when the measurement changes, so old cached results are not reused.
-PHOTOMETRY_VERSION = 1
+PHOTOMETRY_VERSION = 2
 
 FLUX_UNIT = "Jy"
 METHOD = (
     "Quick-look aperture photometry: radius 3 pixels (18.5 arcsec), background from the median "
-    "of an annulus of 5 to 7.5 pixels, error from the scatter of that annulus. Points whose "
-    "aperture holds a flagged or missing pixel have no flux. lambda_width uses the approximate "
-    "resolving power of each detector. For precise values use IRSA's Spectrophotometry Tool."
+    "of an annulus of 5 to 7.5 pixels, error from the scatter of that annulus. The error covers "
+    "background noise only: for bright sources the scatter between exposures is larger (3.8 % "
+    "for a 0.14 Jy check star, issue #7). Points whose aperture holds a flagged or missing pixel "
+    "have no flux. lambda_width uses the approximate resolving power of each detector. For "
+    "precise values use IRSA's Spectrophotometry Tool."
 )
 
 # MJy/sr in one pixel -> Jy.
