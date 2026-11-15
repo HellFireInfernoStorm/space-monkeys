@@ -25,11 +25,13 @@ interface Props {
   markedId?: string;
   /** Dragging across the plot (mouse or pen) reports the x range; a short drag stays a click. */
   onRangeSelect?: (lo: number, hi: number) => void;
+  /** Unit shown after the dragged range, e.g. "µm". */
+  rangeUnit?: string;
 }
 
 /** Responsive scatter chart. Layer callbacks share the exact scales used by the marks. */
 export default function Chart({ points, title, xLabel, yLabel, xFormat, colour, tooltip,
-  highlightedId, selectedKey, onSelect, underlay, overlay, onPointClick, invertY = false, laneLabel = "Not measured", pointOpacity = 1, extraY, markedId, onRangeSelect }: Props) {
+  highlightedId, selectedKey, onSelect, underlay, overlay, onPointClick, invertY = false, laneLabel = "Not measured", pointOpacity = 1, extraY, markedId, onRangeSelect, rangeUnit = "" }: Props) {
   const wrapper = useRef<HTMLDivElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -77,6 +79,8 @@ export default function Chart({ points, title, xLabel, yLabel, xFormat, colour, 
         onBlur={() => onSelect("keyboard")}
         onKeyDown={(event) => {
           if (event.key === "Escape") { setDrag(null); onSelect("keyboard"); onSelect("pointer"); event.preventDefault(); return; }
+          // Enter acts on the stepped point like a click (opens its frame on the spectrum tab).
+          if (event.key === "Enter" && selected && onPointClick) { onPointClick(selected); event.preventDefault(); return; }
           if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
           event.preventDefault();
           const ordered = [...points].sort((a, b) => a.x - b.x);
@@ -116,7 +120,7 @@ export default function Chart({ points, title, xLabel, yLabel, xFormat, colour, 
         {drag && <g className="drag-band" pointerEvents="none">
           <rect x={clampPx(Math.min(drag.start, drag.end))} y={plot.top} height={plot.height}
             width={clampPx(Math.max(drag.start, drag.end)) - clampPx(Math.min(drag.start, drag.end))} />
-          {dragged && <text x={clampPx(Math.min(drag.start, drag.end)) + 4} y={plot.top + 12}>{xFormat(dragged.lo)}–{xFormat(dragged.hi)} µm</text>}
+          {dragged && <text x={clampPx(Math.min(drag.start, drag.end)) + 4} y={plot.top + 12}>{xFormat(dragged.lo)}–{xFormat(dragged.hi)}{rangeUnit && ` ${rangeUnit}`}</text>}
         </g>}
         <rect x={plot.left} y={plot.top} width={plot.width} height={plot.height + lane}
           fill="transparent" className={selected && onPointClick ? "hit pointing" : onRangeSelect ? "hit ranging" : "hit"}

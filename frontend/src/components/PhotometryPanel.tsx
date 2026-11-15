@@ -266,7 +266,7 @@ function Body({
           <Chart {...chartSelection("spectrum")} points={displayedSpectrum} pointOpacity={binned ? 0.45 : 1} invertY={ab} laneLabel={laneLabel} xLabel="Wavelength (µm)" yLabel={yLabel} xFormat={(x) => x.toFixed(2)}
             title={ab ? "Spectrum: AB magnitude against wavelength" : "Spectrum: flux against wavelength"} colour={byWavelength}
             tooltip={tooltip} onPointClick={openFrame} markedId={currentFrame?.id}
-            onRangeSelect={(lo, hi) => onChange({ wlmin: lo, wlmax: hi })}
+            onRangeSelect={(lo, hi) => onChange({ wlmin: lo, wlmax: hi })} rangeUnit="µm"
             underlay={({ sx, x0, x1, plot }) => <>
               {bandStrips(bands, x0, x1).map((band) => {
                 const width = sx(band.right) - sx(band.left);
@@ -377,7 +377,7 @@ function pointTooltip(p: PlotPoint, clickable = false) {
   const details = pointDetails(p);
   return <>{Object.entries(details).map(([field, text]) => field === "exposure"
     ? <small key={field}>{text}</small> : <div key={field}>{text}</div>)}
-    {clickable && p.id !== undefined && <small className="tooltip-action">Click to show this frame</small>}</>;
+    {clickable && p.id !== undefined && <small className="tooltip-action">Click or press Enter to show this frame</small>}</>;
 }
 
 /** Labelled fallback, not an image of the sky; the full background ring remains visible. */

@@ -70,9 +70,19 @@ describe("spectrum tab, phase 4", () => {
     const [spectrum, lightCurve] = charts();
     act(() => { hit(lightCurve).dispatchEvent(new MouseEvent("click", { bubbles: true, ...pointAt(lightCurve, 3) })); });
     expect(onOpenFrame).toHaveBeenLastCalledWith("e3");
-    expect(container.querySelector(".chart-tooltip")!.textContent).toContain("Click to show this frame");
+    expect(container.querySelector(".chart-tooltip")!.textContent).toContain("Click or press Enter to show this frame");
     act(() => { hit(spectrum).dispatchEvent(new MouseEvent("click", { bubbles: true, ...pointAt(spectrum, 7) })); });
     expect(onOpenFrame).toHaveBeenLastCalledWith("e7");
+  });
+
+  it("opens the frame of a point stepped to with the keyboard when Enter is pressed", async () => {
+    const onOpenFrame = vi.fn();
+    await render({ onOpenFrame });
+    const key = (name: string) => act(() => { charts()[1].dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true })); });
+    key("ArrowRight");
+    key("ArrowRight");
+    key("Enter");
+    expect(onOpenFrame.mock.calls).toEqual([["e1"]]);
   });
 
   it("marks the player's frame on both charts and rings its point", async () => {
