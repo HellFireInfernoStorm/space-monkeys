@@ -12,7 +12,7 @@ Pick one of the five built-in targets, type a position (Right Ascension and Decl
 
 | Layer | What it does | State |
 | --- | --- | --- |
-| 1. Blink and difference | Plays the exposures of that patch like a short video, or shows each one minus a reference frame. Only exposures that saw the target at the same wavelength are used, so a change on screen is a real change and not a change of colour. | Works on real data |
+| 1. Blink and difference | Plays the exposures of that patch like a short video, or shows each one minus a reference frame. Uses only exposures that saw the target within the selected wavelength range, to reduce changes that are only colour. A visible change still needs checking for wavelength effects and image artifacts; the player warns when its frames span a wide wavelength range. | Works on real data |
 | 2. Motion-tracked stacking | Adds many exposures together while following a moving object, so objects too faint to see in one exposure appear. Measures the motion and compares it with the prediction. | Works on real data |
 | 3. Spectrum and light curve | Click a point to measure its brightness in every exposure: by wavelength (spectrum) and by date (light curve). A quick-look measurement, cross-checked against IRSA's Spectrophotometry Tool. | Works on real data |
 | 4. WISE comparison | Shows a 2010 AllWISE image of the same field beside the SPHEREx view, side by side or blinking, and links to WiseView. | Works on real data |
@@ -27,13 +27,13 @@ Also in the workbench:
 
 ## Example: the coldest known brown dwarf
 
-WISE 0855 is too faint to see in a single SPHEREx exposure. Following its motion through 46 exposures at 4.4 to 5.0 micrometres, the stack reaches a signal-to-noise ratio of 14.2, against 4.7 for one typical exposure and 11.4 for a stack that does not follow it. The measured motion between visits matches the prediction from its catalogue proper motion within the errors. Details: [docs/SCIENCE.md](docs/SCIENCE.md), section 6.
+In a typical single SPHEREx exposure at 4.4 to 5.0 micrometres, WISE 0855 has a signal-to-noise ratio of 4.7, below our detection threshold of 5. Stacking 46 exposures raises it to 11.4 on a fixed grid, and to 14.2 when the stack follows the object's motion. The motion measured between visits agrees with the prediction from its catalogue proper motion within the statistical errors. Details and limits: [docs/SCIENCE.md](docs/SCIENCE.md), section 6.
 
 ## Status
 
 - The site is public at https://spaceshift.earth/: the homepage at `/` and the workbench at `/explore/`. The workbench badge, and the [API health endpoint](https://space-monkeys-demo-bjdddzdbduc6gme7.southindia-01.azurewebsites.net/api/health), show whether it is using live or mock data.
 - Layers 1 to 4 have been checked on real SPHEREx data. [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md) records what was checked, when and how.
-- The two variable-star targets are hard cases: R Draconis is saturated in every exposure, and RW Aurigae has usable measurements only at 0.75 to 1.12 micrometres.
+- The two variable-star targets are hard cases. In the tested exposures, R Draconis gave no usable aperture measurements (its core is saturated). RW Aurigae gave usable measurements at 0.746 to 1.117 micrometres; the tested longer-wavelength range was unusable. See [docs/SCIENCE.md](docs/SCIENCE.md) for how many exposures were sampled.
 - A position the tool has not seen before takes about 30 seconds the first time (archive search and image reads); after that it loads in under a second from the cache.
 - When IRSA's search service is down, the tool falls back to the last saved search for that position or a nearby one, and says so.
 
@@ -93,7 +93,7 @@ Before a demo, run `python scripts/prewarm.py` with the back end's environment (
 | --- | --- |
 | Barnard's Star | The fastest-moving star in the sky, about 10 arcseconds a year |
 | Epsilon Indi B | A pair of nearby brown dwarfs (objects between a star and a planet) with large motion |
-| WISE 0855 | The coldest known brown dwarf; only visible in the motion-tracked stack |
+| WISE 0855 | The coldest known brown dwarf; needs many exposures stacked, and tracking its motion sharpens it |
 | RW Aurigae | A young star whose brightness changes |
 | R Draconis | A pulsating star whose brightness changes |
 
