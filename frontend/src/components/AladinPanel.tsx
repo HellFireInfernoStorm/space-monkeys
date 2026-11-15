@@ -332,11 +332,12 @@ export default function AladinPanel({ ra, dec, sky, wlmin, wlmax, skyf, frame, c
             <button type="button" aria-label="Zoom out" onClick={() => map.current?.aladin.setFoV(Math.min(fov * 1.5, 180))}>−</button>
           </div>
           <output className="map-fov">View: {fov < 1 ? `${(fov * 60).toFixed(1)}′` : `${fov.toFixed(2)}°`}</output>
-          {wiseUrl && <span className="tooltip-anchor wise-link">
-            <a href={wiseUrl} target="_blank" rel="noreferrer" aria-describedby="wise-help">Open in WiseView ↗ ⓘ</a>
-            <span className="tooltip" role="tooltip" id="wise-help">{WISE_HELP}</span>
-          </span>}
         </div>
+        {/* Bottom row, left of the Aladin Lite logo (bottom right corner), so the logo stays visible. */}
+        {wiseUrl && <span className="tooltip-anchor wise-link">
+          <a href={wiseUrl} target="_blank" rel="noreferrer" aria-describedby="wise-help">Open in WiseView ↗ ⓘ</a>
+          <span className="tooltip" role="tooltip" id="wise-help">{WISE_HELP}</span>
+        </span>}
       </>}
     </div>
   );
