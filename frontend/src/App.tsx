@@ -288,10 +288,7 @@ export default function App() {
           <div id="panel-spectrum" role="tabpanel" aria-labelledby="tab-spectrum" hidden={view.tab !== "spectrum"}
             className="spectrum-tab" tabIndex={0}>
             {ra !== null && dec !== null ? view.phot ? (
-              <>
-                <PhotometryPanel view={view} onChange={update} />
-                <button type="button" onClick={() => update({ phot: false, pra: null, pdec: null })}>Close</button>
-              </>
+              <PhotometryPanel view={view} onChange={update} bands={bands} />
             ) : (
               <>
                 <p className="hint">Measure the brightness in every exposure: against wavelength for a spectrum,
