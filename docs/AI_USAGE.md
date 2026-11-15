@@ -46,6 +46,8 @@ Rules that apply to everything listed here:
 
 | 2026-11-15 | Thisal | OpenAI Codex | Refined the existing public workbench styling: restrained graphite/teal palette, sentence-case headings, readable measurement labels and caveats, clearer selected controls, table rows and keyboard focus; preserved the layout and scientific calculations | `frontend/src/styles.css`; frontend checks and browser review recorded in the PR | Not yet |
 
+| 2026-11-15 | Thisal | OpenAI Codex | Revised the visual direction after user feedback: light document-like surfaces, serif wordmark and section headings, flat measurement groups, conventional blue controls and chart marks adapted for white backgrounds; retained the workbench layout | `frontend/src/styles.css`; frontend checks and browser review in PR #40 | Not yet |
+
 ## Draft statement for the project page
 
 Keep this current; copy it to the project page at submission.
