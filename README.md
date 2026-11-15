@@ -10,7 +10,7 @@ Open the public tool at **[spaceshift.earth](https://spaceshift.earth)**.
 
 ## Status
 
-The frontend is hosted on Azure Static Web Apps, with the API on Azure App Service and the custom domain managed through Porkbun. On 2026-11-15, the public site and API connectivity were checked; the deployed API health endpoint reported **mock mode (synthetic data)**. Local live-data checks are recorded separately in [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md). Hosting and domain setup are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#hosting).
+The frontend is hosted on Azure Static Web Apps, with the API on Azure App Service and the custom domain managed through Porkbun. The public site and API connectivity were checked on 2026-11-15. Check the [API health endpoint](https://space-monkeys-demo-bjdddzdbduc6gme7.southindia-01.azurewebsites.net/api/health) for the current mode; the mode can change through deployment settings. Local live-data checks are recorded separately in [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md). Hosting and domain setup are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#hosting).
 
 ## What it will do
 

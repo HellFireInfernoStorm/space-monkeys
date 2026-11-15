@@ -161,7 +161,7 @@ Current deployment, checked 2026-11-15:
 - API: [space-monkeys-demo-bjdddzdbduc6gme7.southindia-01.azurewebsites.net](https://space-monkeys-demo-bjdddzdbduc6gme7.southindia-01.azurewebsites.net), hosted on Azure App Service.
 - Domain registration and DNS: Porkbun. The user confirmed registration and that both frontend addresses work after the CORS update.
 
-The frontend build uses `VITE_API_BASE` set to the API origin above. The browser calls that API directly; adding the custom domain does not proxy `/api` through the static site. The API's `/api/health` returned HTTP 200 with `mode: "mock"` during verification. This is deployment/connectivity evidence only; real-data acceptance remains separate.
+The frontend build uses `VITE_API_BASE` set to the API origin above. The browser calls that API directly; adding the custom domain does not proxy `/api` through the static site. Check the [API health endpoint](https://space-monkeys-demo-bjdddzdbduc6gme7.southindia-01.azurewebsites.net/api/health) for the current deployment mode. The mode is controlled by deployment settings, not the domain configuration. A successful health response confirms API connectivity; real-data feature and science acceptance remain separate.
 
 ### Custom domain and API access
 

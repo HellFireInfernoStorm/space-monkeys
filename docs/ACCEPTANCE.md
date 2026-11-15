@@ -14,7 +14,7 @@ Format for a ticked item: `- [x] Item (2026-11-15, checked on the live site with
 
 ## A. Required by the challenge objective
 
-- [x] The tool is on the public web; no login needed (2026-11-15, unauthenticated HTTPS requests to `https://spaceshift.earth` and the original Azure frontend address returned HTTP 200; the API health endpoint returned HTTP 200 and allowed both frontend origins. The user confirmed both addresses work. Deployed API mode was `mock`; this does not verify real-data features.)
+- [x] The tool is on the public web; no login needed (2026-11-15, unauthenticated HTTPS requests to `https://spaceshift.earth` and the original Azure frontend address returned HTTP 200; the API health endpoint returned HTTP 200 and allowed both frontend origins. The user confirmed both addresses work. At the 17:57 UTC recheck, `/api/health` reported `mode: "live"`; this does not verify real-data features.)
 - [ ] The user can enter Right Ascension and Declination
 - [ ] The tool shows SPHEREx images of that patch of sky
 - [ ] The images play in time order like a short video
@@ -74,7 +74,7 @@ For each: the object is found from its name, real SPHEREx frames load, and the e
 
 ## Verified so far
 
-Deployment/connectivity check, 2026-11-15: `https://spaceshift.earth` and the original Azure Static Web Apps address are publicly reachable over HTTPS. The Azure App Service API allows both frontend origins after the `SM_CORS_ORIGINS` update. The API health endpoint reported `mode: "mock"`; no deployed real-data or science acceptance is claimed by this check.
+Deployment/connectivity check, 2026-11-15: `https://spaceshift.earth` and the original Azure Static Web Apps address are publicly reachable over HTTPS. The Azure App Service API allows both frontend origins after the `SM_CORS_ORIGINS` update. At the 17:57 UTC recheck, the API health endpoint returned HTTP 200 with `mode: "live"` and the custom-domain allow-origin header. This supersedes the earlier mock-mode snapshot. Check `/api/health` for the current mode; no deployed real-data feature or science acceptance is claimed by this connectivity check.
 
 From the data spike on 2026-11-14 (throwaway scripts, not this code):
 
