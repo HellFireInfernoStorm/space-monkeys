@@ -1,19 +1,24 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { getPhotometry, type PhotometryResult } from "../api";
+import { getPhotometry, type Band, type PhotometryResult } from "../api";
 import {
-  binCount,
-  binPoints,
-  extent,
+  CHART_HEIGHT,
+  summarise, verdict, magnitudePoints, toAbMag, WISE_BANDS,
+  APERTURE_RADIUS_PIXELS, BACKGROUND_RADII_PIXELS, PIXEL_SCALE_ARCSEC,
+  pointDetails,
+  selectChartPoint,
+  type ChartSelections,
+  type SelectionKind,
+  bandStrips,
   linkLabel,
   mjdToDay,
   splitLinks,
   type PlotPoint,
-  ticks,
   toPlotPoints,
   WAVELENGTH_GRADIENT,
   wavelengthColour,
 } from "../photometry";
+import Chart from "./Chart";
 import type { ViewState } from "../urlState";
 
 // The tool itself (docs/RESOURCES.md). It is a browser application: a plain HTTP request for
@@ -21,6 +26,7 @@ import type { ViewState } from "../urlState";
 const SPECTROPHOTOMETRY_TOOL = "https://irsa.ipac.caltech.edu/applications/spherex/tool-spectrophotometry";
 
 interface Props {
+  bands: Band[];
   view: ViewState;
   onChange: (change: Partial<ViewState>) => void;
 }
@@ -30,93 +36,8 @@ type State =
   | { status: "ready"; data: PhotometryResult }
   | { status: "error"; message: string };
 
-const W = 360;
-const H = 220;
-const M = { left: 52, right: 30, top: 12, bottom: 40 };
-
-/**
- * A scatter plot with error bars. Unmeasured points are hollow rings on the bottom axis.
- * Hover any point for its details. `colour` paints measured points (default: the accent).
- */
-function Plot({
-  points,
-  xLabel,
-  xFormat,
-  title,
-  colour,
-}: {
-  points: PlotPoint[];
-  xLabel: string;
-  xFormat: (x: number) => string;
-  title: string;
-  colour?: (p: PlotPoint) => string;
-}) {
-  const measured = points.filter((p) => p.y !== null);
-  const [x0, x1] = extent(points.map((p) => p.x));
-  const [y0, y1] = extent(
-    measured.flatMap((p) => [(p.y as number) - (p.err ?? 0), (p.y as number) + (p.err ?? 0)]),
-  );
-  const sx = (x: number) => M.left + ((x - x0) / (x1 - x0)) * (W - M.left - M.right);
-  const sy = (y: number) => H - M.bottom - ((y - y0) / (y1 - y0)) * (H - M.top - M.bottom);
-  const xTicks = ticks(x0, x1, 4);
-  const yTicks = ticks(y0, y1, 5);
-  const floor = H - M.bottom;
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="plot" role="img" aria-label={title}>
-      <title>{title}</title>
-      {yTicks.map((t) => (
-        <g key={`y${t}`}>
-          <line x1={M.left} x2={W - M.right} y1={sy(t)} y2={sy(t)} className="grid" />
-          <text x={M.left - 6} y={sy(t) + 4} textAnchor="end" className="tick">
-            {t}
-          </text>
-        </g>
-      ))}
-      {xTicks.map((t) => (
-        <text key={`x${t}`} x={sx(t)} y={floor + 16} textAnchor="middle" className="tick">
-          {xFormat(t)}
-        </text>
-      ))}
-      {y0 < 0 && y1 > 0 && <line x1={M.left} x2={W - M.right} y1={sy(0)} y2={sy(0)} className="zero" />}
-      <line x1={M.left} x2={W - M.right} y1={floor} y2={floor} className="axis" />
-      <line x1={M.left} x2={M.left} y1={M.top} y2={floor} className="axis" />
-      <text x={(M.left + W - M.right) / 2} y={H - 6} textAnchor="middle" className="label">
-        {xLabel}
-      </text>
-      <text x={12} y={(M.top + floor) / 2} textAnchor="middle" className="label" transform={`rotate(-90 12 ${(M.top + floor) / 2})`}>
-        Flux (mJy)
-      </text>
-      {measured.map((p, i) => {
-        const fill = colour?.(p);
-        return (
-          <g key={`m${i}`} className="point" style={fill ? { color: fill } : undefined}>
-            {p.label && <title>{p.label}</title>}
-            {p.err !== null && (
-              <line x1={sx(p.x)} x2={sx(p.x)} y1={sy((p.y as number) - p.err)} y2={sy((p.y as number) + p.err)} />
-            )}
-            {p.xerr !== undefined && (
-              <line x1={sx(p.x - p.xerr)} x2={sx(p.x + p.xerr)} y1={sy(p.y as number)} y2={sy(p.y as number)} />
-            )}
-            <circle cx={sx(p.x)} cy={sy(p.y as number)} r={3} />
-            <circle cx={sx(p.x)} cy={sy(p.y as number)} r={8} className="hit" />
-          </g>
-        );
-      })}
-      {points
-        .filter((p) => p.y === null)
-        .map((p, i) => (
-          <g key={`u${i}`}>
-            {p.label && <title>{p.label}</title>}
-            <circle cx={sx(p.x)} cy={floor - 5} r={3} className="unmeasured" />
-            <circle cx={sx(p.x)} cy={floor - 5} r={7} className="hit" />
-          </g>
-        ))}
-    </svg>
-  );
-}
-
 /** Layer 3: quick-look spectrum and light curve of one point. */
-export default function PhotometryPanel({ view, onChange }: Props) {
+export default function PhotometryPanel({ view, onChange, bands }: Props) {
   const [state, setState] = useState<State>({ status: "loading", started: Date.now() });
   const [, setTick] = useState(0);
   const { ra, dec, pmra, pmdec, epoch, plx, wlmin, wlmax, pra, pdec } = view;
@@ -151,7 +72,7 @@ export default function PhotometryPanel({ view, onChange }: Props) {
 
   return (
     <div className="phot">
-      <p className="caption">
+      <div className="phot-heading"><p className="caption">
         Brightness of {what} in every exposure of the chosen wavelength range. Click an image to measure
         another point.
         {isPoint && (
@@ -162,25 +83,19 @@ export default function PhotometryPanel({ view, onChange }: Props) {
             </button>
           </>
         )}
-      </p>
+      </p><button type="button" aria-label="Close" onClick={() => onChange({ phot: false, pra: null, pdec: null })}>✕</button></div>
       {state.status === "loading" && (
+        <>
         <p className="hint" role="status">
           Measuring every exposure… {Math.round((Date.now() - state.started) / 1000)} s. The first request for a
           position can take about a minute; after that it is saved.
         </p>
+        <div className="plots" aria-hidden="true" style={{ "--chart-height": `${CHART_HEIGHT}px` } as React.CSSProperties}><div className="chart-placeholder" /><div className="chart-placeholder" /></div>
+        </>
       )}
       {state.status === "error" && <p className="notice error">Could not measure: {state.message}</p>}
-      {state.status === "ready" && <Body data={state.data} binned={view.bin} onChange={onChange} />}
-      <p className="hint">
-        Quick estimates: aperture of 3 pixels (18.5″) radius, background from the median of a ring from 5 to 7.5
-        pixels, error from the scatter in that ring. The error bars cover background noise only: for bright
-        sources the scatter between exposures is larger (3.8% for a 0.14 Jy check star), so treat smaller changes
-        as not significant. For precise values use IRSA's{" "}
-        <a href={SPECTROPHOTOMETRY_TOOL} target="_blank" rel="noreferrer">
-          SPHEREx Spectrophotometry Tool
-        </a>
-        .
-      </p>
+      {state.status === "ready" && <Body data={state.data} binned={view.bin} unit={view.unit} onChange={onChange} bands={bands} />}
+
     </div>
   );
 }
@@ -188,12 +103,42 @@ export default function PhotometryPanel({ view, onChange }: Props) {
 function Body({
   data,
   binned,
+  unit,
   onChange,
+  bands,
 }: {
+  bands: Band[];
   data: PhotometryResult;
   binned: boolean;
+  unit: ViewState["unit"];
   onChange: (change: Partial<ViewState>) => void;
 }) {
+  const [selections, setSelections] = useState<ChartSelections>({});
+  useEffect(() => setSelections({}), [data]);
+  const selection = selections.pointer ?? selections.keyboard;
+  const chartSelection = (chart: string) => ({
+    selectedKey: selection?.chart === chart ? selection.key : undefined,
+    highlightedId: selection?.key,
+    onSelect: (kind: SelectionKind, key?: string) => setSelections((state) => selectChartPoint(state, chart, kind, key)),
+  });
+  const spectrum = useMemo(() => toPlotPoints(data.points, data.flux_unit, (p) => p.wavelength, { bandpass: true }), [data]);
+  const summary = useMemo(() => summarise(spectrum), [spectrum]);
+  const signal = verdict(summary, { mock: data.mode === "mock", warned: !!data.warnings?.length });
+  const measured = summary.measured;
+  const bins = summary.bins;
+  const ab = unit === "ab";
+  const displayedSpectrum = useMemo(() => ab ? magnitudePoints(spectrum) : spectrum, [spectrum, ab]);
+  const displayedBins = useMemo(() => (ab ? magnitudePoints(bins) : bins).filter((p) => p.y !== null), [bins, ab]);
+  const lightCurve = useMemo(() => {
+    const points = toPlotPoints(data.points, data.flux_unit, (p) => p.mjd);
+    return ab ? magnitudePoints(points) : points;
+  }, [data, ab]);
+  const meanMag = summary.mean && toAbMag(summary.mean.y, summary.mean.err);
+  const meanText = !summary.mean ? "—" : ab
+    ? meanMag ? `${meanMag.mag.toFixed(2)} ± ${meanMag.err.toFixed(2)} AB mag` : "—"
+    : `${summary.mean.y.toPrecision(3)} ± ${summary.mean.err.toPrecision(2)} mJy`;
+  const yLabel = ab ? "AB magnitude" : "Flux (mJy)";
+  const laneLabel = ab ? "No magnitude" : "Not measured";
   const warnings = (data.warnings ?? []).map((warning) => (
     <p key={warning} className="notice">
       {splitLinks(warning).map((part, i) =>
@@ -220,16 +165,10 @@ function Body({
       </>
     );
   }
-  const spectrum = toPlotPoints(data.points, data.flux_unit, (p) => p.wavelength, { bandpass: true });
-  const lightCurve = toPlotPoints(data.points, data.flux_unit, (p) => p.mjd);
-  const wavelengths = data.points.map((p) => p.wavelength);
-  const wlLo = Math.min(...wavelengths);
-  const wlHi = Math.max(...wavelengths);
-  const byWavelength = (p: PlotPoint) => wavelengthColour(p.wavelength ?? wlLo, wlLo, wlHi);
-  const measured = spectrum.filter((p) => p.y !== null).length;
+  const wlLo = summary.wlMin!;
+  const wlHi = summary.wlMax!;
+  const byWavelength = (p: PlotPoint) => wavelengthColour(p.wavelength ?? p.x, wlLo, wlHi);
   const unmeasured = spectrum.length - measured;
-  const shown = binned ? binPoints(spectrum, binCount(measured)) : spectrum;
-  const days = (x: number) => mjdToDay(x).slice(2);
 
   return (
     <>
@@ -237,43 +176,62 @@ function Body({
         <p className="notice">Mock mode: these numbers are synthetic, not measurements of the real sky.</p>
       )}
       {warnings}
-      <p className="hint">
-        {measured} of {data.returned} exposures measured
-        {data.capped ? ` (${data.returned} of ${data.total} matching, spread evenly over time)` : ""}.
-      </p>
+      <div className="phot-tiles">
+        <div className="phot-tile"><span>Measured</span><strong>{measured} of {data.returned}</strong><small>{data.capped ? `of ${data.returned} returned; ${data.total.toLocaleString("en-US")} match, spread evenly over time` : "exposures"}</small></div>
+        <div className="phot-tile"><span>Wavelengths</span><strong>{wlLo.toFixed(2)}–{wlHi.toFixed(2)} µm</strong><small className="ramp-legend">{wlLo.toFixed(2)} µm <span className="ramp" style={{ background: WAVELENGTH_GRADIENT }} /> {wlHi.toFixed(2)} µm</small></div>
+        <div className="phot-tile"><span>Dates</span><strong className="phot-dates">{summary.firstMjd === undefined ? "—" : mjdToDay(summary.firstMjd)} – {summary.lastMjd === undefined ? "—" : mjdToDay(summary.lastMjd)}</strong><small>{summary.visits.length} {summary.visits.length === 1 ? "visit" : "visits"}</small></div>
+        {summary.mean && <div className="phot-tile"><span>Mean flux</span><strong>{meanText}</strong><small>weighted, whole range</small></div>}
+        <div className="phot-tile"><span>Brightest at</span><strong>{summary.brightest === undefined ? "—" : `${summary.brightest.toFixed(2)} µm`}</strong><small>{summary.brightest === undefined ? "signal too weak" : "weighted bin"}</small></div>
+      </div>
+      {summary.snrMeasured > 0 && summary.snrMeasured < measured && <p className="hint">Mean flux, combined and typical single-exposure S/N, Brightest at and the binned line use {summary.snrMeasured} of {measured} measured exposures with positive errors.</p>}
+      <p className={`phot-verdict ${signal.tone}`}><span aria-hidden="true" />{signal.text}</p>
       <div className="plots">
         <figure>
-          <Plot
-            points={shown}
-            xLabel="Wavelength (µm)"
-            xFormat={(x) => x.toFixed(2)}
-            title={binned ? "Binned spectrum" : "Spectrum: flux against wavelength"}
-          />
-          <figcaption>
-            {binned ? "Binned spectrum (weighted average per wavelength bin)" : "Spectrum"}
-            <label className="check inline">
-              <input type="checkbox" checked={binned} onChange={(e) => onChange({ bin: e.target.checked })} />
-              Bin
-            </label>
-          </figcaption>
+          <div className="chart-heading"><h3>Spectrum</h3><span>Brightness against wavelength</span>
+            <div className="phot-units">{(["mjy", "ab"] as const).map((value) => <button key={value} type="button" aria-pressed={unit === value} onClick={() => onChange({ unit: value })}>{value === "mjy" ? "mJy" : "AB mag"}</button>)}</div>
+            <label className="check inline"><input type="checkbox" checked={binned} onChange={(e) => onChange({ bin: e.target.checked })} />Binned line</label>
+          </div>
+          <Chart {...chartSelection("spectrum")} points={displayedSpectrum} pointOpacity={binned ? 0.45 : 1} invertY={ab} laneLabel={laneLabel} xLabel="Wavelength (µm)" yLabel={yLabel} xFormat={(x) => x.toFixed(2)}
+            title={ab ? "Spectrum: AB magnitude against wavelength" : "Spectrum: flux against wavelength"} colour={byWavelength}
+            tooltip={pointTooltip}
+            underlay={({ sx, x0, x1, plot }) => <>
+              {bandStrips(bands, x0, x1).map((band) => {
+                const width = sx(band.right) - sx(band.left);
+                return <g key={band.band} className="band-strip">
+                  <rect x={sx(band.left)} y={plot.top} width={width} height={plot.height} opacity={band.band % 2 ? 0.5 : 0.15} />
+                  {width >= 48 && <text x={sx(band.left) + width / 2} y={plot.top + 12} textAnchor="middle">Band {band.band}</text>}
+                </g>;
+              })}
+              {WISE_BANDS.filter((band) => band.wavelength >= x0 && band.wavelength <= x1).map((band) => {
+                const x = sx(band.wavelength);
+                const nearRight = x > plot.left + plot.width - 60;
+                return <g key={band.name} className="wise-marker">
+                  <line x1={x} x2={x} y1={plot.top} y2={plot.top + plot.height} />
+                  <text x={x + (nearRight ? -4 : 4)} y={plot.top + 26} textAnchor={nearRight ? "end" : "start"}>{band.name}</text>
+                </g>;
+              })}
+            </>}
+            overlay={({ sx, sy }) => binned && <g className="binned-overlay">
+              {displayedBins.length >= 2 && <>
+                <path className="bin-band" d={`M${displayedBins.map((p) => `${sx(p.x)},${sy(p.y! + p.err!)}`).join(" L")} L${[...displayedBins].reverse().map((p) => `${sx(p.x)},${sy(p.y! - p.err!)}`).join(" L")} Z`} />
+                <path className="bin-line" d={`M${displayedBins.map((p) => `${sx(p.x)},${sy(p.y!)}`).join(" L")}`} />
+              </>}
+              {displayedBins.map((p) => <circle key={p.x} cx={sx(p.x)} cy={sy(p.y!)} r={3.5} />)}
+            </g>} />
         </figure>
         <figure>
-          <Plot
-            points={lightCurve}
-            xLabel="Date (UTC, yy-mm-dd)"
-            xFormat={days}
-            title="Light curve: flux against time"
-            colour={byWavelength}
-          />
-          <figcaption>
-            Light curve, coloured by wavelength
-            <span className="ramp-legend">
-              {wlLo.toFixed(2)} µm <span className="ramp" style={{ background: WAVELENGTH_GRADIENT }} />{" "}
-              {wlHi.toFixed(2)} µm
-            </span>
-          </figcaption>
+          <div className="chart-heading"><h3>Light curve</h3><span>Brightness against time</span></div>
+          <Chart {...chartSelection("lightCurve")} points={lightCurve} invertY={ab} laneLabel={laneLabel} xLabel="Date (UTC)" yLabel={yLabel} xFormat={mjdToDay}
+            title={ab ? "Light curve: AB magnitude against time" : "Light curve: flux against time"} colour={byWavelength} tooltip={pointTooltip} />
         </figure>
       </div>
+      <p className="hint">
+        Each exposure sees this point at a different wavelength, so in a wide wavelength range the light curve
+        mixes colour with change. Narrow the range to compare like with like.
+      </p>
+      <p className="hint error-caveat">The error bars cover background noise only: for bright sources the scatter between exposures is larger (3.8% for a 0.14 Jy check star), so treat smaller changes as not significant.</p>
+      <details className="phot-method"><summary>How this is measured</summary>
+      <ApertureDiagram />
       <p className="hint legend">
         <span className="key measured" /> measured, with ±1σ error bar (on the spectrum, the horizontal bar is
         the bandpass)
@@ -287,9 +245,46 @@ function Body({
         )}
       </p>
       <p className="hint">
-        Each exposure sees this point at a different wavelength, so in a wide wavelength range the light curve
-        mixes colour with change. Narrow the range to compare like with like.
+        Quick estimates: aperture of {APERTURE_RADIUS_PIXELS} pixels ({(APERTURE_RADIUS_PIXELS * PIXEL_SCALE_ARCSEC).toFixed(1)}″) radius, background from the median of a ring from {BACKGROUND_RADII_PIXELS[0]} to {BACKGROUND_RADII_PIXELS[1]}{" "}
+        pixels, error from the scatter in that ring. The error bars cover background noise only: for bright
+        sources the scatter between exposures is larger (3.8% for a 0.14 Jy check star), so treat smaller changes
+        as not significant. For precise values use IRSA's{" "}
+        <a href={SPECTROPHOTOMETRY_TOOL} target="_blank" rel="noreferrer">
+          SPHEREx Spectrophotometry Tool
+        </a>
+        .
       </p>
+      <p className="hint">S/N here is the aperture flux divided by its background-noise error. It overstates the significance for bright sources (see the error-bar note).</p>
+      <p className="hint">The binned line is the inverse-variance weighted mean of the points in equal-width wavelength bins, with its ±1σ error as the shaded band.</p>
+      <p className="hint">AB magnitude = −2.5 log10(flux / 3631 Jy) (Oke &amp; Gunn 1983).</p>
+      </details>
     </>
   );
+}
+
+
+function pointTooltip(p: PlotPoint) {
+  const details = pointDetails(p);
+  return <>{Object.entries(details).map(([field, text]) => field === "exposure"
+    ? <small key={field}>{text}</small> : <div key={field}>{text}</div>)}</>;
+}
+
+/** Labelled fallback, not an image of the sky; the full background ring remains visible. */
+function ApertureDiagram() {
+  const extentPixels = 2 * BACKGROUND_RADII_PIXELS[1] + 1;
+  const extentArcsec = extentPixels * PIXEL_SCALE_ARCSEC;
+  const scale = 120 / extentArcsec;
+  const caption = `Diagram: aperture ${APERTURE_RADIUS_PIXELS} pixels (${(APERTURE_RADIUS_PIXELS * PIXEL_SCALE_ARCSEC).toFixed(1)}″), background ring ${BACKGROUND_RADII_PIXELS[0]} to ${BACKGROUND_RADII_PIXELS[1]} pixels.`;
+  return <figure className="aperture-diagram">
+    <svg width="120" height="120" viewBox="0 0 120 120" role="img" aria-label={caption}>
+      <rect width="120" height="120" fill="var(--panel)" />
+      {Array.from({ length: extentPixels + 1 }, (_, i) => <g key={i} stroke="var(--line)">
+        <line x1={i * 120 / extentPixels} x2={i * 120 / extentPixels} y1="0" y2="120" />
+        <line y1={i * 120 / extentPixels} y2={i * 120 / extentPixels} x1="0" x2="120" />
+      </g>)}
+      <circle cx="60" cy="60" r={APERTURE_RADIUS_PIXELS * PIXEL_SCALE_ARCSEC * scale} fill="none" stroke="var(--accent)" />
+      {BACKGROUND_RADII_PIXELS.map((radius) => <circle key={radius} cx="60" cy="60" r={radius * PIXEL_SCALE_ARCSEC * scale} fill="none" stroke="var(--muted)" strokeDasharray="3 3" />)}
+    </svg>
+    <figcaption>{caption}</figcaption>
+  </figure>;
 }
