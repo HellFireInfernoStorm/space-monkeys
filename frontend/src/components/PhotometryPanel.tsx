@@ -183,7 +183,7 @@ function Body({
         {summary.mean && <div className="phot-tile"><span>Mean flux</span><strong>{meanText}</strong><small>weighted, whole range</small></div>}
         <div className="phot-tile"><span>Brightest at</span><strong>{summary.brightest === undefined ? "—" : `${summary.brightest.toFixed(2)} µm`}</strong><small>{summary.brightest === undefined ? "signal too weak" : "weighted bin"}</small></div>
       </div>
-      {summary.snrMeasured < measured && <p className="hint">Mean flux, S/N and Brightest at use {summary.snrMeasured} of {measured} measured exposures with positive errors.</p>}
+      {summary.snrMeasured > 0 && summary.snrMeasured < measured && <p className="hint">Mean flux, combined and typical single-exposure S/N, Brightest at and the binned line use {summary.snrMeasured} of {measured} measured exposures with positive errors.</p>}
       <p className={`phot-verdict ${signal.tone}`}><span aria-hidden="true" />{signal.text}</p>
       <div className="plots">
         <figure>
@@ -245,7 +245,7 @@ function Body({
         )}
       </p>
       <p className="hint">
-        Quick estimates: aperture of {APERTURE_RADIUS_PIXELS} pixels ({(APERTURE_RADIUS_PIXELS * PIXEL_SCALE_ARCSEC).toFixed(1)}″) radius, background from the median of a ring from {BACKGROUND_RADII_PIXELS[0]} to {BACKGROUND_RADII_PIXELS[1]}
+        Quick estimates: aperture of {APERTURE_RADIUS_PIXELS} pixels ({(APERTURE_RADIUS_PIXELS * PIXEL_SCALE_ARCSEC).toFixed(1)}″) radius, background from the median of a ring from {BACKGROUND_RADII_PIXELS[0]} to {BACKGROUND_RADII_PIXELS[1]}{" "}
         pixels, error from the scatter in that ring. The error bars cover background noise only: for bright
         sources the scatter between exposures is larger (3.8% for a 0.14 Jy check star), so treat smaller changes
         as not significant. For precise values use IRSA's{" "}

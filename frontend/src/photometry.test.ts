@@ -1,4 +1,11 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment jsdom
+
+import { act, createElement, useState } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as api from "./api";
+import PhotometryPanel from "./components/PhotometryPanel";
+import { DEFAULT_VIEW, type ViewState } from "./urlState";
 
 import type { PhotometryPoint } from "./api";
 import {
@@ -358,5 +365,80 @@ describe("phase 2 summaries and units", () => {
     expect(g.sy(18)).toBeLessThan(g.floor);
     expect(g.positioned[2].py).toBeGreaterThan(g.floor);
     expect(g.yTicks.length).toBeGreaterThan(1);
+  });
+});
+
+
+describe("rendered photometry review regressions", () => {
+  let container: HTMLDivElement;
+  let root: Root;
+  beforeEach(() => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    vi.stubGlobal("ResizeObserver", class {
+      constructor(private callback: ResizeObserverCallback) {}
+      observe() { this.callback([{ contentRect: { width: 700 } } as ResizeObserverEntry], this as unknown as ResizeObserver); }
+      disconnect() {}
+    });
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+  });
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+  async function render(points: PhotometryPoint[]) {
+    const fetch = vi.spyOn(api, "getPhotometry").mockResolvedValue({
+      points, capped: false, returned: points.length, total: points.length,
+      ra: 10, dec: 20, mode: "mock", flux_unit: "Jy", method: "aperture", warnings: [],
+    });
+    function Harness() {
+      const [view, setView] = useState<ViewState>({ ...DEFAULT_VIEW, ra: 10, dec: 20 });
+      return createElement(PhotometryPanel, { view, bands: [],
+        onChange: (change: Partial<ViewState>) => setView((previous) => ({ ...previous, ...change })),
+      });
+    }
+    await act(async () => root.render(createElement(Harness)));
+    return fetch;
+  }
+  const tiles = () => [...container.querySelectorAll(".phot-tile")].map((tile) => tile.textContent);
+  const button = (label: string) => [...container.querySelectorAll("button")].find((b) => b.textContent === label)!;
+
+  it("keeps flux summaries stable across real display toggles and renders spaced method text", async () => {
+    const fetch = await render(Array.from({ length: 20 }, (_, i) => point({
+      exposure_id: `e${i}`, wavelength: 4.4 + i * 0.03, mjd: 60800 + i,
+      flux_err: [0, 6, 12, 19].includes(i) ? 0.0001 : null,
+    })));
+    const initial = tiles();
+    const verdictText = container.querySelector(".phot-verdict")!.textContent;
+    const line = container.querySelector(".bin-line")!.getAttribute("d");
+    expect(container.querySelectorAll(".binned-overlay circle")).toHaveLength(3);
+    expect(container.textContent).toContain("combined and typical single-exposure S/N, Brightest at and the binned line use 4 of 20");
+    expect(container.querySelector(".phot-method")!.textContent).toContain("a ring from 5 to 7.5 pixels, error");
+    expect(container.textContent).not.toContain("7.5pixels");
+
+    const checkbox = container.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    act(() => checkbox.click());
+    expect(container.querySelector(".binned-overlay")).toBeNull();
+    expect(tiles()).toEqual(initial);
+    expect(container.querySelector(".phot-verdict")!.textContent).toBe(verdictText);
+    act(() => button("AB mag").click());
+    expect(tiles().filter((_, i) => i !== 3)).toEqual(initial.filter((_, i) => i !== 3));
+    expect(tiles()[3]).toContain("17.15 ± 0.11 AB mag");
+    expect(container.querySelector(".phot-verdict")!.textContent).toBe(verdictText);
+    act(() => checkbox.click());
+    expect(container.querySelectorAll(".binned-overlay circle")).toHaveLength(3);
+    act(() => button("mJy").click());
+    expect(tiles()).toEqual(initial);
+    expect(container.querySelector(".bin-line")!.getAttribute("d")).toBe(line);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it("omits the subset note when no measured exposure has a positive error", async () => {
+    await render([point({ flux_err: null }), point({ exposure_id: "zero", flux_err: 0 })]);
+    expect(container.querySelector(".phot-verdict")!.textContent).toContain("S/N unavailable");
+    expect(container.textContent).not.toContain("use 0 of");
+    expect(tiles().some((text) => text?.startsWith("Mean flux"))).toBe(false);
   });
 });
