@@ -25,6 +25,15 @@ export function colourSpread(frames: Frame[]): { shortest: number; longest: numb
 
 export const REFERENCE_LABEL = "Reference frame: the others are shown minus this one";
 
+export function playbackShortcut(key: string, repeat: boolean): "toggle" | "ignore-repeat" | -1 | 1 | null {
+  switch (key) {
+    case " ": return repeat ? "ignore-repeat" : "toggle";
+    case "ArrowLeft": return -1;
+    case "ArrowRight": return 1;
+    default: return null;
+  }
+}
+
 /**
  * Address of a frame's picture. In difference mode every frame but the reference is shown
  * minus the reference; the reference itself is shown as a plain image (minus itself it

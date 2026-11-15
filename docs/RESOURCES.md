@@ -94,6 +94,7 @@ Front end:
 | Vite and @vitejs/plugin-react | Build tool | MIT |
 | TypeScript | Type checking. Pinned to version 5.9, not 7, because `openapi-typescript` 7 needs the TypeScript 5 JavaScript API | Apache 2.0 |
 | Vitest | Tests | MIT |
+| [jsdom](https://github.com/jsdom/jsdom) | DOM environment for rendered frontend tests | MIT |
 | openapi-typescript | Generates types from the API contract | MIT |
 
 ## Images, fonts, icons, text

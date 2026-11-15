@@ -32,6 +32,7 @@ Rules that apply to everything listed here:
 | 2026-11-15 | Thisal | OpenAI Codex | Addressed PR #21 review: touch selection, synchronized highlights, visible uncertainty caveat, brighter point outlines, accessible announcements, unique date ticks and chart cleanup | Chart, photometry helpers/tests, CSS, validation and AI log | Not yet |
 | 2026-11-15 | Thisal | OpenAI Codex | Implemented issue #30 Phase 2: pure summary and verdict helpers, binned overlay, AB display conversion, WISE markers, labelled aperture diagram and URL state tests; validation recorded in the pull request | Frontend photometry helpers, charts, styles, tests and two science additions | Not yet |
 | 2026-11-15 | Thisal | OpenAI Codex | Addressed all eight PR #31 review threads: separated flux counts from S/N eligibility, reused summary bins, corrected aperture grid/caption and AB accessible titles, clarified the bin label and documented the visit convention and URL-default migration; added regression tests and reran frontend checks | Photometry helpers/tests, panel, science note and PR review responses | Not yet |
+| 2026-11-15 | Deeshan | OpenAI Codex | Planned and implemented keyboard shortcuts for Blink and Difference playback, adjusted shortcut handling after review, and added rendered-player regression coverage | Issue #20 and PR #23 | Not yet |
 
 ## Draft statement for the project page
 
