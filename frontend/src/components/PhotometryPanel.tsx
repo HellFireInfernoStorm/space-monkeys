@@ -146,7 +146,8 @@ function Body({
   // The "not in the player" notice shows for a few seconds, and never across a new measurement.
   const [notice, setNotice] = useState<{ loaded: number } | null>(null);
   useEffect(() => {
-    if (!missingFrame) return;
+    // A later click that found its frame clears the request, and with it the notice.
+    if (!missingFrame) { setNotice(null); return; }
     setNotice({ loaded: missingFrame.loaded });
     const timer = window.setTimeout(() => setNotice(null), 6000);
     return () => window.clearTimeout(timer);
