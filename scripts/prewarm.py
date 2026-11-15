@@ -9,12 +9,19 @@ Options:
     --only barnard wise-0855    warm only these target ids
     --size 120                  image width in arcseconds (the site's default is 120)
     --no-diff                   skip difference images
+    --retry-wait 90             seconds to wait before retrying what failed (0: no retry)
 
 It runs the same code as the API (/api/frames, then every /api/frame.png, plain and
 difference; then /api/stack and every /api/stack.png for the targets in STACKS; then
 /api/photometry for the targets in PHOTOMETRY), in live mode, writing to the cache folder
 in `SM_CACHE_DIR` or the default `backend/.cache`. Run it again at any time: what is cached
 already is not fetched again.
+
+A step fails when it raises an error or when its archive search failed (including when a
+saved search stood in for it; `photometry.search_incomplete` decides). Failed steps are
+tried once more after `--retry-wait` seconds (longer than the API's IRSA cooldown, 60 s);
+what still fails is listed at the end, and the exit code is 1. Run it while IRSA answers
+(issue #38), so the demo targets work during IRSA's outages.
 """
 
 import argparse
@@ -92,6 +99,7 @@ def warm(settings: Settings, target, wl_min: float, wl_max: float, track: bool, 
     )
     for warning in frames.warnings:
         print(f"    warning: {warning}")
+    return frames.warnings
 
 
 def warm_stack(settings: Settings, target, wl_min: float, wl_max: float, size: float):
@@ -114,6 +122,7 @@ def warm_stack(settings: Settings, target, wl_min: float, wl_max: float, size: f
     )
     for warning in result.warnings:
         print(f"    warning: {warning}")
+    return result.warnings
 
 
 def warm_photometry(settings: Settings, target, wl_min: float, wl_max: float):
@@ -130,6 +139,18 @@ def warm_photometry(settings: Settings, target, wl_min: float, wl_max: float):
     )
     for warning in result.warnings:
         print(f"    warning: {warning}")
+    return result.warnings
+
+
+def run(label: str, step) -> bool:
+    """Run one step; True if it worked."""
+    try:
+        warnings = step()
+    except Exception as error:  # noqa: BLE001 - one step must not stop the rest
+        print(f"{label}: failed: {type(error).__name__}: {error}")
+        return False
+    # The same test the API uses before it saves a result (a failed or replaced search).
+    return not phot.search_incomplete(list(warnings or []))
 
 
 def main() -> int:
@@ -137,30 +158,45 @@ def main() -> int:
     parser.add_argument("--only", nargs="*", help="target ids to warm (default: all)")
     parser.add_argument("--size", type=float, default=120.0, help="image width, arcseconds")
     parser.add_argument("--no-diff", action="store_true", help="skip difference images")
+    parser.add_argument(
+        "--retry-wait", type=float, default=90.0, help="seconds before retrying failed steps (0: no retry)"
+    )
     args = parser.parse_args()
 
     settings = Settings(mode="live")
     print(f"Cache folder: {settings.cache_dir}")
     wanted = set(args.only) if args.only else set(PLANS)
+    diff = not args.no_diff
+    steps = []
     for target in TARGETS:
         if target.id not in wanted:
             continue
         for wl_min, wl_max, track in PLANS.get(target.id, []):
-            try:
-                warm(settings, target, wl_min, wl_max, track, args.size, not args.no_diff)
-            except Exception as error:  # noqa: BLE001 - one target must not stop the rest
-                print(f"{target.name}: failed: {type(error).__name__}: {error}")
+            steps.append((
+                f"{target.name} {wl_min}-{wl_max} um{' tracked' if track else ''} frames",
+                lambda t=target, a=wl_min, b=wl_max, k=track: warm(settings, t, a, b, k, args.size, diff),
+            ))
         for wl_min, wl_max in STACKS.get(target.id, []):
-            try:
-                warm_stack(settings, target, wl_min, wl_max, args.size)
-            except Exception as error:  # noqa: BLE001 - one target must not stop the rest
-                print(f"{target.name}: stack failed: {type(error).__name__}: {error}")
+            steps.append((
+                f"{target.name} {wl_min}-{wl_max} um stack",
+                lambda t=target, a=wl_min, b=wl_max: warm_stack(settings, t, a, b, args.size),
+            ))
         for wl_min, wl_max in PHOTOMETRY.get(target.id, []):
-            try:
-                warm_photometry(settings, target, wl_min, wl_max)
-            except Exception as error:  # noqa: BLE001 - one target must not stop the rest
-                print(f"{target.name}: photometry failed: {type(error).__name__}: {error}")
-    return 0
+            steps.append((
+                f"{target.name} {wl_min}-{wl_max} um photometry",
+                lambda t=target, a=wl_min, b=wl_max: warm_photometry(settings, t, a, b),
+            ))
+
+    failed = [(label, step) for label, step in steps if not run(label, step)]
+    if failed and args.retry_wait > 0:
+        print(f"\n{len(failed)} step(s) failed; retrying in {args.retry_wait:.0f} s.")
+        time.sleep(args.retry_wait)
+        failed = [(label, step) for label, step in failed if not run(label, step)]
+
+    print(f"\n{len(steps) - len(failed)} of {len(steps)} steps warmed.")
+    for label, _ in failed:
+        print(f"    still failing: {label}")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

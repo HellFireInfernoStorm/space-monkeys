@@ -16,6 +16,7 @@ if the search result has expired.
 """
 
 import math
+import threading
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
@@ -84,32 +85,103 @@ def find_exposure(settings: Settings, exposure_id: str) -> LiveExposure:
     return LiveExposure(**data)
 
 
+# A fixed pool of locks, chosen by the search key, so the number of locks never grows.
+_search_locks = [threading.Lock() for _ in range(64)]
+
+
+def _search_lock(key: str) -> threading.Lock:
+    """The lock for a search, so requests for the same position wait for one archive search."""
+    return _search_locks[int(key[:8], 16) % len(_search_locks)]
+
+
+def _separation_deg(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
+    """Angle between two sky positions, degrees (haversine formula)."""
+    r1, d1, r2, d2 = map(math.radians, (ra1, dec1, ra2, dec2))
+    h = math.sin((d2 - d1) / 2) ** 2 + math.cos(d1) * math.cos(d2) * math.sin((r2 - r1) / 2) ** 2
+    return math.degrees(2 * math.asin(min(1.0, math.sqrt(h))))
+
+
+def _note_search_position(
+    cache: Cache, key: str, ra: float, dec: float, radius: float, settings: Settings
+) -> None:
+    """Record where a saved search was made, so a nearby position can use it during an outage."""
+    if cache.get_json("searchpos", key) is None:
+        where = {"ra": ra, "dec": dec, "radius": radius, "collections": list(settings.collections)}
+        cache.put_json("searchpos", key, where)
+
+
+def _nearby_saved_search(settings: Settings, cache: Cache, ra: float, dec: float, radius: float):
+    """(distance in degrees, saved exposures) of the nearest saved search within
+    `nearby_search_deg` with the same radius and collections, or None."""
+    if settings.nearby_search_deg <= 0:
+        return None
+    best = None
+    for path in (cache.root / "searchpos").glob("*/*.json"):
+        where = cache.get_json("searchpos", path.stem)
+        if not where or where.get("collections") != list(settings.collections):
+            continue
+        if abs(where.get("radius", -1.0) - radius) > 1e-9:
+            continue
+        distance = _separation_deg(ra, dec, where["ra"], where["dec"])
+        if distance > settings.nearby_search_deg or (best is not None and distance >= best[0]):
+            continue
+        saved = cache.get_json("search", path.stem)
+        if saved:
+            best = (distance, saved)
+    return best
+
+
 def search(settings: Settings, ra: float, dec: float, radius: float) -> tuple[list[LiveExposure], list[str]]:
     """Exposures covering a position, from the disk cache when fresh enough.
 
-    When the search finds nothing and any collection failed, the last saved result is used
-    if there is one. "Any", not "every": the deep collections cover only small fields, so
-    during an outage one of them often answers successfully with no rows, and requiring
-    every collection to fail would skip the saved result almost always.
+    Requests for the same position share one archive search: the first one searches, the
+    others wait for it and then read its saved result. If it failed, IRSA's cooldown
+    (`irsa_cooldown_s` in live.py) makes the waiters fail at once instead of each waiting
+    for IRSA in turn.
 
-    Raises SearchFailed when every collection failed and nothing usable is cached.
+    When the search fails (or finds nothing while reporting problems), the last saved
+    result for this position is used, with a warning. With none, the saved search of the
+    nearest position within `nearby_search_deg` is used, with a warning: exposures that
+    miss this position are dropped later, when their wavelength at the target is checked,
+    but exposures that cover only this position are missing.
+
+    Raises SearchFailed when the search failed and nothing usable is saved.
     """
     cache = _cache(settings)
     key = make_key(f"{ra:.4f}", f"{dec:.4f}", f"{radius:.5f}", ",".join(settings.collections))
-    fresh = cache.get_json("search", key, max_age_s=settings.search_cache_hours * 3600.0)
+    max_age_s = settings.search_cache_hours * 3600.0
+    fresh = cache.get_json("search", key, max_age_s=max_age_s)
     if fresh is not None:
+        _note_search_position(cache, key, ra, dec, radius, settings)
         return [LiveExposure(**e) for e in fresh], []
 
-    found, problems = live.search_exposures(settings, ra, dec, radius)
-    if not found and problems:
-        stale = cache.get_json("search", key)
-        if stale:
-            note = "The archive search failed; showing the last saved search result."
-            return [LiveExposure(**e) for e in stale], [note, *problems]
-        if len(problems) >= len(settings.collections):
-            raise SearchFailed("The SPHEREx archive search failed. " + " ".join(problems)[:400])
-    if not problems:
-        cache.put_json("search", key, [asdict(e) for e in found])
+    with _search_lock(key):
+        fresh = cache.get_json("search", key, max_age_s=max_age_s)  # saved while we waited?
+        if fresh is not None:
+            return [LiveExposure(**e) for e in fresh], []
+        try:
+            found, problems = live.search_exposures(settings, ra, dec, radius)
+            failed = False
+        except live.ArchiveSearchFailed as error:
+            found, problems, failed = [], [str(error)], True
+        if not found and problems:
+            stale = cache.get_json("search", key)
+            if stale:
+                note = "The archive search failed; showing the last saved search result."
+                return [LiveExposure(**e) for e in stale], [note, *problems]
+            nearby = _nearby_saved_search(settings, cache, ra, dec, radius)
+            if nearby is not None:
+                distance, saved = nearby
+                note = (
+                    f"The archive search failed; showing the saved search of a position "
+                    f"{distance * 60:.1f} arcmin away. Exposures that cover only this position are missing."
+                )
+                return [LiveExposure(**e) for e in saved], [note, *problems]
+            if failed:
+                raise SearchFailed("The SPHEREx archive search failed. " + " ".join(problems)[:400])
+        if not problems:
+            cache.put_json("search", key, [asdict(e) for e in found])
+            _note_search_position(cache, key, ra, dec, radius, settings)
     for exposure in found:
         remember_exposure(settings, exposure)
     return found, problems

@@ -11,7 +11,7 @@ from urllib.parse import urlencode
 from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import __version__, live, live_frames, mock, stack_service, wise
+from . import __version__, astrometry, live, live_frames, mock, stack_service, wise
 from . import models as m
 from . import photometry as phot
 from .bands import BANDS
@@ -86,6 +86,27 @@ def health(settings: SettingsDep) -> m.Health:
 def bands() -> m.BandList:
     """The six detector bands and their wavelength ranges."""
     return m.BandList(bands=[m.Band(band=b, wl_min_um=lo, wl_max_um=hi) for b, (lo, hi) in BANDS.items()])
+
+
+@app.get("/api/alignment", response_model=m.AlignmentResult, tags=["data"])
+async def alignment(
+    settings: SettingsDep,
+    exposure_id: Annotated[str, Query(min_length=1, max_length=160)],
+    ra: Ra,
+    dec: Dec,
+    target_ra: Ra,
+    target_dec: Dec,
+) -> m.AlignmentResult:
+    """Independent star-match verification of one exposure; does not alter science data.
+
+    ra/dec are the displayed frame centre. target_ra/target_dec are the science
+    target at the observation date, excluded with nearby blends from the fit.
+    Work is capped at two readers and the configured deadline; failures retain WCS.
+    """
+    try:
+        return await astrometry.check(settings, exposure_id, ra, dec, target_ra, target_dec)
+    except live_frames.UnknownExposure as error:
+        raise HTTPException(status_code=404, detail="Unknown exposure; load its frame list first.") from error
 
 
 @app.get("/api/targets", response_model=m.TargetList, tags=["targets"])
@@ -166,9 +187,11 @@ def exposures(
     if pmra or pmdec:
         search_ra, search_dec = propagate(ra, dec, pmra, pmdec, epoch, settings.search_epoch_year)
     try:
-        found, warnings = live.search_exposures(settings, search_ra, search_dec, radius)
+        found, warnings = live_frames.search(settings, search_ra, search_dec, radius)
     except live.LiveDependencyMissing as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
+    except live_frames.SearchFailed as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
     picked_live = sample_evenly(found, cap)
     items = []
     for e in picked_live:

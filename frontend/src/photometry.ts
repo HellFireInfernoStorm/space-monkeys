@@ -119,11 +119,10 @@ export const WAVELENGTH_GRADIENT = `linear-gradient(to right, ${WAVELENGTH_RAMP.
  * a flux or with no positive error are left out; empty bins are left out of the result.
  */
 export function binPoints(points: PlotPoint[], bins: number): PlotPoint[] {
-  const usable = points.filter((p): p is PlotPoint & { y: number; err: number } => p.y !== null && p.err !== null && p.err > 0);
+  const usable = usableForBins(points);
   if (usable.length === 0 || bins < 1) return [];
   const lo = Math.min(...usable.map((p) => p.x));
-  const hi = Math.max(...usable.map((p) => p.x));
-  const width = (hi - lo) / bins || 1;
+  const width = binWidth(points, bins);
   const sums = Array.from({ length: bins }, () => ({ w: 0, wy: 0, wx: 0 }));
   for (const p of usable) {
     const i = Math.min(bins - 1, Math.floor((p.x - lo) / width));
@@ -133,6 +132,22 @@ export function binPoints(points: PlotPoint[], bins: number): PlotPoint[] {
     sums[i].wx += w * p.x;
   }
   return sums.filter((s) => s.w > 0).map((s) => ({ x: s.wx / s.w, y: s.wy / s.w, err: 1 / Math.sqrt(s.w) }));
+}
+
+type BinnablePoint = PlotPoint & { y: number; err: number };
+
+/** Points that take part in binning: measured, with a positive error. */
+function usableForBins(points: PlotPoint[]): BinnablePoint[] {
+  return points.filter((p): p is BinnablePoint => p.y !== null && p.err !== null && p.err > 0);
+}
+
+/** Width of each bin in `binPoints`, in x units. One definition, shared with `spectrumAt`. */
+export function binWidth(points: PlotPoint[], bins: number): number {
+  const usable = usableForBins(points);
+  if (usable.length === 0 || bins < 1) return 1;
+  const lo = Math.min(...usable.map((p) => p.x));
+  const hi = Math.max(...usable.map((p) => p.x));
+  return (hi - lo) / bins || 1;
 }
 
 /** Number of wavelength bins for a binned spectrum: about four points per bin, 3 to 16 bins. */
@@ -245,11 +260,11 @@ export function nearestPoint<T extends { px: number; py: number }>(points: T[], 
 }
 
 /** All chart geometry uses CSS pixels, including the separate missing-value lane. */
-export function chartGeometry(points: PlotPoint[], width: number, height = CHART_HEIGHT, invertY = false) {
+export function chartGeometry(points: PlotPoint[], width: number, height = CHART_HEIGHT, invertY = false, extraY: number[] = []) {
   const lane = points.some((p) => p.y === null) ? 18 : 0;
   const plot = { left: 64, top: 22, width: Math.max(1, width - 108), height: height - 66 - lane };
   const [x0, x1] = extent(points.map((p) => p.x));
-  const [y0, y1] = extent(points.filter((p) => p.y !== null).flatMap((p) => [p.y! - (p.err ?? 0), p.y! + (p.err ?? 0)]));
+  const [y0, y1] = extent([...points.filter((p) => p.y !== null).flatMap((p) => [p.y! - (p.err ?? 0), p.y! + (p.err ?? 0)]), ...extraY]);
   const sx = (x: number) => plot.left + (x - x0) / (x1 - x0) * plot.width;
   const sy = (y: number) => plot.top + (invertY ? (y - y0) / (y1 - y0) : 1 - (y - y0) / (y1 - y0)) * plot.height;
   const floor = plot.top + plot.height;
@@ -376,4 +391,164 @@ export function magnitudePoints(points: PlotPoint[]): PlotPoint[] {
     return { ...p, y: converted?.mag ?? null, err: converted ? (p.err === null ? null : converted.err) : null,
       details, label: Object.values(details).join("\n") };
   });
+}
+
+// Layer 3, phase 3: colour-corrected light curve. Method, assumptions and validation:
+// docs/SCIENCE.md, section 7, "Colour-corrected light curve".
+
+/** Exposure-to-exposure scatter of a steady 0.14 Jy check star (docs/SCIENCE.md section 7). */
+export const NOISE_FLOOR = 0.038;
+/** A visit needs this many corrected exposures before the change verdict uses it. */
+export const MIN_POINTS_PER_VISIT = 3;
+/** Visit-to-visit change threshold: the same S/N threshold as the detection (docs/SCIENCE.md section 6). */
+export const CHANGE_THRESHOLD = SIGNAL_THRESHOLD;
+/** Below CHANGE_THRESHOLD but at least this: reported as unclear, never as a change. */
+export const HINT_THRESHOLD = 3;
+
+/**
+ * The binned spectrum at `wavelength`: the bin's own value at a bin centre; elsewhere linear between
+ * bin centres (error: the larger of the two),
+ * the end bin's value up to one bin width beyond the outermost centres. Null where the spectrum is
+ * too uncertain to divide by: outside that reach, across a gap of more than two bin widths between
+ * centres, at or below zero, or with S/N under SIGNAL_THRESHOLD.
+ */
+export function spectrumAt(bins: PlotPoint[], wavelength: number, width: number): { y: number; err: number } | null {
+  const sorted = usableForBins(bins).sort((a, b) => a.x - b.x);
+  if (sorted.length === 0) return null;
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  // At a bin centre no interpolation is needed: use that bin alone, without its neighbours'
+  // errors or gaps. A one-exposure bin's centre is that exposure's wavelength, up to rounding.
+  const exact = sorted.find((p) => Math.abs(p.x - wavelength) <= 1e-9 * Math.max(width, Math.abs(p.x)));
+  let value: { y: number; err: number };
+  if (exact) {
+    value = { y: exact.y, err: exact.err };
+  } else if (wavelength <= first.x) {
+    if (first.x - wavelength > width) return null;
+    value = { y: first.y, err: first.err };
+  } else if (wavelength >= last.x) {
+    if (wavelength - last.x > width) return null;
+    value = { y: last.y, err: last.err };
+  } else {
+    const i = sorted.findIndex((p, k) => p.x <= wavelength && wavelength < sorted[k + 1].x);
+    const a = sorted[i];
+    const b = sorted[i + 1];
+    if (b.x - a.x > 2 * width * (1 + 1e-9)) return null;
+    const t = (wavelength - a.x) / (b.x - a.x);
+    value = { y: a.y + (b.y - a.y) * t, err: Math.max(a.err, b.err) };
+  }
+  if (value.y <= 0 || value.y / value.err < SIGNAL_THRESHOLD) return null;
+  return value;
+}
+
+/**
+ * Light-curve points (flux in mJy, x = MJD, `wavelength` set) divided by the binned spectrum at each
+ * exposure's wavelength: 1 means the usual brightness at that colour. Error of r = f / S:
+ * sqrt(err_f² + (r × err_S)²) / S. Exposures where the spectrum is too uncertain become
+ * value-less points with a reason, so they stay visible in the lane.
+ */
+export function correctedPoints(points: PlotPoint[], bins: PlotPoint[], width: number): PlotPoint[] {
+  return points.map((p) => {
+    if (p.y === null) return p;
+    const raw = pointDetails(p);
+    const spectrum = p.wavelength === undefined ? null : spectrumAt(bins, p.wavelength, width);
+    if (!spectrum) {
+      const details = { ...raw, value: `Not corrected: the spectrum is too uncertain at ${(p.wavelength ?? p.x).toFixed(3)} µm` };
+      return { ...p, y: null, err: null, reason: details.value, details, label: Object.values(details).join("\n") };
+    }
+    const r = p.y / spectrum.y;
+    const err = p.err === null ? null : Math.sqrt(p.err ** 2 + (r * spectrum.err) ** 2) / spectrum.y;
+    const details = { ...raw, value: `${r.toFixed(3)}${err === null ? "" : ` ± ${err.toFixed(3)}`} of normal (${raw.value})` };
+    return { ...p, y: r, err, details, label: Object.values(details).join("\n") };
+  });
+}
+
+export interface VisitMean { start: number; end: number; mjd: number; count: number; r: number; errFormal: number; err: number }
+
+/**
+ * Inverse-variance weighted mean of the corrected exposures in each visit. `err` adds the noise
+ * floor in quadrature and is deliberately not reduced by the number of exposures (docs/SCIENCE.md).
+ */
+export function visitMeans(corrected: PlotPoint[], gapDays = 60, floor = NOISE_FLOOR): VisitMean[] {
+  const usable = usableForBins(corrected).filter((p) => p.mjd !== undefined);
+  return groupVisits(usable.map((p) => p.mjd!), gapDays).map((visit) => {
+    const members = usable.filter((p) => p.mjd! >= visit.start && p.mjd! <= visit.end);
+    let w = 0, wr = 0, wt = 0;
+    for (const p of members) {
+      const weight = 1 / (p.err * p.err);
+      w += weight;
+      wr += weight * p.y;
+      wt += weight * p.mjd!;
+    }
+    const errFormal = 1 / Math.sqrt(w);
+    return { start: visit.start, end: visit.end, mjd: wt / w, count: members.length, r: wr / w, errFormal,
+      err: Math.sqrt(errFormal ** 2 + floor ** 2) };
+  });
+}
+
+// backend/app/photometry.py: the purely informational photometry notes. The unmeasured points
+// already show in the "Not measured" lane with their reasons, and the sampling note says the
+// exposures were spread evenly over time (the Measured tile says so too).
+const INFORMATIONAL_NOTES = [
+  /^\d+ of \d+ point\(s\) have no flux: /,
+  /^Measured \d+ of \d+ matching exposures, spread evenly over time\.$/,
+];
+
+/**
+ * API warnings that make the numbers less trustworthy: a field star in the aperture, a failed search,
+ * unreadable exposures, or anything not known to be informational. Used to withhold the change verdict.
+ */
+export function cautionWarnings(warnings: string[] | null | undefined): string[] {
+  return (warnings ?? []).filter((w) => !INFORMATIONAL_NOTES.some((note) => note.test(w)));
+}
+
+export interface ChangeVerdict { tone: "change" | "unclear" | "steady" | "unjudged"; value: string; detail: string }
+
+/** Plain answer to "did the aperture's brightness change between visits?", or why it is not judged. */
+export function changeVerdict(visits: VisitMean[], { warned, mock, available }: { warned: boolean; mock: boolean; available: boolean }): ChangeVerdict {
+  const suffix = mock ? " (synthetic)" : "";
+  const unjudged = (detail: string): ChangeVerdict => ({ tone: "unjudged", value: "Not judged", detail: detail + suffix });
+  if (warned) return unjudged("see the warning above");
+  if (!available) return unjudged("spectrum too uncertain");
+  const qualifying = visits.filter((v) => v.count >= MIN_POINTS_PER_VISIT);
+  if (qualifying.length < 2) return unjudged(`needs 2 visits with ${MIN_POINTS_PER_VISIT}+ exposures each`);
+  let largest = { z: -1, delta: 0 };
+  let tightest = Infinity;
+  for (let i = 0; i < qualifying.length; i++) {
+    for (let j = i + 1; j < qualifying.length; j++) {
+      const a = qualifying[i];
+      const b = qualifying[j];
+      const combined = Math.sqrt(a.err ** 2 + b.err ** 2);
+      const z = Math.abs(a.r - b.r) / combined;
+      if (z > largest.z) largest = { z, delta: Math.abs(a.r - b.r) };
+      tightest = Math.min(tightest, combined);
+    }
+  }
+  const delta = Math.round(largest.delta * 100);
+  if (largest.z >= CHANGE_THRESHOLD) {
+    return { tone: "change", value: "Yes", detail: `visits differ by ${delta}% (${largest.z.toFixed(1)} times the combined error)${suffix}` };
+  }
+  // A visit too small to compare is still drawn, so a quiet verdict must say it was left out.
+  const left = visits.length - qualifying.length;
+  const leftOut = left ? `; ${left} ${left === 1 ? "visit" : "visits"} with fewer than ${MIN_POINTS_PER_VISIT} exposures not compared` : "";
+  if (largest.z >= HINT_THRESHOLD) return { tone: "unclear", value: "Unclear", detail: `visits differ by ${delta}%; not significant${leftOut}${suffix}` };
+  // A limit on the visit averages, not on the object: self-dilution makes real changes look smaller.
+  return { tone: "steady", value: "No sign", detail: `visits agree; a change under ${Math.round(CHANGE_THRESHOLD * tightest * 100)}% could not be seen${leftOut}${suffix}` };
+}
+
+/** Below this many pixels a drag across the spectrum is a click, not a new range. */
+export const DRAG_MIN_PX = 8;
+
+/**
+ * Wavelength range for a drag across a chart from `startPx` to `endPx` (pixels from the chart's
+ * left edge): ordered, clamped to the axis and rounded to 3 decimals. Null for a short drag.
+ */
+export function dragRange(startPx: number, endPx: number, scales: { x0: number; x1: number; plot: { left: number; width: number } }): { lo: number; hi: number } | null {
+  if (Math.abs(endPx - startPx) <= DRAG_MIN_PX) return null;
+  const { x0, x1, plot } = scales;
+  const toX = (px: number) => Math.min(x1, Math.max(x0, x0 + (px - plot.left) / plot.width * (x1 - x0)));
+  const round = (x: number) => Math.round(x * 1000) / 1000;
+  const lo = round(toX(Math.min(startPx, endPx)));
+  const hi = round(toX(Math.max(startPx, endPx)));
+  return hi > lo ? { lo, hi } : null;
 }

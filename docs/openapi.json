@@ -1,6 +1,234 @@
 {
   "components": {
     "schemas": {
+      "AlignmentResult": {
+        "properties": {
+          "catalogue": {
+            "title": "Catalogue",
+            "type": "string"
+          },
+          "catalogue_url": {
+            "title": "Catalogue Url",
+            "type": "string"
+          },
+          "center_dec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Center Dec"
+          },
+          "center_ra": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Center Ra"
+          },
+          "correction_applied": {
+            "default": false,
+            "title": "Correction Applied",
+            "type": "boolean"
+          },
+          "detected": {
+            "default": 0,
+            "title": "Detected",
+            "type": "integer"
+          },
+          "elapsed_s": {
+            "default": 0,
+            "title": "Elapsed S",
+            "type": "number"
+          },
+          "exposure_id": {
+            "title": "Exposure Id",
+            "type": "string"
+          },
+          "field_arcsec": {
+            "title": "Field Arcsec",
+            "type": "number"
+          },
+          "fit_rms_arcsec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fit Rms Arcsec"
+          },
+          "matched": {
+            "default": 0,
+            "title": "Matched",
+            "type": "integer"
+          },
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/StarMatch"
+            },
+            "title": "Matches",
+            "type": "array"
+          },
+          "median_arcsec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Arcsec"
+          },
+          "mjd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mjd"
+          },
+          "mode": {
+            "enum": [
+              "mock",
+              "live"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "offset_east_arcsec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offset East Arcsec"
+          },
+          "offset_north_arcsec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Offset North Arcsec"
+          },
+          "provenance": {
+            "enum": [
+              "archive",
+              "verified",
+              "mock"
+            ],
+            "title": "Provenance",
+            "type": "string"
+          },
+          "quality_passed": {
+            "default": false,
+            "description": "True only when all matching/geometry/RMS gates pass",
+            "title": "Quality Passed",
+            "type": "boolean"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "rejected": {
+            "default": 0,
+            "title": "Rejected",
+            "type": "integer"
+          },
+          "rms_arcsec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rms Arcsec"
+          },
+          "rms_pixels": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rms Pixels"
+          },
+          "solver_version": {
+            "title": "Solver Version",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "complete",
+              "failed",
+              "timeout",
+              "busy"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "target_dec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Dec"
+          },
+          "target_ra": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Ra"
+          }
+        },
+        "required": [
+          "mode",
+          "exposure_id",
+          "mjd",
+          "state",
+          "provenance",
+          "reason",
+          "catalogue",
+          "catalogue_url",
+          "solver_version",
+          "field_arcsec"
+        ],
+        "title": "AlignmentResult",
+        "type": "object"
+      },
       "Band": {
         "properties": {
           "band": {
@@ -1010,6 +1238,84 @@
         "title": "StackResult",
         "type": "object"
       },
+      "StarMatch": {
+        "properties": {
+          "catalogue_dec": {
+            "title": "Catalogue Dec",
+            "type": "number"
+          },
+          "catalogue_ra": {
+            "title": "Catalogue Ra",
+            "type": "number"
+          },
+          "east_arcsec": {
+            "title": "East Arcsec",
+            "type": "number"
+          },
+          "fit_residual_arcsec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Distance from the median offset used for the inlier gate, arcseconds",
+            "title": "Fit Residual Arcsec"
+          },
+          "inlier": {
+            "title": "Inlier",
+            "type": "boolean"
+          },
+          "measured_dec": {
+            "title": "Measured Dec",
+            "type": "number"
+          },
+          "measured_ra": {
+            "title": "Measured Ra",
+            "type": "number"
+          },
+          "north_arcsec": {
+            "title": "North Arcsec",
+            "type": "number"
+          },
+          "offset_arcsec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Total catalogue-to-centroid offset, arcseconds",
+            "title": "Offset Arcsec"
+          },
+          "residual_arcsec": {
+            "description": "Legacy name: total catalogue-to-centroid offset, arcseconds",
+            "title": "Residual Arcsec",
+            "type": "number"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "catalogue_ra",
+          "catalogue_dec",
+          "measured_ra",
+          "measured_dec",
+          "east_arcsec",
+          "north_arcsec",
+          "residual_arcsec",
+          "inlier"
+        ],
+        "title": "StarMatch",
+        "type": "object"
+      },
       "Target": {
         "properties": {
           "aliases": {
@@ -1290,6 +1596,103 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/alignment": {
+      "get": {
+        "description": "Independent star-match verification of one exposure; does not alter science data.\n\nra/dec are the displayed frame centre. target_ra/target_dec are the science\ntarget at the observation date, excluded with nearby blends from the fit.\nWork is capped at two readers and the configured deadline; failures retain WCS.",
+        "operationId": "alignment_api_alignment_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "exposure_id",
+            "required": true,
+            "schema": {
+              "maxLength": 160,
+              "minLength": 1,
+              "title": "Exposure Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Right Ascension, degrees, ICRS, at `epoch`",
+            "in": "query",
+            "name": "ra",
+            "required": true,
+            "schema": {
+              "description": "Right Ascension, degrees, ICRS, at `epoch`",
+              "maximum": 360,
+              "minimum": 0,
+              "title": "Ra",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Declination, degrees, ICRS, at `epoch`",
+            "in": "query",
+            "name": "dec",
+            "required": true,
+            "schema": {
+              "description": "Declination, degrees, ICRS, at `epoch`",
+              "maximum": 90,
+              "minimum": -90,
+              "title": "Dec",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Right Ascension, degrees, ICRS, at `epoch`",
+            "in": "query",
+            "name": "target_ra",
+            "required": true,
+            "schema": {
+              "description": "Right Ascension, degrees, ICRS, at `epoch`",
+              "maximum": 360,
+              "minimum": 0,
+              "title": "Target Ra",
+              "type": "number"
+            }
+          },
+          {
+            "description": "Declination, degrees, ICRS, at `epoch`",
+            "in": "query",
+            "name": "target_dec",
+            "required": true,
+            "schema": {
+              "description": "Declination, degrees, ICRS, at `epoch`",
+              "maximum": 90,
+              "minimum": -90,
+              "title": "Target Dec",
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlignmentResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Alignment",
+        "tags": [
+          "data"
+        ]
+      }
+    },
     "/api/bands": {
       "get": {
         "description": "The six detector bands and their wavelength ranges.",

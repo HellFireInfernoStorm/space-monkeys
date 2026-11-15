@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     # IRSA Simple Image Access service.
     sia_url: str = "https://irsa.ipac.caltech.edu/SIA"
 
+    # Independent astrometric check; catalogue names and endpoints stay here.
+    astrometry_tap_url: str = "https://gea.esac.esa.int/tap-server/tap/sync"
+    astrometry_catalogue: str = "gaiadr3.gaia_source"
+    astrometry_catalogue_url: str = "https://www.cosmos.esa.int/web/gaia/dr3"
+    astrometry_timeout_s: float = 30.0
+    astrometry_io_timeout_s: float = 10.0
+
     # Collections searched together. A new data release is one more name here.
     collections: Annotated[list[str], NoDecode] = [
         "spherex_dr1",
@@ -55,8 +62,19 @@ class Settings(BaseSettings):
     max_probes: int = 400
     # Parallel byte-range readers against the AWS mirror (32 was measured to work).
     s3_concurrency: int = 16
-    # Parallel requests to IRSA itself (it rejects about 8 or more at once).
-    irsa_concurrency: int = 4
+    # IRSA search requests. All collections go in one request. A search took about 22 s on
+    # 2026-11-15; the timeout is the longest wait for the next bytes of the answer, in seconds.
+    # Retries cover IRSA's short 502 and 503 spells, with a growing pause (backoff) between tries.
+    irsa_timeout_s: float = 90.0
+    irsa_retries: int = 2
+    irsa_backoff_s: float = 2.0
+    # After a search fails because IRSA is down (no answer, or HTTP 429 or 5xx), searches fail
+    # at once for this many seconds instead of waiting on IRSA again. 0 turns it off.
+    irsa_cooldown_s: float = 60.0
+    # When the search fails and this position has no saved search, use the saved search of the
+    # nearest position within this many degrees (same radius and collections), with a warning.
+    # Exposures that miss this position are dropped when their wavelength is checked. 0: off.
+    nearby_search_deg: float = 0.1
     # Search results are kept on disk this long. New data arrives at most weekly.
     search_cache_hours: float = 12.0
 

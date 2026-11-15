@@ -18,6 +18,7 @@ import {
 import AladinPanel from "./components/AladinPanel";
 import BlinkPlayer from "./components/BlinkPlayer";
 import ControlsDrawer from "./components/ControlsDrawer";
+import SiteBrand from "./components/SiteBrand";
 import PhotometryPanel from "./components/PhotometryPanel";
 import WiseCompare, { type SpherexImage } from "./components/WiseCompare";
 import StackView from "./components/StackView";
@@ -55,6 +56,9 @@ export default function App() {
   const menuButton = useRef<HTMLButtonElement>(null);
   const tabButtons = useRef<Array<HTMLButtonElement | null>>([]);
   const [shownFrame, setShownFrame] = useState<Frame | null>(null);
+  // Layer 3, phase 4: an exposure clicked on the spectrum tab, and whether the player had it.
+  const [requestedFrame, setRequestedFrame] = useState<{ id: string; nonce: number } | null>(null);
+  const [missingFrame, setMissingFrame] = useState<{ id: string; nonce: number; loaded: number } | null>(null);
 
   const update = useCallback((change: Partial<ViewState>) => {
     // A new position drops the measured point; a new sky map or range drops the cube frame.
@@ -176,7 +180,7 @@ export default function App() {
           aria-label={drawerOpen ? "Hide controls" : "Show controls"}
           aria-expanded={drawerOpen} aria-controls="controls-drawer"
           onClick={() => setDrawerOpen((open) => !open)}>☰ <span>Controls</span></button>
-        <h1>spaceshift</h1>
+        <h1 aria-label="SpaceShift"><SiteBrand /></h1>
         <div className="view-summary">
           <span className="summary-position">{ra !== null && dec !== null
             ? `RA ${ra.toFixed(5)}°, Dec ${dec.toFixed(5)}°` : "No position yet"}</span>
@@ -241,10 +245,16 @@ export default function App() {
               key={frames.data.frames.map((frame) => frame.exposure_id).join("|")}
               list={frames.data}
               speed={view.speed}
+              showMatches={view.matches}
               mode={view.mode}
               onChange={update}
               onFrame={setShownFrame}
               onPick={pick}
+              requestedFrame={requestedFrame}
+              onRequestResult={(request, found) => {
+                setRequestedFrame(null);
+                setMissingFrame(found ? null : { ...request, loaded: frames.data.frames.length });
+              }}
             />
           )}
         </section>
@@ -288,7 +298,14 @@ export default function App() {
           <div id="panel-spectrum" role="tabpanel" aria-labelledby="tab-spectrum" hidden={view.tab !== "spectrum"}
             className="spectrum-tab" tabIndex={0}>
             {ra !== null && dec !== null ? view.phot ? (
-              <PhotometryPanel view={view} onChange={update} bands={bands} />
+              <PhotometryPanel view={view} onChange={update} bands={bands}
+                currentFrame={frame ? { id: frame.exposure_id, mjd: frame.mjd } : null}
+                missingFrame={missingFrame}
+                onOpenFrame={(id) => {
+                  setMissingFrame(null);
+                  if (stackMode) update({ mode: "blink" });
+                  setRequestedFrame({ id, nonce: Date.now() });
+                }} />
             ) : (
               <>
                 <p className="hint">Measure the brightness in every exposure: against wavelength for a spectrum,

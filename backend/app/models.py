@@ -89,6 +89,56 @@ class ExposureList(ListMeta):
     exposures: list[Exposure]
 
 
+class StarMatch(BaseModel):
+    source_id: str
+    catalogue_ra: float
+    catalogue_dec: float
+    measured_ra: float
+    measured_dec: float
+    east_arcsec: float
+    north_arcsec: float
+    residual_arcsec: float = Field(description="Legacy name: total catalogue-to-centroid offset, arcseconds")
+    offset_arcsec: float | None = Field(
+        default=None, description="Total catalogue-to-centroid offset, arcseconds"
+    )
+    fit_residual_arcsec: float | None = Field(
+        default=None, description="Distance from the median offset used for the inlier gate, arcseconds"
+    )
+    inlier: bool
+
+
+class AlignmentResult(BaseModel):
+    mode: Mode
+    exposure_id: str
+    center_ra: float | None = None
+    center_dec: float | None = None
+    target_ra: float | None = None
+    target_dec: float | None = None
+    mjd: float | None
+    state: Literal["complete", "failed", "timeout", "busy"]
+    provenance: Literal["archive", "verified", "mock"]
+    reason: str
+    catalogue: str
+    catalogue_url: str
+    solver_version: str
+    correction_applied: bool = False
+    quality_passed: bool = Field(
+        default=False, description="True only when all matching/geometry/RMS gates pass"
+    )
+    detected: int = 0
+    matched: int = 0
+    rejected: int = 0
+    rms_arcsec: float | None = None
+    rms_pixels: float | None = None
+    median_arcsec: float | None = None
+    fit_rms_arcsec: float | None = None
+    offset_east_arcsec: float | None = None
+    offset_north_arcsec: float | None = None
+    field_arcsec: float
+    elapsed_s: float = 0
+    matches: list[StarMatch] = Field(default_factory=list)
+
+
 class Frame(BaseModel):
     exposure_id: str
     collection: str

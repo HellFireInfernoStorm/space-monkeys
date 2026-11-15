@@ -84,6 +84,7 @@ Back end:
 | PyVO (`live` extra) | Archive search | BSD 3-Clause |
 | fsspec (`live` extra) | Byte-range reads over HTTP (`astropy.io.fits.open(..., use_fsspec=True)`) | BSD-3-Clause, read from the installed package metadata (fsspec 2026.9.0) on 2026-11-14 |
 | aiohttp (`live` extra) | The HTTP client fsspec uses for those reads | Apache-2.0 AND MIT, read from the installed package metadata (aiohttp 3.14.5) on 2026-11-14 |
+| Requests and urllib3 (`live` extra; already installed with PyVO) | Timeout and retries for the archive search (issue #38) | Apache-2.0 (Requests 2.34.2) and MIT (urllib3 2.8.0), read from the installed package metadata on 2026-11-15 |
 | pytest, HTTPX, Ruff (`dev` extra) | Tests and lint | MIT; BSD 3-Clause; MIT |
 
 Front end:
@@ -99,8 +100,19 @@ Front end:
 
 ## Images, fonts, icons, text
 
+Plate-solving verification (#22): Gaia DR3 `gaiadr3.gaia_source` reference-star positions and proper motions, queried from the ESA Gaia Archive TAP service. Source: https://www.cosmos.esa.int/web/gaia/dr3 and https://www.cosmos.esa.int/web/gaia-users/credits . Licence and exact DR3 acknowledgement **unconfirmed**, tracked in [#27](https://github.com/HellFireInfernoStorm/space-monkeys/issues/27). No catalogue dump is committed. Existing Astropy (BSD-3-Clause) is used for distortion-aware WCS and epoch propagation; reference: https://docs.astropy.org/en/stable/coordinates/apply_space_motion.html . No new dependency.
+
+Re-review evidence for #27 (2026-11-15): the correct ESA Gaia Data License address is https://www.cosmos.esa.int/web/gaia-users/license ; it and the ESA credits page returned HTTP 451 through the research tool, so no licence is inferred. Gaia's DPAC partner AIP publishes a DR3-specific attribution section at https://gaia.aip.de/cms/credit/#gaia-data-release-3 . This supplies an attribution reference, not verified text of the ESA data licence. Owner confirmation and the required product acknowledgement remain pending before merge/deployment.
+
 The site uses system fonts and no icon set. Layout controls use plain Unicode characters.
 
 The issue #10 screenshots in `docs/screenshots/issue-10/` show our own interface and mock frames, plus the existing Aladin Lite/AllWISE sky map (credits and terms above). The live Barnard and WISE validation screenshots also show SPHEREx DR1/QR3 data (credits above). These are validation screenshots, not new image assets used by the site.
 
+The issue #22 screenshots in `docs/screenshots/issue-22/` show our own interface and synthetic SPHEREx-like frames, plus the same existing Aladin Lite/AllWISE sky map where visible. Credits and terms are the existing ones above; our own interface is Apache 2.0. These are test evidence, not new application images or a redistributed Gaia catalogue.
 The issue #30 screenshots in `docs/screenshots/spectrum-phase2/` show our own interface with synthetic frames or existing SPHEREx data (credited above). The aperture view is an independently drawn, labelled SVG diagram, not a sky image.
+
+### Homepage (2026-11-15)
+
+- Team-owned SpaceShift presentation (provided directly by the team): feature narrative and local WISE 0855 research example, independently worded for the homepage and checked against `docs/SCIENCE.md`. The user confirmed team ownership and authorised homepage reuse on 2026-11-15; recorded in [#42](https://github.com/HellFireInfernoStorm/space-monkeys/issues/42). No Canva template, illustration or slide-image assets are redistributed.
+- User-supplied Space Fly landing-page screenshot: visual inspiration only (large condensed type, highlighted word and orbital composition). Source/asset licence not provided; no screenshot pixels, logos, text or code are reused.
+- Homepage sky artwork: original, AI-assisted SVG code by this project, Apache-2.0. Decorative illustration, not astronomical observations. Fonts are browser/OS-supplied fallbacks (Impact, Arial Narrow, Helvetica Neue, Arial, Helvetica and sans-serif); no font files are bundled, downloaded or redistributed.

@@ -4,7 +4,7 @@ Our entry for the NASA Space Apps Challenge 2026, challenge **"Planet X and SPHE
 
 A public web tool that shows SPHEREx sky images over time for any position on the sky, so that objects which move or change brightness stand out. Enter a Right Ascension and Declination (or pick a test target), and the tool plays the exposures of that patch like a short video.
 
-> **spaceshift** is the name of the tool, built by team space-monkeys.
+> **SpaceShift** is the name of the tool, built by team space-monkeys.
 
 Open the public tool at **[spaceshift.earth](https://spaceshift.earth)**.
 
