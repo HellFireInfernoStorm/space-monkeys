@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import type { PhotometryPoint } from "./api";
-import { binCount, binPoints, clickToSky, extent, milliJanskyFactor, mjdToDay, ticks, toPlotPoints } from "./photometry";
+import {
+  binCount,
+  binPoints,
+  clickToSky,
+  extent,
+  isUsable,
+  milliJanskyFactor,
+  mjdToDay,
+  pointLabel,
+  ticks,
+  toPlotPoints,
+  wavelengthColour,
+} from "./photometry";
 
 function point(over: Partial<PhotometryPoint>): PhotometryPoint {
   return {
@@ -14,6 +26,8 @@ function point(over: Partial<PhotometryPoint>): PhotometryPoint {
     flux: 0.0005,
     flux_err: 0.0001,
     flags: 0,
+    usable: true,
+    reason: null,
     ...over,
   };
 }
@@ -29,7 +43,25 @@ describe("photometry units", () => {
     const plotted = toPlotPoints([point({}), point({ flux: null, flux_err: null })], "Jy", (p) => p.wavelength);
     expect(plotted[0].y).toBeCloseTo(0.5);
     expect(plotted[0].err).toBeCloseTo(0.1);
-    expect(plotted[1]).toEqual({ x: 4.6, y: null, err: null });
+    expect(plotted[1]).toMatchObject({ x: 4.6, y: null, err: null });
+  });
+
+  it("trusts usable=false even if a number came with it", () => {
+    const p = point({ usable: false, reason: "empty pixel in the aperture" });
+    expect(isUsable(p)).toBe(false);
+    expect(toPlotPoints([p], "Jy", (q) => q.mjd)[0].y).toBeNull();
+  });
+
+  it("gives the bandpass as a horizontal half-width only when asked", () => {
+    expect(toPlotPoints([point({})], "Jy", (p) => p.wavelength, { bandpass: true })[0].xerr).toBeCloseTo(0.0175);
+    expect(toPlotPoints([point({})], "Jy", (p) => p.mjd)[0].xerr).toBeUndefined();
+  });
+
+  it("labels a point with its value, or with why it was not measured", () => {
+    expect(pointLabel(point({}), 1000)).toContain("0.500 ± 0.10 mJy");
+    expect(pointLabel(point({}), 1000)).toContain("4.600 ± 0.018 µm");
+    const refused = point({ flux: null, flux_err: null, usable: false, reason: "empty pixel; flags: BLOOM" });
+    expect(pointLabel(refused, 1000)).toContain("Not measured: empty pixel; flags: BLOOM");
   });
 });
 
@@ -84,6 +116,15 @@ describe("clickToSky", () => {
   it("widens RA steps by 1 / cos(dec) and wraps at 0 degrees", () => {
     expect(clickToSky(0, 0.5, 0, 60, 120).ra).toBeCloseTo(120 / 3600);
     expect(clickToSky(1, 0.5, 0, 0, 120).ra).toBeCloseTo(360 - 60 / 3600);
+  });
+});
+
+describe("wavelengthColour", () => {
+  it("runs from light blue at the short end to dark blue at the long end", () => {
+    expect(wavelengthColour(4.4, 4.4, 5.0)).toBe("#cde2fb");
+    expect(wavelengthColour(5.0, 4.4, 5.0)).toBe("#256abf");
+    expect(wavelengthColour(9, 4.4, 5.0)).toBe("#256abf");
+    expect(wavelengthColour(4.6, 4.6, 4.6)).toBe("#cde2fb");
   });
 });
 

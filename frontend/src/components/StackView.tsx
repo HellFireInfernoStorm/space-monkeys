@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { apiUrl, getStack, type StackImage, type StackResult } from "../api";
+import { clickToSky } from "../photometry";
 import { dayOf, differenceText, measuredText, predictedText, spotPercent, stackLabel } from "../stackView";
 import { LIMITS, type ViewState } from "../urlState";
 import ModeToggle from "./ModeToggle";
@@ -9,7 +10,29 @@ interface Props {
   view: ViewState;
   onChange: (change: Partial<ViewState>) => void;
   onResult: (result: StackResult | null) => void;
+  /** Called with the sky position of a click on a fixed-grid image, for the spectrum panel. */
+  onPick?: (ra: number, dec: number) => void;
 }
+
+type Pick = (e: React.MouseEvent<HTMLDivElement>) => void;
+
+/** A click handler for an image on the fixed sky grid of `data`, or undefined without `onPick`. */
+function fixedGridPick(data: StackResult, onPick?: (ra: number, dec: number) => void): Pick | undefined {
+  if (!onPick) return undefined;
+  return (e) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    const { ra, dec } = clickToSky(
+      (e.clientX - box.left) / box.width,
+      (e.clientY - box.top) / box.height,
+      data.reference_ra,
+      data.reference_dec,
+      data.pixels * data.pixel_scale,
+    );
+    onPick(ra, dec);
+  };
+}
+
+const PICK_TITLE = "Click to see the spectrum and light curve of this point";
 
 type State =
   | { status: "loading"; started: number }
@@ -27,16 +50,22 @@ function Panel({
   label,
   note,
   marker,
+  onClick,
 }: {
   image: StackImage;
   pixels: number;
   label: string;
   note?: string;
   marker?: { x: number; y: number };
+  onClick?: Pick;
 }) {
   return (
     <figure className="stack-panel">
-      <div className="stage small">
+      <div
+        className={onClick ? "stage small pickable" : "stage small"}
+        onClick={onClick}
+        title={onClick ? PICK_TITLE : undefined}
+      >
         <img src={apiUrl(image.image_url)} alt={label} className="frame shown" draggable={false} />
         {marker && <span className="reticle small" style={spotPercent(marker.x, marker.y, pixels)} />}
       </div>
@@ -48,7 +77,7 @@ function Panel({
   );
 }
 
-function EpochBlink({ data, speed }: { data: StackResult; speed: number }) {
+function EpochBlink({ data, speed, onPick }: { data: StackResult; speed: number; onPick?: Pick }) {
   const epochs = data.epochs;
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -70,7 +99,12 @@ function EpochBlink({ data, speed }: { data: StackResult; speed: number }) {
   const first = epochs[0];
   return (
     <div>
-      <div className="stage" aria-label={`Visit ${index + 1} of ${epochs.length}`}>
+      <div
+        className={onPick ? "stage pickable" : "stage"}
+        aria-label={`Visit ${index + 1} of ${epochs.length}`}
+        onClick={onPick}
+        title={onPick ? PICK_TITLE : undefined}
+      >
         {epochs.map((epoch, i) => (
           <img
             key={epoch.index}
@@ -172,7 +206,7 @@ function MotionTable({ data }: { data: StackResult }) {
 }
 
 /** Layer 2: one exposure beside the stack, the per-visit blink, and the fixed-grid stack. */
-export default function StackView({ view, onChange, onResult }: Props) {
+export default function StackView({ view, onChange, onResult, onPick }: Props) {
   const [state, setState] = useState<State>({ status: "loading", started: Date.now() });
   const [, setTick] = useState(0);
   const { ra, dec, size, wlmin, wlmax, pmra, pmdec, epoch, plx } = view;
@@ -211,7 +245,7 @@ export default function StackView({ view, onChange, onResult }: Props) {
         </p>
       )}
       {state.status === "error" && <p className="notice error">Could not make the stack: {state.message}</p>}
-      {state.status === "ready" && <StackBody data={state.data} speed={view.speed} />}
+      {state.status === "ready" && <StackBody data={state.data} speed={view.speed} onPick={onPick} />}
       <div className="transport">
         <label>
           Speed
@@ -231,7 +265,15 @@ export default function StackView({ view, onChange, onResult }: Props) {
   );
 }
 
-function StackBody({ data, speed }: { data: StackResult; speed: number }) {
+function StackBody({
+  data,
+  speed,
+  onPick,
+}: {
+  data: StackResult;
+  speed: number;
+  onPick?: (ra: number, dec: number) => void;
+}) {
   const { single, tracked, static: fixed } = data;
   if (!tracked || !single) {
     return (
@@ -241,6 +283,9 @@ function StackBody({ data, speed }: { data: StackResult; speed: number }) {
     );
   }
   const centre = { x: data.pixels / 2, y: data.pixels / 2 };
+  // Only images on the fixed sky grid map a click to one sky position. The single exposure and
+  // the tracked stack follow the object, unless there is no motion (then tracked is the fixed grid).
+  const pick = fixedGridPick(data, onPick);
   const range = `${tracked.wl_min_um.toFixed(2)} to ${tracked.wl_max_um.toFixed(2)} µm`;
   return (
     <>
@@ -272,6 +317,7 @@ function StackBody({ data, speed }: { data: StackResult; speed: number }) {
               : `no motion given, so following the object and a fixed sky grid are the same stack; ${range}`
           }
           marker={centre}
+          onClick={data.has_motion ? undefined : pick}
         />
         {fixed && (
           <Panel
@@ -280,6 +326,7 @@ function StackBody({ data, speed }: { data: StackResult; speed: number }) {
             label={`Fixed sky grid: ${fixed.n_exposures} exposures`}
             note="not shifted: stars are sharp, a moving object is smeared along its path"
             marker={{ x: fixed.target_x, y: fixed.target_y }}
+            onClick={pick}
           />
         )}
       </div>
@@ -289,7 +336,7 @@ function StackBody({ data, speed }: { data: StackResult; speed: number }) {
           ? "Each visit's exposures stacked on the same fixed sky grid. Stars stay put; the yellow marker is where the object should be at that visit, the grey one where it was at the first visit."
           : "Each visit's exposures stacked on the same sky grid, so brightness changes between visits show."}
       </p>
-      <EpochBlink data={data} speed={speed} />
+      <EpochBlink data={data} speed={speed} onPick={pick} />
       <MotionTable data={data} />
     </>
   );

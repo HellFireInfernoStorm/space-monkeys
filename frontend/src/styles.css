@@ -478,14 +478,6 @@ h3 {
   font-size: 10px;
 }
 
-.plot .point line {
-  stroke: var(--accent);
-  stroke-width: 1;
-}
-
-.plot .point circle {
-  fill: var(--accent);
-}
 
 .plot .unmeasured {
   fill: none;
@@ -527,4 +519,37 @@ button.link {
 
 .layout > .full-width {
   grid-column: 1 / -1;
+}
+
+.plot .point {
+  color: var(--accent);
+}
+
+.plot .point circle {
+  fill: currentColor;
+}
+
+.plot .point line {
+  stroke: currentColor;
+  stroke-width: 1;
+}
+
+.plot circle.hit {
+  fill: transparent;
+  stroke: none;
+  pointer-events: all;
+}
+
+.ramp-legend {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.85em;
+}
+
+.ramp-legend .ramp {
+  display: inline-block;
+  width: 60px;
+  height: 8px;
+  border-radius: 4px;
 }

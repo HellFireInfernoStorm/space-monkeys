@@ -173,7 +173,7 @@ export default function App() {
                 : "Frames over time"}
           </h2>
           {stackMode && ra !== null && dec !== null && (
-            <StackView view={view} onChange={update} onResult={setStack} />
+            <StackView view={view} onChange={update} onResult={setStack} onPick={pick} />
           )}
           {frames.status === "idle" && (ra === null || dec === null) && (
             <p className="hint">Pick a target or enter a position to see its exposures.</p>

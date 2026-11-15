@@ -7,6 +7,12 @@ export interface PlotPoint {
   x: number;
   y: number | null;
   err: number | null;
+  /** Half-width of a horizontal bar, in x units (the bandpass on a spectrum). */
+  xerr?: number;
+  /** Wavelength in micrometres, for colouring a light curve. */
+  wavelength?: number;
+  /** Hover text. */
+  label?: string;
 }
 
 const TO_MILLIJANSKY: Record<string, number> = { Jy: 1e3, mJy: 1, uJy: 1e-3, µJy: 1e-3 };
@@ -18,18 +24,64 @@ export function milliJanskyFactor(unit: string): number {
   return factor;
 }
 
+/** A point is measured only if the server says so and gave a number. */
+export function isUsable(p: PhotometryPoint): boolean {
+  return p.usable !== false && p.flux !== null && p.flux !== undefined;
+}
+
+/** Hover text for one point: date, wavelength and bandpass, flux, or why it was not measured. */
+export function pointLabel(p: PhotometryPoint, factor: number): string {
+  const lines = [
+    `${mjdToDay(p.mjd)} (MJD ${p.mjd.toFixed(2)}), detector ${p.det_id}`,
+    `${p.wavelength.toFixed(3)} ± ${(p.lambda_width / 2).toFixed(3)} µm`,
+  ];
+  if (isUsable(p)) {
+    lines.push(`${((p.flux as number) * factor).toPrecision(3)} ± ${((p.flux_err ?? 0) * factor).toPrecision(2)} mJy`);
+  } else {
+    lines.push(`Not measured: ${p.reason ?? "flagged or missing pixels in the aperture"}`);
+  }
+  lines.push(p.exposure_id);
+  return lines.join("\n");
+}
+
 export function toPlotPoints(
   points: PhotometryPoint[],
   unit: string,
   x: (point: PhotometryPoint) => number,
+  options: { bandpass?: boolean } = {},
 ): PlotPoint[] {
   const factor = milliJanskyFactor(unit);
-  return points.map((p) => ({
-    x: x(p),
-    y: p.flux === null || p.flux === undefined ? null : p.flux * factor,
-    err: p.flux_err === null || p.flux_err === undefined ? null : p.flux_err * factor,
-  }));
+  return points.map((p) => {
+    const usable = isUsable(p);
+    return {
+      x: x(p),
+      y: usable ? (p.flux as number) * factor : null,
+      err: usable && p.flux_err !== null && p.flux_err !== undefined ? p.flux_err * factor : null,
+      xerr: options.bandpass ? p.lambda_width / 2 : undefined,
+      wavelength: p.wavelength,
+      label: pointLabel(p, factor),
+    };
+  });
 }
+
+// One blue hue, light (shortest wavelength) to dark (longest): the reference sequential
+// ramp, steps 100, 250, 400 and 500, checked for contrast against the page background.
+const WAVELENGTH_RAMP = ["#cde2fb", "#86b6ef", "#3987e5", "#256abf"];
+
+/** Colour for a wavelength within [lo, hi]: light blue at lo, dark blue at hi. */
+export function wavelengthColour(wavelength: number, lo: number, hi: number): string {
+  const t = hi > lo ? Math.min(1, Math.max(0, (wavelength - lo) / (hi - lo))) : 0;
+  const scaled = t * (WAVELENGTH_RAMP.length - 1);
+  const i = Math.min(WAVELENGTH_RAMP.length - 2, Math.floor(scaled));
+  const f = scaled - i;
+  const a = WAVELENGTH_RAMP[i];
+  const b = WAVELENGTH_RAMP[i + 1];
+  const channel = (k: number) =>
+    Math.round(parseInt(a.slice(1 + 2 * k, 3 + 2 * k), 16) * (1 - f) + parseInt(b.slice(1 + 2 * k, 3 + 2 * k), 16) * f);
+  return "#" + [0, 1, 2].map((k) => channel(k).toString(16).padStart(2, "0")).join("");
+}
+
+export const WAVELENGTH_GRADIENT = `linear-gradient(to right, ${WAVELENGTH_RAMP.join(", ")})`;
 
 /**
  * Weighted average of the measured points in `bins` equal-width wavelength bins.
